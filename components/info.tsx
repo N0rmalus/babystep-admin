@@ -1,11 +1,12 @@
 "use client";
 
-import { ShoppingCart } from "lucide-react";
+import {Heart, ShoppingCart} from "lucide-react";
 
 import { Product } from "@/types";
 import Button from "@/components/ui/button";
 import Currency from "@/components/ui/currency";
 import useCart from "@/hooks/use-cart";
+import useWishlist from "@/hooks/use-wishlist";
 
 interface InfoProps {
     data: Product;
@@ -15,8 +16,12 @@ const Info:React.FC<InfoProps> = ({
     data
 }) => {
     const cart = useCart();
+    const wishlist = useWishlist();
     const onAddToCart = () => {
         cart.addItem(data);
+    }
+    const onAddToWishlist = () => {
+        wishlist.addItem(data);
     }
 
     return (
@@ -50,20 +55,25 @@ const Info:React.FC<InfoProps> = ({
                     <h3 className="font-semibold text-black"> Aprašymas: </h3>
                     <div className="text-black">
                         {data?.description.length ? (
-                            <p className="mt-2 text-justify whitespace-pre-wrap lg:text-sm">
-                                {data?.description} 
-                            </p>
+                            <div className="mt-2 text-justify whitespace-pre-wrap">
+                                {data?.description}
+                            </div>
                         ) : (
-                            <p className="flex mt-2 h-full w-full text-neutral-500"> Nėra. </p>
+                            <p className="flex mt-2 h-full w-full text-neutral-500"> Aprašymo nėra. </p>
                         )}
                     </div>
                 </div>
             </div>
-            <div className="mt-10 flex items-center gap-x-3 text-white">
+            <div className="mt-10 flex items-center justify-between gap-x-3 text-white">
                 <Button onClick={onAddToCart} className="flex items-center gap-x-2">
                     Pridėti
                     <ShoppingCart size="18" />
                 </Button>
+                <div className="ml-auto">
+                    <Button onClick={onAddToWishlist} className="flex items-center gap-x-2">
+                        Į Norus <Heart size="18" />
+                    </Button>
+                </div>
             </div>
         </div>
     );

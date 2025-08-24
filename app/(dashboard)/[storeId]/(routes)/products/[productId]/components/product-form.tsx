@@ -64,8 +64,10 @@ export const ProductForm: React.FC<ProductFormProps> = ({
     const toastMessage = initialData ? "Prekė atnaujinta." : "Prekė sukurta.";
     const action = initialData ? "Išsaugoti" : "Išsaugoti";
 
+
     const form = useForm<ProductFormValues>({
         resolver: zodResolver(formSchema),
+        // @ts-ignore
         defaultValues: initialData ? {
             ...initialData,
             price: parseFloat(String(initialData?.price)),

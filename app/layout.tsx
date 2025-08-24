@@ -1,17 +1,22 @@
-import { Urbanist } from 'next/font/google'
+// Global imports
+import type { Metadata } from 'next'
+import { Inter } from 'next/font/google'
+import { ClerkProvider } from '@clerk/nextjs'
 
-import ModalProvider from '@/providers/modal-provider'
-import ToastProvider from '@/providers/toast-provider'
-import Navbar from '@/components/navbar'
-import Footer from '@/components/footer'
+// Personal imports
+import { ModalProvider } from '@/providers/modal-provider'
+import { ToasterProvider } from '@/providers/toast-provider'
 
+// Relative imports
 import './globals.css'
+import { ThemeProvider } from '@/providers/theme-provider'
 
-const font = Urbanist({ subsets: ['latin'] })
 
-export const metadata = {
-  title: 'Babystep',
-  description: 'Babystep | kūdikių miego gaminiai ir aksesuarai.',
+const inter = Inter({ subsets: ['latin'] })
+
+export const metadata: Metadata = {
+  title: 'Prietaisų skydelis',
+  description: 'Administracinis puslapis',
 }
 
 export default function RootLayout({
@@ -20,14 +25,16 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body className={font.className}>
-        <ToastProvider />
-        <ModalProvider />
-        <Navbar />
-        {children}
-        <Footer />
-      </body>
-    </html>
+    <ClerkProvider>
+      <html lang="lt">
+        <body className={inter.className}>
+          <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+            <ToasterProvider />
+            <ModalProvider />
+            {children}
+          </ThemeProvider>
+          </body>
+      </html>
+    </ClerkProvider>
   )
 }

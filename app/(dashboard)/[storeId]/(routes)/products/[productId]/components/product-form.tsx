@@ -27,6 +27,7 @@ const formSchema = z.object({
     name: z.string().min(1),
     images: z.object({ url: z.string() }).array(),
     price: z.coerce.number().min(1),
+    amountInStock: z.coerce.number().min(1),
     categoryId: z.string().min(1),
     colorId: z.string().min(1),
     sizeId: z.string().min(1),
@@ -63,15 +64,18 @@ export const ProductForm: React.FC<ProductFormProps> = ({
     const toastMessage = initialData ? "Prekė atnaujinta." : "Prekė sukurta.";
     const action = initialData ? "Išsaugoti" : "Išsaugoti";
 
+
     const form = useForm<ProductFormValues>({
         resolver: zodResolver(formSchema),
+        // @ts-ignore
         defaultValues: initialData ? {
             ...initialData,
-            price: parseFloat(String(initialData?.price))
+            price: parseFloat(String(initialData?.price)),
         } : {
             name: '',
             images: [],
             price: 0,
+            amountInStock: 0,
             categoryId: '',
             colorId: '',
             sizeId: '',
@@ -84,6 +88,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
     const onSubmit = async (data: ProductFormValues) => {
         try {
             setLoading(true);
+            console.log("Data being sent to the server:", data);
             if(initialData) {
                 await axios.patch(`/api/${params.storeId}/products/${params.productId}`, data);
             } else {
@@ -95,6 +100,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
             toast.success(toastMessage);
         } catch(error) {
             toast.error("Kažkas nepavyko.");
+            console.log("Error:", error);
         } finally {
             setLoading(false);
         }
@@ -217,7 +223,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                                 <FormMessage />
                             </FormItem>
                         )} />
-                        <FormField control={form.control} name="price" render={({ field }) => (
+                        <FormField control={form.control} name="amountInStock" render={({ field }) => (
                             <FormItem>
                                 <FormLabel> Kiekis sandėlyje </FormLabel>
                                 <FormControl>

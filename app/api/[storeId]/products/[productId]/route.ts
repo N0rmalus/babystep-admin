@@ -44,6 +44,7 @@ export async function PATCH (
         const { 
             name,
             price,
+            amountInStock,
             categoryId,
             colorId,
             sizeId,
@@ -64,6 +65,9 @@ export async function PATCH (
         }
         if(!price) {
             return new NextResponse("Reikalinga kaina", { status: 400});
+        }
+        if(!amountInStock) {
+            return new NextResponse("Reikalingas kiekis sandėlyje", { status: 400});
         }
         if(!categoryId) {
             return new NextResponse("Būtinas kategorijos ID", { status: 400});
@@ -96,6 +100,7 @@ export async function PATCH (
             data: {
                 name,
                 price,
+                amountInStock,
                 categoryId,
                 colorId,
                 sizeId,

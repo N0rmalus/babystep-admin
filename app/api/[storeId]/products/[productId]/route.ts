@@ -20,9 +20,11 @@ export async function GET (
             },
             include: {
                 images: true,
-                category: true,
-                size: true,
-                color: true
+                subcategory: {
+                    include: {
+                        category: true
+                    }
+                }
             }
         });
 
@@ -45,9 +47,7 @@ export async function PATCH (
             name,
             price,
             amountInStock,
-            categoryId,
-            colorId,
-            sizeId,
+            subcategoryId,
             images,
             isFeatured,
             isArchived,
@@ -69,14 +69,8 @@ export async function PATCH (
         if(!amountInStock) {
             return new NextResponse("Reikalingas kiekis sandėlyje", { status: 400});
         }
-        if(!categoryId) {
-            return new NextResponse("Būtinas kategorijos ID", { status: 400});
-        }
-        if(!colorId) {
-            return new NextResponse("Reikalingas spalvos ID", { status: 400});
-        }
-        if(!sizeId) {
-            return new NextResponse("Reikalingas dydžio ID", { status: 400});
+        if(!subcategoryId) {
+            return new NextResponse("Būtinas subkategorijos ID", { status: 400});
         }
         if(!params.productId) {
             return new NextResponse("Būtinas prekės ID", { status: 400});
@@ -101,9 +95,7 @@ export async function PATCH (
                 name,
                 price,
                 amountInStock,
-                categoryId,
-                colorId,
-                sizeId,
+                subcategoryId,
                 images: {
                     deleteMany: {}
                 },

@@ -24,7 +24,7 @@ export const CategoryClient: React.FC<CategoryClientProps> = ({
         <>
             <div className="flex items-center justify-between">
                 <Heading title={`Kategorijos (${data.length})`} description="Tvarkykite parduotuvės kategorijas" />
-                <Button onClick={() => router.push(`/${params.storeId}/categories/new`)}>
+                <Button onClick={() => router.push(`/${params?.storeId}/categories/new`)}>
                     <Plus className="mr-2 h-4 w-4" />
                     Pridėti naują
                 </Button>

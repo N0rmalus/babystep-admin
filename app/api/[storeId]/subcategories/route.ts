@@ -10,16 +10,16 @@ export async function POST(
         const { userId } = auth();
         const body = await req.json();
 
-        const { name, billboardId } = body;
+        const { name, categoryId } = body;
 
         if(!userId) {
             return new NextResponse("Neautentifikuota", { status: 401 });
-        } 
+        }
         if(!name) {
             return new NextResponse("Būtina nurodyti pavadinimą", { status: 400});
         }
-        if(!billboardId) {
-            return new NextResponse("Reikalingas skelbimų lentos ID", { status: 400});
+        if(!categoryId) {
+            return new NextResponse("Reikalingas kategorijos ID", { status: 400});
         }
         if(!params.storeId) {
             return new NextResponse("Būtinas parduotuvės ID", { status: 400});
@@ -36,17 +36,16 @@ export async function POST(
             return new NextResponse("Neautorizuota", { status: 403 });
         }
 
-        const category = await prismadb.category.create({
+        const subcategory = await prismadb.subcategory.create({
             data: {
                 name,
-                billboardId,
-                storeId: params.storeId
+                categoryId
             }
         });
 
-        return NextResponse.json(category);
+        return NextResponse.json(subcategory);
     } catch(error){
-        console.log('[CATEGORIES_POST]', error);
+        console.log('[SUBCATEGORIES_POST]', error);
         return new NextResponse("Internal error", { status: 500 });
     }
 }
@@ -60,15 +59,21 @@ export async function GET(
             return new NextResponse("Būtinas parduotuvės ID", { status: 400});
         }
 
-        const categories = await prismadb.category.findMany({
+        const subcategories = await prismadb.subcategory.findMany({
             where: {
-                storeId: params.storeId
+                category: {
+                    storeId: params.storeId
+                }
+            },
+            include: {
+                category: true
             }
         });
 
-        return NextResponse.json(categories);
+        return NextResponse.json(subcategories);
     } catch(error){
-        console.log('[CATEGORIES_GET]', error);
+        console.log('[SUBCATEGORIES_GET]', error);
         return new NextResponse("Internal error", { status: 500 });
     }
 }
+

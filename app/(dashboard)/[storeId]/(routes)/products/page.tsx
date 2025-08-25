@@ -17,9 +17,7 @@ const ProductsPage = async ({
             storeId: params.storeId
         },
         include: {
-            category: true,
-            size: true,
-            color: true,
+            subcategory: true,
         },
         orderBy: {
             createdAt: 'desc'
@@ -31,13 +29,10 @@ const ProductsPage = async ({
         name: item.name,
         isFeatured: item.isFeatured,
         isArchived: item.isArchived,
-        description: item.description,
         price: formatter.format(item.price.toNumber()),
-        category: item.category.name,
-        size: item.size.name,
-        color: item.color.value,
+        subcategory: item.subcategory?.name || "",
         createdAt: format(item.createdAt, "dd/MM/yyyy")
-    }))
+    }));
 
     return (
         <div className="flex-col">

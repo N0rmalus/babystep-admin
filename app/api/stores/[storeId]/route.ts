@@ -1,8 +1,5 @@
-// Global imports
 import { auth } from "@clerk/nextjs";
 import { NextResponse } from "next/server";
-
-// Personal imports
 import prismadb from "@/lib/prismadb";
 
 // Updates the name function

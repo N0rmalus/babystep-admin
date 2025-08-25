@@ -9,10 +9,10 @@ import { Copy, Edit, MoreHorizontal, Trash } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { AlertModal } from "@/components/modals/alert-modal";
-import { ProductColumn } from "./columns";
+import { SubCategoryColumn } from "./columns";
 
 interface CellActionProps {
-    data: ProductColumn;
+    data: SubCategoryColumn;
 };
 
 export const CellAction: React.FC<CellActionProps> = ({
@@ -25,16 +25,16 @@ export const CellAction: React.FC<CellActionProps> = ({
 
     const onCopy = (id: string) => {
         navigator.clipboard.writeText(id);
-        toast.success("Prekės ID nukopijuotas į iškarpinę");
+        toast.success("Subkategorijos ID nukopijuotas į iškarpinę.")
     }
     const onDelete = async () => {
         try {
             setLoading(true);
-            await axios.delete(`/api/${params?.storeId}/products/${data.id}`);
+            await axios.delete(`/api/${params?.storeId}/subcategories/${data.id}`);
             router.refresh();
-            toast.success("Prekė pašalinta.");
+            toast.success("Subkategorija panaikinta.");
         } catch(error) {
-            toast.error("Kažkas nepavyko.");
+            toast.error("Pirmiausia įsitikinkite, kad pašalinote visas prekes, naudojančias šią subkategoriją.");
         } finally {
             setLoading(false);
             setOpen(false);
@@ -45,7 +45,7 @@ export const CellAction: React.FC<CellActionProps> = ({
         <>
             <AlertModal isOpen={open} onClose={() => setOpen(false)} onConfirm={onDelete} loading={loading} />
             <div>
-                <DropdownMenu> 
+                <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Button variant="ghost" className="h-8 w-8 p-0">
                             <span className="sr-only"> Meniu </span>
@@ -56,15 +56,15 @@ export const CellAction: React.FC<CellActionProps> = ({
                         <DropdownMenuLabel>
                             Veiksmai
                         </DropdownMenuLabel>
-                        <DropdownMenuItem onClick={() => onCopy(data.id)}>
+                        <DropdownMenuItem className="cursor-pointer" onClick={() => onCopy(data.id)}>
                             <Copy className="mr-2 h-4 w-4" />
                             Nukopijuoti ID
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => router.push(`/${params?.storeId}/products/${data.id}`)}>
+                        <DropdownMenuItem className="cursor-pointer" onClick={() => router.push(`/${params?.storeId}/subcategories/${data.id}`)}>
                             <Edit className="mr-2 h-4 w-4" />
                             Atnaujinti
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setOpen(true)}>
+                        <DropdownMenuItem className="cursor-pointer" onClick={() => setOpen(true)}>
                             <Trash className="mr-2 h-4 w-4" />
                             Ištrinti
                         </DropdownMenuItem>
@@ -72,6 +72,6 @@ export const CellAction: React.FC<CellActionProps> = ({
                 </DropdownMenu>
             </div>
         </>
-        
     );
 }
+

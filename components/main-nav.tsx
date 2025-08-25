@@ -13,44 +13,39 @@ export function MainNav({
 
     const routes = [
         {
-            href: `/${params.storeId}`,
+            href: `/${params?.storeId}`,
             label: 'Apžvalga',
-            active: pathname === `/${params.storeId}`,
+            active: pathname === `/${params?.storeId}`,
         },
         {
-            href: `/${params.storeId}/billboards`,
+            href: `/${params?.storeId}/billboards`,
             label: 'Skelbimų lentos',
-            active: pathname === `/${params.storeId}/billboards`,
+            active: pathname === `/${params?.storeId}/billboards`,
         },  
         {
-            href: `/${params.storeId}/categories`,
+            href: `/${params?.storeId}/categories`,
             label: 'Kategorijos',
-            active: pathname === `/${params.storeId}/categories`,
-        },  
+            active: pathname === `/${params?.storeId}/categories`,
+        },
         {
-            href: `/${params.storeId}/sizes`,
-            label: 'Dydžiai',
-            active: pathname === `/${params.storeId}/sizes`,
-        }, 
+            href: `/${params?.storeId}/subcategories`,
+            label: 'Subkategorijos',
+            active: pathname === `/${params?.storeId}/subcategories`,
+        },
         {
-            href: `/${params.storeId}/colors`,
-            label: 'Spalvos',
-            active: pathname === `/${params.storeId}/colors`,
-        }, 
-        {
-            href: `/${params.storeId}/products`,
+            href: `/${params?.storeId}/products`,
             label: 'Prekės',
-            active: pathname === `/${params.storeId}/products`,
+            active: pathname === `/${params?.storeId}/products`,
         }, 
         {
-            href: `/${params.storeId}/orders`,
+            href: `/${params?.storeId}/orders`,
             label: 'Užsakymai',
-            active: pathname === `/${params.storeId}/orders`,
+            active: pathname === `/${params?.storeId}/orders`,
         }, 
         {
-            href: `/${params.storeId}/settings`,
+            href: `/${params?.storeId}/settings`,
             label: 'Nustatymai',
-            active: pathname === `/${params.storeId}/settings`,
+            active: pathname === `/${params?.storeId}/settings`,
         },  
     ];
 

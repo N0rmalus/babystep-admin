@@ -5,7 +5,7 @@ import * as z from "zod";
 import axios from "axios";
 import toast from "react-hot-toast";
 import { useState } from "react";
-import { Category, Color, Image, Product, Size } from "@prisma/client";
+import { Category, Image, Product, Subcategory } from "@prisma/client";
 import { Trash } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -28,9 +28,7 @@ const formSchema = z.object({
     images: z.object({ url: z.string() }).array(),
     price: z.coerce.number().min(1),
     amountInStock: z.coerce.number().min(1),
-    categoryId: z.string().min(1),
-    colorId: z.string().min(1),
-    sizeId: z.string().min(1),
+    subcategoryId: z.string().min(1),
     isFeatured: z.boolean().default(false).optional(),
     isArchived: z.boolean().default(false).optional(),
     description: z.string().min(0),
@@ -42,16 +40,12 @@ interface ProductFormProps {
     initialData: Product & {
         images: Image[]
     } | null;
-    categories: Category[];
-    colors: Color[];
-    sizes: Size[];
+    subcategories: Subcategory[];
 }
 
 export const ProductForm: React.FC<ProductFormProps> = ({
     initialData,
-    categories,
-    colors,
-    sizes
+    subcategories
 }) => {
     const params = useParams();
     const router = useRouter();
@@ -64,21 +58,19 @@ export const ProductForm: React.FC<ProductFormProps> = ({
     const toastMessage = initialData ? "Prekė atnaujinta." : "Prekė sukurta.";
     const action = initialData ? "Išsaugoti" : "Išsaugoti";
 
-
     const form = useForm<ProductFormValues>({
         resolver: zodResolver(formSchema),
         // @ts-ignore
         defaultValues: initialData ? {
             ...initialData,
             price: parseFloat(String(initialData?.price)),
+            subcategoryId: initialData.subcategoryId,
         } : {
             name: '',
             images: [],
             price: 0,
             amountInStock: 0,
-            categoryId: '',
-            colorId: '',
-            sizeId: '',
+            subcategoryId: '',
             description: '',
             isFeatured: false,
             isArchived: false,
@@ -88,19 +80,16 @@ export const ProductForm: React.FC<ProductFormProps> = ({
     const onSubmit = async (data: ProductFormValues) => {
         try {
             setLoading(true);
-            console.log("Data being sent to the server:", data);
             if(initialData) {
-                await axios.patch(`/api/${params.storeId}/products/${params.productId}`, data);
+                await axios.patch(`/api/${params?.storeId}/products/${params?.productId}`, data);
             } else {
-                await axios.post(`/api/${params.storeId}/products`, data);
+                await axios.post(`/api/${params?.storeId}/products`, data);
             }
-            
             router.refresh();
-            router.push(`/${params.storeId}/products`); // Redirects to /products after saving changes 
+            router.push(`/${params?.storeId}/products`);
             toast.success(toastMessage);
         } catch(error) {
             toast.error("Kažkas nepavyko.");
-            console.log("Error:", error);
         } finally {
             setLoading(false);
         }
@@ -109,9 +98,9 @@ export const ProductForm: React.FC<ProductFormProps> = ({
     const onDelete = async () => {
         try {
             setLoading(true);
-            await axios.delete(`/api/${params.storeId}/products/${params.productId}`);
+            await axios.delete(`/api/${params?.storeId}/products/${params?.productId}`);
             router.refresh();
-            router.push(`/${params.storeId}/products`);
+            router.push(`/${params?.storeId}/products`);
             toast.success("Prekė panaikinta.");
         } catch(error) {
             toast.error("Kažkas nepavyko.");
@@ -163,59 +152,19 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                                 <FormMessage />
                             </FormItem>
                         )} />
-                        <FormField control={form.control} name="categoryId" render={({ field }) => (
+                        <FormField control={form.control} name="subcategoryId" render={({ field }) => (
                             <FormItem>
-                                <FormLabel> Kategorija </FormLabel>
+                                <FormLabel> Subkategorija </FormLabel>
                                 <Select disabled={loading} onValueChange={field.onChange} defaultValue={field.value}>
                                     <FormControl>
                                         <SelectTrigger>
-                                            <SelectValue defaultValue={field.value} placeholder="Pasirinkite kategoriją" />
+                                            <SelectValue defaultValue={field.value} placeholder="Pasirinkite subkategoriją" />
                                         </SelectTrigger>
                                     </FormControl>
                                     <SelectContent>
-                                        {categories.map((category) => (
-                                            <SelectItem key={category.id} value={category.id}>
-                                                {category.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
-                        )} />
-                        <FormField control={form.control} name="sizeId" render={({ field }) => (
-                            <FormItem>
-                                <FormLabel> Dydis </FormLabel>
-                                <Select disabled={loading} onValueChange={field.onChange} defaultValue={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue defaultValue={field.value} placeholder="Pasirinkite dydį" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {sizes.map((size) => (
-                                            <SelectItem key={size.id} value={size.id}>
-                                                {size.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
-                        )} />
-                        <FormField control={form.control} name="colorId" render={({ field }) => (
-                            <FormItem>
-                                <FormLabel> Spalva </FormLabel>
-                                <Select disabled={loading} onValueChange={field.onChange} defaultValue={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue defaultValue={field.value} placeholder="Pasirinkite spalvą" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {colors.map((color) => (
-                                            <SelectItem key={color.id} value={color.id}>
-                                                {color.name}
+                                        {subcategories.map((subcategory) => (
+                                            <SelectItem key={subcategory.id} value={subcategory.id}>
+                                                {subcategory.name}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>

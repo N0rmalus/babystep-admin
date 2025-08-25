@@ -33,7 +33,7 @@ export const SubcategoryClient: React.FC<SubCategoryClientProps> = ({
             <DataTable searchKey="name" columns={columns} data={data} />
             <Heading title="API" description="API iškvietimas subkategorijoms" />
             <Separator />
-            {/*<ApiList entityName="categories" entityIdName="categoryId" />*/}
+            <ApiList entityName="subcategories" entityIdName="subcategoryId" />
         </>
     );
 }

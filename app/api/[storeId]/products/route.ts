@@ -18,9 +18,7 @@ export async function POST(
             name,
             price,
             amountInStock,
-            categoryId,
-            colorId,
-            sizeId,
+            subcategoryId,
             images,
             isFeatured,
             isArchived,
@@ -42,14 +40,8 @@ export async function POST(
         if(!amountInStock) {
             return new NextResponse("Reikalingas kiekis sandėlyje", { status: 400});
         }
-        if(!categoryId) {
-            return new NextResponse("Būtinas kategorijos ID", { status: 400});
-        }
-        if(!colorId) {
-            return new NextResponse("Reikalingas spalvos ID", { status: 400});
-        }
-        if(!sizeId) {
-            return new NextResponse("Reikalingas dydžio ID", { status: 400});
+        if(!subcategoryId) {
+            return new NextResponse("Būtinas subkategorijos ID", { status: 400});
         }
         if(!params.storeId) {
             return new NextResponse("Būtinas parduotuvės ID", { status: 400});
@@ -71,9 +63,7 @@ export async function POST(
                 name,
                 price,
                 amountInStock,
-                categoryId,
-                colorId,
-                sizeId,
+                subcategoryId,
                 isFeatured,
                 isArchived,
                 description,
@@ -101,9 +91,7 @@ export async function GET(
 ) {
     try {
         const { searchParams } = new URL(req.url);
-        const categoryId = searchParams.get("categoryId") || undefined;
-        const colorId = searchParams.get("colorId") || undefined;
-        const sizeId = searchParams.get("sizeId") || undefined;
+        const subcategoryId = searchParams.get("subcategoryId") || undefined;
         const isFeatured = searchParams.get("isFeatured") || undefined;
 
         if(!params.storeId) {
@@ -113,17 +101,17 @@ export async function GET(
         const products = await prismadb.product.findMany({
             where: {
                 storeId: params.storeId,
-                categoryId,
-                colorId,
-                sizeId,
+                subcategoryId,
                 isFeatured: isFeatured ? true : undefined,
                 isArchived: false
             },
             include: {
                 images: true,
-                category: true,
-                color: true,
-                size: true
+                subcategory: {
+                    include: {
+                        category: true
+                    }
+                }
             }
         });
 

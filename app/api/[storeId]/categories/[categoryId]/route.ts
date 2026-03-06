@@ -1,14 +1,19 @@
 // Global imports
 import { auth } from '@clerk/nextjs';
 import { NextResponse } from 'next/server';
+import { corsHeaders } from '@/lib/cors';
 
 // Personal imports
 import prismadb from '@/lib/prismadb';
 
+export async function OPTIONS() {
+  return NextResponse.json({}, { headers: corsHeaders });
+}
+
 export async function GET(req: Request, { params }: { params: { categoryId: string } }) {
   try {
     if (!params.categoryId) {
-      return new NextResponse('Category ID is required', { status: 400 });
+      return new NextResponse('Category ID is required', { status: 400, headers: corsHeaders });
     }
 
     const category = await prismadb.category.findUnique({
@@ -20,10 +25,10 @@ export async function GET(req: Request, { params }: { params: { categoryId: stri
       },
     });
 
-    return NextResponse.json(category);
+    return NextResponse.json(category, { headers: corsHeaders });
   } catch (error) {
     console.log('[CATEGORY_GET]', error);
-    return new NextResponse('Internal error', { status: 500 });
+    return new NextResponse('Internal error', { status: 500, headers: corsHeaders });
   }
 }
 

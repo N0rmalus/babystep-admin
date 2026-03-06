@@ -1,11 +1,16 @@
 import { auth } from '@clerk/nextjs';
 import { NextResponse } from 'next/server';
+import { corsHeaders } from '@/lib/cors';
 import prismadb from '@/lib/prismadb';
+
+export async function OPTIONS() {
+  return NextResponse.json({}, { headers: corsHeaders });
+}
 
 export async function GET(req: Request, { params }: { params: { subcategoryId: string } }) {
   try {
     if (!params.subcategoryId) {
-      return new NextResponse('Subcategory ID is required', { status: 400 });
+      return new NextResponse('Subcategory ID is required', { status: 400, headers: corsHeaders });
     }
 
     const subcategory = await prismadb.subcategory.findUnique({
@@ -17,10 +22,10 @@ export async function GET(req: Request, { params }: { params: { subcategoryId: s
       },
     });
 
-    return NextResponse.json(subcategory);
+    return NextResponse.json(subcategory, { headers: corsHeaders });
   } catch (error) {
     console.log('[SUBCATEGORY_GET]', error);
-    return new NextResponse('Internal error', { status: 500 });
+    return new NextResponse('Internal error', { status: 500, headers: corsHeaders });
   }
 }
 

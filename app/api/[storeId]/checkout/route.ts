@@ -1,13 +1,26 @@
 import Stripe from 'stripe';
 import { NextResponse } from 'next/server';
 
+import { corsHeaders } from '@/lib/cors';
 import { stripe } from '@/lib/stripe';
 import prismadb from '@/lib/prismadb';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+type CheckoutRequest = {
+  productIds?: string[];
+};
+
+const buildQuantityByProductId = (productIds: string[]) => {
+  return productIds.reduce<Record<string, number>>((accumulator, productId) => {
+    accumulator[productId] = (accumulator[productId] ?? 0) + 1;
+    return accumulator;
+  }, {});
+};
+
+const jsonResponse = (body: unknown, status: number) => {
+  return NextResponse.json(body, {
+    status,
+    headers: corsHeaders,
+  });
 };
 
 export async function OPTIONS() {
@@ -15,69 +28,120 @@ export async function OPTIONS() {
 }
 
 export async function POST(req: Request, { params }: { params: { storeId: string } }) {
-  const { productIds } = await req.json();
+  try {
+    const body = (await req.json()) as CheckoutRequest;
+    const productIds = body?.productIds;
 
-  if (!productIds || productIds.length === 0) {
-    return new NextResponse('Būtina nurodyti prekių ID', { status: 400 });
-  }
+    if (!params.storeId) {
+      return jsonResponse({ message: 'Būtinas parduotuvės ID' }, 400);
+    }
 
-  const products = await prismadb.product.findMany({
-    where: {
-      id: {
-        in: productIds,
+    if (!Array.isArray(productIds) || productIds.length === 0) {
+      return jsonResponse({ message: 'Būtina nurodyti prekių ID' }, 400);
+    }
+
+    const sanitizedProductIds = productIds.filter(
+      (productId): productId is string => typeof productId === 'string' && productId.trim().length > 0,
+    );
+
+    if (sanitizedProductIds.length !== productIds.length) {
+      return jsonResponse({ message: 'Neteisingas prekių sąrašas' }, 400);
+    }
+
+    const quantityByProductId = buildQuantityByProductId(sanitizedProductIds);
+    const uniqueProductIds = Object.keys(quantityByProductId);
+
+    const products = await prismadb.product.findMany({
+      where: {
+        id: {
+          in: uniqueProductIds,
+        },
+        storeId: params.storeId,
+        isArchived: false,
       },
-    },
-  });
+      select: {
+        id: true,
+        name: true,
+        price: true,
+        amountInStock: true,
+      },
+    });
 
-  const line_items: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
+    const availableProductIds = new Set(products.map((product) => product.id));
+    const invalidProductIds = uniqueProductIds.filter((productId) => !availableProductIds.has(productId));
 
-  products.forEach((product) => {
-    line_items.push({
-      quantity: 1,
+    if (invalidProductIds.length > 0) {
+      return jsonResponse(
+        {
+          message: 'Kai kurios prekės nebegalimos įsigyti',
+          invalidProductIds,
+        },
+        400,
+      );
+    }
+
+    const insufficientStockItems = products
+      .map((product) => ({
+        productId: product.id,
+        requested: quantityByProductId[product.id],
+        available: product.amountInStock,
+      }))
+      .filter((item) => item.requested > item.available);
+
+    if (insufficientStockItems.length > 0) {
+      return jsonResponse(
+        {
+          message: 'Kai kurių prekių kiekis sandėlyje pasikeitė',
+          insufficientStockItems,
+        },
+        400,
+      );
+    }
+
+    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = products.map((product) => ({
+      quantity: quantityByProductId[product.id],
       price_data: {
         currency: 'EUR',
         product_data: {
           name: product.name,
         },
-        unit_amount: product.price.toNumber() * 100,
+        unit_amount: Math.round(product.price.toNumber() * 100),
+      },
+    }));
+
+    const order = await prismadb.order.create({
+      data: {
+        storeId: params.storeId,
+        isPaid: false,
+        orderItems: {
+          create: sanitizedProductIds.map((productId) => ({
+            product: {
+              connect: {
+                id: productId,
+              },
+            },
+          })),
+        },
       },
     });
-  });
 
-  const order = await prismadb.order.create({
-    data: {
-      storeId: params.storeId,
-      isPaid: false,
-      orderItems: {
-        create: productIds.map((productId: string) => ({
-          product: {
-            connect: {
-              id: productId,
-            },
-          },
-        })),
+    const session = await stripe.checkout.sessions.create({
+      line_items: lineItems,
+      mode: 'payment',
+      billing_address_collection: 'required',
+      phone_number_collection: {
+        enabled: true,
       },
-    },
-  });
+      success_url: `${process.env.FRONTEND_STORE_URL}/cart?success=1`,
+      cancel_url: `${process.env.FRONTEND_STORE_URL}/cart?canceled=1`,
+      metadata: {
+        orderId: order.id,
+      },
+    });
 
-  const session = await stripe.checkout.sessions.create({
-    line_items,
-    mode: 'payment',
-    billing_address_collection: 'required',
-    phone_number_collection: {
-      enabled: true,
-    },
-    success_url: `${process.env.FRONTEND_STORE_URL}/cart?success=1`,
-    cancel_url: `${process.env.FRONTEND_STORE_URL}/cart?canceled=1`,
-    metadata: {
-      orderId: order.id,
-    },
-  });
-
-  return NextResponse.json(
-    { url: session.url },
-    {
-      headers: corsHeaders,
-    },
-  );
+    return jsonResponse({ url: session.url }, 200);
+  } catch (error) {
+    console.log('[CHECKOUT_POST]', error);
+    return jsonResponse({ message: 'Internal error' }, 500);
+  }
 }

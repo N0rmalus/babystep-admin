@@ -1,14 +1,19 @@
 // Global imports
 import { auth } from '@clerk/nextjs';
 import { NextResponse } from 'next/server';
+import { corsHeaders } from '@/lib/cors';
 
 // Personal imports
 import prismadb from '@/lib/prismadb';
 
+export async function OPTIONS() {
+  return NextResponse.json({}, { headers: corsHeaders });
+}
+
 export async function GET(req: Request, { params }: { params: { billboardId: string } }) {
   try {
     if (!params.billboardId) {
-      return new NextResponse('Būtinas parduotuvės ID', { status: 400 });
+      return new NextResponse('Būtinas parduotuvės ID', { status: 400, headers: corsHeaders });
     }
 
     const billboard = await prismadb.billboard.findUnique({
@@ -17,10 +22,10 @@ export async function GET(req: Request, { params }: { params: { billboardId: str
       },
     });
 
-    return NextResponse.json(billboard);
+    return NextResponse.json(billboard, { headers: corsHeaders });
   } catch (error) {
     console.log('[BILLBOARD_GET]', error);
-    return new NextResponse('Internal error', { status: 500 });
+    return new NextResponse('Internal error', { status: 500, headers: corsHeaders });
   }
 }
 

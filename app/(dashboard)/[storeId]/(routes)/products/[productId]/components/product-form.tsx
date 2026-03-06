@@ -5,7 +5,7 @@ import * as z from 'zod';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useState } from 'react';
-import { Category, Image, Product, Subcategory } from '@prisma/client';
+import { Image, Product, Subcategory } from '@prisma/client';
 import { Trash } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -27,7 +27,7 @@ const formSchema = z.object({
   name: z.string().min(1),
   images: z.object({ url: z.string() }).array(),
   price: z.coerce.number().min(1),
-  amountInStock: z.coerce.number().min(1),
+  amountInStock: z.coerce.number().min(0),
   subcategoryId: z.string().min(1),
   isFeatured: z.boolean().default(false).optional(),
   isArchived: z.boolean().default(false).optional(),
@@ -56,6 +56,25 @@ export const ProductForm: React.FC<ProductFormProps> = ({ initialData, subcatego
   const pageDescription = initialData ? 'Redagavimas' : 'Nauja prekė';
   const toastMessage = initialData ? 'Prekė atnaujinta.' : 'Prekė sukurta.';
   const action = initialData ? 'Išsaugoti' : 'Išsaugoti';
+
+  const getErrorMessage = (error: unknown) => {
+    if (axios.isAxiosError(error)) {
+      const data = error.response?.data;
+      if (typeof data === 'string' && data.trim().length > 0) {
+        return data;
+      }
+      if (data && typeof data === 'object' && 'message' in data) {
+        const message = (data as { message?: unknown }).message;
+        if (typeof message === 'string' && message.trim().length > 0) {
+          return message;
+        }
+      }
+      if (error.message) {
+        return error.message;
+      }
+    }
+    return 'Įvyko klaida.';
+  };
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(formSchema),
@@ -90,7 +109,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({ initialData, subcatego
       router.push(`/${params?.storeId}/products`);
       toast.success(toastMessage);
     } catch (error) {
-      toast.error('Kažkas nepavyko.');
+      toast.error(getErrorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -104,7 +123,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({ initialData, subcatego
       router.push(`/${params?.storeId}/products`);
       toast.success('Prekė panaikinta.');
     } catch (error) {
-      toast.error('Kažkas nepavyko.');
+      toast.error(getErrorMessage(error));
     } finally {
       setLoading(false);
       setOpen(false);

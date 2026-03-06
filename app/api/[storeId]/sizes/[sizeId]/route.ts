@@ -1,14 +1,19 @@
 // Global imports
 import { auth } from '@clerk/nextjs';
 import { NextResponse } from 'next/server';
+import { corsHeaders } from '@/lib/cors';
 
 // Personal imports
 import prismadb from '@/lib/prismadb';
 
+export async function OPTIONS() {
+  return NextResponse.json({}, { headers: corsHeaders });
+}
+
 export async function GET(req: Request, { params }: { params: { sizeId: string } }) {
   try {
     if (!params.sizeId) {
-      return new NextResponse('Reikalingas dydžio ID', { status: 400 });
+      return new NextResponse('Reikalingas dydžio ID', { status: 400, headers: corsHeaders });
     }
 
     const size = await prismadb.size.findUnique({
@@ -17,10 +22,10 @@ export async function GET(req: Request, { params }: { params: { sizeId: string }
       },
     });
 
-    return NextResponse.json(size);
+    return NextResponse.json(size, { headers: corsHeaders });
   } catch (error) {
     console.log('[SIZE_GET]', error);
-    return new NextResponse('Internal error', { status: 500 });
+    return new NextResponse('Internal error', { status: 500, headers: corsHeaders });
   }
 }
 

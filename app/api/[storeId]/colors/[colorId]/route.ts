@@ -1,14 +1,19 @@
 // Global imports
 import { auth } from '@clerk/nextjs';
 import { NextResponse } from 'next/server';
+import { corsHeaders } from '@/lib/cors';
 
 // Personal imports
 import prismadb from '@/lib/prismadb';
 
+export async function OPTIONS() {
+  return NextResponse.json({}, { headers: corsHeaders });
+}
+
 export async function GET(req: Request, { params }: { params: { colorId: string } }) {
   try {
     if (!params.colorId) {
-      return new NextResponse('Reikalingas spalvos ID', { status: 400 });
+      return new NextResponse('Reikalingas spalvos ID', { status: 400, headers: corsHeaders });
     }
 
     const color = await prismadb.color.findUnique({
@@ -17,10 +22,10 @@ export async function GET(req: Request, { params }: { params: { colorId: string 
       },
     });
 
-    return NextResponse.json(color);
+    return NextResponse.json(color, { headers: corsHeaders });
   } catch (error) {
     console.log('[COLOR_GET]', error);
-    return new NextResponse('Internal error', { status: 500 });
+    return new NextResponse('Internal error', { status: 500, headers: corsHeaders });
   }
 }
 

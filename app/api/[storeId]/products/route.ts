@@ -1,9 +1,14 @@
 // Global imports
 import { auth } from '@clerk/nextjs';
 import { NextResponse } from 'next/server';
+import { corsHeaders } from '@/lib/cors';
 
 // Personal imports
 import prismadb from '@/lib/prismadb';
+
+export async function OPTIONS() {
+  return NextResponse.json({}, { headers: corsHeaders });
+}
 
 export async function POST(req: Request, { params }: { params: { storeId: string } }) {
   try {
@@ -24,7 +29,7 @@ export async function POST(req: Request, { params }: { params: { storeId: string
     if (!price) {
       return new NextResponse('Reikalinga kaina', { status: 400 });
     }
-    if (!amountInStock) {
+    if (amountInStock === undefined || amountInStock === null) {
       return new NextResponse('Reikalingas kiekis sandėlyje', { status: 400 });
     }
     if (!subcategoryId) {
@@ -77,7 +82,7 @@ export async function GET(req: Request, { params }: { params: { storeId: string 
     const isFeatured = searchParams.get('isFeatured') || undefined;
 
     if (!params.storeId) {
-      return new NextResponse('Būtinas parduotuvės ID', { status: 400 });
+      return new NextResponse('Būtinas parduotuvės ID', { status: 400, headers: corsHeaders });
     }
 
     const products = await prismadb.product.findMany({
@@ -97,9 +102,9 @@ export async function GET(req: Request, { params }: { params: { storeId: string 
       },
     });
 
-    return NextResponse.json(products);
+    return NextResponse.json(products, { headers: corsHeaders });
   } catch (error) {
     console.log('[PRODUCTS_GET]', error);
-    return new NextResponse('Internal error', { status: 500 });
+    return new NextResponse('Internal error', { status: 500, headers: corsHeaders });
   }
 }

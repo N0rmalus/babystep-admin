@@ -1,6 +1,11 @@
 import { auth } from '@clerk/nextjs';
 import { NextResponse } from 'next/server';
+import { corsHeaders } from '@/lib/cors';
 import prismadb from '@/lib/prismadb';
+
+export async function OPTIONS() {
+  return NextResponse.json({}, { headers: corsHeaders });
+}
 
 export async function POST(req: Request, { params }: { params: { storeId: string } }) {
   try {
@@ -51,7 +56,7 @@ export async function POST(req: Request, { params }: { params: { storeId: string
 export async function GET(req: Request, { params }: { params: { storeId: string } }) {
   try {
     if (!params.storeId) {
-      return new NextResponse('Būtinas parduotuvės ID', { status: 400 });
+      return new NextResponse('Būtinas parduotuvės ID', { status: 400, headers: corsHeaders });
     }
 
     const categories = await prismadb.category.findMany({
@@ -60,9 +65,9 @@ export async function GET(req: Request, { params }: { params: { storeId: string 
       },
     });
 
-    return NextResponse.json(categories);
+    return NextResponse.json(categories, { headers: corsHeaders });
   } catch (error) {
     console.log('[CATEGORIES_GET]', error);
-    return new NextResponse('Internal error', { status: 500 });
+    return new NextResponse('Internal error', { status: 500, headers: corsHeaders });
   }
 }

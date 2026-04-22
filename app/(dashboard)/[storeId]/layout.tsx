@@ -1,16 +1,15 @@
 import { auth } from '@clerk/nextjs';
 import { redirect } from 'next/navigation';
-
-import Navbar from '@/components/navbar';
+import { Navbar } from '@/components/navbar';
 import prismadb from '@/lib/prismadb';
+import { ReactNode } from 'react';
 
-export default async function DashboardLayout({
-  children,
-  params,
-}: {
-  children: React.ReactNode;
+type Props = {
+  children: ReactNode;
   params: { storeId: string };
-}) {
+};
+
+export default async function DashboardLayout({ children, params }: Props) {
   const { userId } = auth();
 
   if (!userId) {

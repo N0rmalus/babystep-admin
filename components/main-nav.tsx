@@ -1,53 +1,74 @@
 'use client';
 
 import Link from 'next/link';
+import { Menu } from 'lucide-react';
 import { useParams, usePathname } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { HtmlHTMLAttributes } from 'react';
 
-export function MainNav({ className, ...props }: React.HtmlHTMLAttributes<HTMLElement>) {
-  const pathname = usePathname();
-  const params = useParams();
+const getStoreId = (storeId: string | string[] | undefined) => (Array.isArray(storeId) ? storeId[0] : storeId);
 
-  const routes = [
+const isRouteActive = (pathname: string, href: string, exact = false) =>
+  exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
+
+const getRoutes = (storeId: string | undefined, pathname: string) => {
+  const basePath = storeId ? `/${storeId}` : '/';
+
+  return [
     {
-      href: `/${params?.storeId}`,
+      href: basePath,
       label: 'Apžvalga',
-      active: pathname === `/${params?.storeId}`,
+      active: isRouteActive(pathname, basePath, true),
     },
     {
-      href: `/${params?.storeId}/billboards`,
+      href: `${basePath}/billboards`,
       label: 'Skelbimų lentos',
-      active: pathname === `/${params?.storeId}/billboards`,
+      active: isRouteActive(pathname, `${basePath}/billboards`),
     },
     {
-      href: `/${params?.storeId}/categories`,
+      href: `${basePath}/categories`,
       label: 'Kategorijos',
-      active: pathname === `/${params?.storeId}/categories`,
+      active: isRouteActive(pathname, `${basePath}/categories`),
     },
     {
-      href: `/${params?.storeId}/subcategories`,
+      href: `${basePath}/subcategories`,
       label: 'Subkategorijos',
-      active: pathname === `/${params?.storeId}/subcategories`,
+      active: isRouteActive(pathname, `${basePath}/subcategories`),
     },
     {
-      href: `/${params?.storeId}/products`,
+      href: `${basePath}/products`,
       label: 'Prekės',
-      active: pathname === `/${params?.storeId}/products`,
+      active: isRouteActive(pathname, `${basePath}/products`),
     },
     {
-      href: `/${params?.storeId}/orders`,
+      href: `${basePath}/orders`,
       label: 'Užsakymai',
-      active: pathname === `/${params?.storeId}/orders`,
+      active: isRouteActive(pathname, `${basePath}/orders`),
     },
     {
-      href: `/${params?.storeId}/settings`,
+      href: `${basePath}/settings`,
       label: 'Nustatymai',
-      active: pathname === `/${params?.storeId}/settings`,
+      active: isRouteActive(pathname, `${basePath}/settings`),
     },
   ];
+};
+
+export const MainNav = ({ className, ...props }: HtmlHTMLAttributes<HTMLElement>) => {
+  const pathname = usePathname();
+  const params = useParams();
+  const routes = getRoutes(getStoreId(params?.storeId), pathname);
 
   return (
-    <nav className={cn('flex items-center space-x-4 lg:space-x-6', className)} {...props}>
+    <nav className={cn('hidden items-center space-x-4 lg:space-x-6 xl:flex', className)} {...props}>
       {routes.map((route) => (
         <Link
           key={route.href}
@@ -62,4 +83,35 @@ export function MainNav({ className, ...props }: React.HtmlHTMLAttributes<HTMLEl
       ))}
     </nav>
   );
-}
+};
+
+export const MobileNav = () => {
+  const pathname = usePathname();
+  const params = useParams();
+
+  const routes = getRoutes(getStoreId(params?.storeId), pathname);
+  const activeRoute = routes.find((route) => route.active);
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="icon" className="xl:hidden" aria-label="Atverti navigaciją">
+          <Menu className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56 xl:hidden">
+        <DropdownMenuLabel>{activeRoute?.label ?? 'Navigacija'}</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {routes.map((route) => (
+          <DropdownMenuItem
+            key={route.href}
+            asChild
+            className={cn('cursor-pointer', route.active && 'bg-accent text-accent-foreground')}
+          >
+            <Link href={route.href}>{route.label}</Link>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};

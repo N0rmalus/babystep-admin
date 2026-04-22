@@ -52,14 +52,14 @@ export default function StoreSwitcher({ className, items = [] }: StoreSwitcherPr
           role="combobox"
           aria-expanded={open}
           aria-label="Pasirinkite parduotuvę"
-          className={cn('w-[200px] justify-between', className)}
+          className={cn('w-[200px] min-w-0 justify-between gap-2', className)}
         >
-          <Store className="mr-2 h-4 w-4" />
-          {currentStore?.label}
-          <ChevronsUpDown className="ml-auto h-4 w-4 shrink-0 opacity-50" />
+          <Store className="h-4 w-4 shrink-0" />
+          <span className="truncate">{currentStore?.label ?? 'Pasirinkite parduotuvę'}</span>
+          <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[200px] p-0">
+      <PopoverContent align="start" className="w-[240px] max-w-[calc(100vw-2rem)] p-0">
         <Command>
           <CommandList>
             <CommandInput placeholder="Ieškoti parduotuvės..." />

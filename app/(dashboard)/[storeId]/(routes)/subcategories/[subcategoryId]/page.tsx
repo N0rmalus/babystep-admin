@@ -1,6 +1,7 @@
 import prismadb from '@/lib/prismadb';
 import { redirect } from 'next/navigation';
 import { SubcategoryForm } from './components/subcategory-form';
+import { DashboardPageShell } from '@/components/dashboard/dashboard-page-shell';
 
 type Props = {
   params: {
@@ -31,11 +32,9 @@ const SubcategoryPage = async ({ params }: Props) => {
   });
 
   return (
-    <div className="flex-col">
-      <div className="flex-1 space-y-4 p-8 pt-6">
-        <SubcategoryForm categories={categories} initialData={subcategory} />
-      </div>
-    </div>
+    <DashboardPageShell>
+      <SubcategoryForm categories={categories} initialData={subcategory} />
+    </DashboardPageShell>
   );
 };
 

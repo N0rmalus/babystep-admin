@@ -15,13 +15,13 @@ import {
 } from '@tanstack/react-table';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
-interface DataTableProps<TData, TValue> {
+type Props<TData, TValue> = {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
   searchKey: string;
-}
+};
 
-export function DataTable<TData, TValue>({ columns, data, searchKey }: DataTableProps<TData, TValue>) {
+export function DataTable<TData, TValue>({ columns, data, searchKey }: Props<TData, TValue>) {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 
   const table = useReactTable({
@@ -37,17 +37,17 @@ export function DataTable<TData, TValue>({ columns, data, searchKey }: DataTable
   });
 
   return (
-    <div>
-      <div className="flex items-center py-4">
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center">
         <Input
           placeholder="Ieškoti"
           value={(table.getColumn(searchKey)?.getFilterValue() as string) ?? ''}
           onChange={(event) => table.getColumn(searchKey)?.setFilterValue(event.target.value)}
-          className="max-w-sm"
+          className="w-full sm:max-w-sm"
         />
       </div>
-      <div className="rounded-md border">
-        <Table>
+      <div className="overflow-hidden rounded-md border">
+        <Table className="min-w-[720px]">
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
@@ -80,11 +80,23 @@ export function DataTable<TData, TValue>({ columns, data, searchKey }: DataTable
           </TableBody>
         </Table>
       </div>
-      <div className="flex items-center justify-end space-x-2 py-4">
-        <Button variant="outline" size="sm" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>
+      <div className="flex flex-row gap-2 sm:items-center sm:justify-end">
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full sm:w-auto"
+          onClick={() => table.previousPage()}
+          disabled={!table.getCanPreviousPage()}
+        >
           Ankstesnis
         </Button>
-        <Button variant="outline" size="sm" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full sm:w-auto"
+          onClick={() => table.nextPage()}
+          disabled={!table.getCanNextPage()}
+        >
           Sekantis
         </Button>
       </div>

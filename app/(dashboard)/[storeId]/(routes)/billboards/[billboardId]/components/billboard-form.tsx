@@ -97,7 +97,7 @@ export const BillboardForm = ({ initialData }: Props) => {
 
   const watchedLabel = form.watch('label');
   const watchedImageUrl = form.watch('imageUrl');
-  const billboardLabelPreview = watchedLabel.trim() || 'Nepavadinta skelbimų lenta';
+  const billboardLabelPreview = watchedLabel.trim() || 'Tekstas';
 
   return (
     <>
@@ -125,9 +125,9 @@ export const BillboardForm = ({ initialData }: Props) => {
                     name="label"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Pavadinimas</FormLabel>
+                        <FormLabel>Tekstas</FormLabel>
                         <FormControl>
-                          <Input disabled={loading} placeholder="Reklaminės lentos pavadinimas" {...field} />
+                          <Input disabled={loading} placeholder="Reklaminės lentos tekstas" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

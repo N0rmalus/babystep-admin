@@ -1,8 +1,16 @@
 import prismadb from '@/lib/prismadb';
 import { redirect } from 'next/navigation';
 import { BillboardForm } from './components/billboard-form';
+import { DashboardPageShell } from '@/components/dashboard/dashboard-page-shell';
 
-const BillboardPage = async ({ params }: { params: { billboardId: string; storeId: string } }) => {
+type Props = {
+  params: {
+    billboardId: string;
+    storeId: string;
+  };
+};
+
+const BillboardPage = async ({ params }: Props) => {
   const billboard =
     params.billboardId !== 'new'
       ? await prismadb.billboard.findFirst({
@@ -18,11 +26,9 @@ const BillboardPage = async ({ params }: { params: { billboardId: string; storeI
   }
 
   return (
-    <div className="flex-col">
-      <div className="flex-1 space-y-4 p-8 pt-6">
-        <BillboardForm initialData={billboard} />
-      </div>
-    </div>
+    <DashboardPageShell>
+      <BillboardForm initialData={billboard} />
+    </DashboardPageShell>
   );
 };
 

@@ -69,16 +69,22 @@ export const SettingsForm = ({ initialData }: Props) => {
   return (
     <>
       <AlertModal isOpen={open} onClose={() => setOpen(false)} onConfirm={onDelete} loading={loading} />
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Heading title="Nustatymai" />
-        <Button disabled={loading} variant="destructive" size="icon" onClick={() => setOpen(true)}>
+        <Button
+          disabled={loading}
+          variant="destructive"
+          size="icon"
+          className="self-start"
+          onClick={() => setOpen(true)}
+        >
           <Trash className="h-4 w-4" />
         </Button>
       </div>
       <Separator />
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="w-full space-y-8">
-          <div className="grid grid-cols-3 gap-8">
+          <div className="grid max-w-2xl grid-cols-1 gap-6 sm:gap-8 md:grid-cols-2 xl:grid-cols-3">
             <FormField
               control={form.control}
               name="name"
@@ -93,7 +99,7 @@ export const SettingsForm = ({ initialData }: Props) => {
               )}
             />
           </div>
-          <Button disabled={loading} className="ml-auto" type="submit">
+          <Button disabled={loading} className="w-full sm:ml-auto sm:w-auto" type="submit">
             Išsaugoti pakeitimus
           </Button>
         </form>

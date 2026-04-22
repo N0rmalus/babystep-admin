@@ -1,6 +1,7 @@
 import prismadb from '@/lib/prismadb';
 import { redirect } from 'next/navigation';
 import { ProductForm } from './components/product-form';
+import { DashboardPageShell } from '@/components/dashboard/dashboard-page-shell';
 
 type Props = {
   params: {
@@ -37,11 +38,9 @@ const ProductPage = async ({ params }: Props) => {
   });
 
   return (
-    <div className="flex-col">
-      <div className="flex-1 space-y-4 p-8 pt-6">
-        <ProductForm subcategories={subcategories} categories={categories} initialData={product} />
-      </div>
-    </div>
+    <DashboardPageShell>
+      <ProductForm subcategories={subcategories} categories={categories} initialData={product} />
+    </DashboardPageShell>
   );
 };
 

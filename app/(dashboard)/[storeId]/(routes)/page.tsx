@@ -21,10 +21,10 @@ const DashboardPage = async ({ params }: Props) => {
 
   return (
     <div className="flex-col">
-      <div className="flex-1 space-y-4 p-8 pt-6">
-        <Heading title="Prietaisų skydelis" />
+      <div className="flex-1 space-y-4 p-4 pt-4 sm:p-6 sm:pt-6 lg:p-8">
+        <Heading title={params.storeId} />
         <Separator />
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Visos pajamos</CardTitle>
@@ -43,7 +43,7 @@ const DashboardPage = async ({ params }: Props) => {
               <div className="text-2xl font-bold">+{salesCount}</div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="sm:col-span-2 xl:col-span-1">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Parduotuvėje esančios prekės</CardTitle>
               <Package className="h-4 w-4 text-muted-foreground" />
@@ -53,12 +53,14 @@ const DashboardPage = async ({ params }: Props) => {
             </CardContent>
           </Card>
         </div>
-        <Card className="col-span-4">
+        <Card>
           <CardHeader>
             <CardTitle> Apžvalga </CardTitle>
           </CardHeader>
-          <CardContent className="pl-2">
-            <Overview data={graphRevenue} />
+          <CardContent className="overflow-x-auto pl-0 sm:pl-2">
+            <div className="min-w-[560px] sm:min-w-0">
+              <Overview data={graphRevenue} />
+            </div>
           </CardContent>
         </Card>
       </div>

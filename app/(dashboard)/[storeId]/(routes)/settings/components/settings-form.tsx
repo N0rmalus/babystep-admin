@@ -1,6 +1,5 @@
 'use client';
 
-import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useState } from 'react';
 import { Store } from '@prisma/client';
@@ -20,6 +19,7 @@ import {
   settingsFormSchema,
   SettingsFormValues,
 } from '@/app/(dashboard)/[storeId]/(routes)/settings/components/schema';
+import axios from 'axios';
 
 type Props = {
   initialData: Store;

@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useState } from 'react';
 import { Category, Subcategory } from '@prisma/client';
@@ -25,10 +24,12 @@ import { Heading } from '@/components/ui/heading';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { getFormErrorMessage } from '@/lib/get-form-error-message';
 import {
   subcategoryFormSchema,
   SubcategoryFormValues,
 } from '@/app/(dashboard)/[storeId]/(routes)/subcategories/[subcategoryId]/components/schema';
+import axios from 'axios';
 
 type Props = {
   initialData: Subcategory | null;
@@ -44,26 +45,6 @@ export const SubcategoryForm = ({ initialData, categories }: Props) => {
   const title = initialData ? 'Redaguoti subkategoriją' : 'Sukurti naują subkategoriją';
   const toastMessage = initialData ? 'Subkategorija atnaujinta.' : 'Subkategorija sukurta.';
   const action = initialData ? 'Išsaugoti pakeitimus' : 'Sukurti subkategoriją';
-
-  const getErrorMessage = (error: unknown) => {
-    if (axios.isAxiosError(error)) {
-      const data = error.response?.data;
-      if (typeof data === 'string' && data.trim().length > 0) {
-        return data;
-      }
-      if (data && typeof data === 'object' && 'message' in data) {
-        const message = (data as { message?: unknown }).message;
-        if (typeof message === 'string' && message.trim().length > 0) {
-          return message;
-        }
-      }
-      if (error.message) {
-        return error.message;
-      }
-    }
-
-    return 'Įvyko klaida.';
-  };
 
   const defaultValues: SubcategoryFormValues = initialData
     ? {
@@ -94,7 +75,7 @@ export const SubcategoryForm = ({ initialData, categories }: Props) => {
       router.push(`/${params?.storeId}/subcategories`);
       toast.success(toastMessage);
     } catch (error) {
-      toast.error(getErrorMessage(error));
+      toast.error(getFormErrorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -108,7 +89,7 @@ export const SubcategoryForm = ({ initialData, categories }: Props) => {
       router.push(`/${params?.storeId}/subcategories`);
       toast.success('Subkategorija panaikinta.');
     } catch (error) {
-      toast.error(getErrorMessage(error));
+      toast.error(getFormErrorMessage(error));
     } finally {
       setLoading(false);
       setOpen(false);

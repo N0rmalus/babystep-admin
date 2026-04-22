@@ -8,12 +8,12 @@ import { useStoreModal } from '@/hooks/use-store-modal';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Modal } from '@/components/ui/modal';
 import { toast } from 'react-hot-toast';
-import axios from 'axios';
 
 // Personal imports
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import axios from 'axios';
 
 const formSchema = z.object({
   name: z.string().min(1),

@@ -1,6 +1,5 @@
 'use client';
 
-import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useState } from 'react';
 import { Billboard } from '@prisma/client';
@@ -24,10 +23,12 @@ import { Heading } from '@/components/ui/heading';
 import ImageUpload from '@/components/ui/image-upload';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
+import { getFormErrorMessage } from '@/lib/get-form-error-message';
 import {
   billboardFormSchema,
   BillboardFormValues,
 } from '@/app/(dashboard)/[storeId]/(routes)/billboards/[billboardId]/components/schema';
+import axios from 'axios';
 
 type Props = {
   initialData: Billboard | null;
@@ -43,26 +44,6 @@ export const BillboardForm = ({ initialData }: Props) => {
   const title = initialData ? 'Redaguoti skelbimų lentą' : 'Sukurti skelbimų lentą';
   const toastMessage = initialData ? 'Skelbimų lenta atnaujinta.' : 'Skelbimų lenta sukurta.';
   const action = initialData ? 'Išsaugoti pakeitimus' : 'Sukurti skelbimų lentą';
-
-  const getErrorMessage = (error: unknown) => {
-    if (axios.isAxiosError(error)) {
-      const data = error.response?.data;
-      if (typeof data === 'string' && data.trim().length > 0) {
-        return data;
-      }
-      if (data && typeof data === 'object' && 'message' in data) {
-        const message = (data as { message?: unknown }).message;
-        if (typeof message === 'string' && message.trim().length > 0) {
-          return message;
-        }
-      }
-      if (error.message) {
-        return error.message;
-      }
-    }
-
-    return 'Įvyko klaida.';
-  };
 
   const defaultValues: BillboardFormValues = initialData
     ? {
@@ -93,7 +74,7 @@ export const BillboardForm = ({ initialData }: Props) => {
       router.push(`/${params.storeId}/billboards`);
       toast.success(toastMessage);
     } catch (error) {
-      toast.error(getErrorMessage(error));
+      toast.error(getFormErrorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -107,7 +88,7 @@ export const BillboardForm = ({ initialData }: Props) => {
       router.push(`/${params.storeId}/billboards`);
       toast.success('Skelbimų lenta panaikinta.');
     } catch (error) {
-      toast.error(getErrorMessage(error));
+      toast.error(getFormErrorMessage(error));
     } finally {
       setLoading(false);
       setOpen(false);

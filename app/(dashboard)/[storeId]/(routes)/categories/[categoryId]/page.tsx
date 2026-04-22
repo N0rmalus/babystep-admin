@@ -1,12 +1,21 @@
 import prismadb from '@/lib/prismadb';
+import { redirect } from 'next/navigation';
 import { CategoryForm } from './components/category-form';
 
 const CategoryPage = async ({ params }: { params: { categoryId: string; storeId: string } }) => {
-  const category = await prismadb.category.findUnique({
-    where: {
-      id: params.categoryId,
-    },
-  });
+  const category =
+    params.categoryId !== 'new'
+      ? await prismadb.category.findFirst({
+          where: {
+            id: params.categoryId,
+            storeId: params.storeId,
+          },
+        })
+      : null;
+
+  if (params.categoryId !== 'new' && !category) {
+    redirect(`/${params.storeId}/categories`);
+  }
 
   const billboards = await prismadb.billboard.findMany({
     where: {

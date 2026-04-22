@@ -10,15 +10,19 @@ export async function OPTIONS() {
   return NextResponse.json({}, { headers: corsHeaders });
 }
 
-export async function GET(req: Request, { params }: { params: { productId: string } }) {
+export async function GET(req: Request, { params }: { params: { storeId: string; productId: string } }) {
   try {
+    if (!params.storeId) {
+      return new NextResponse('Būtinas parduotuvės ID', { status: 400, headers: corsHeaders });
+    }
     if (!params.productId) {
       return new NextResponse('Būtinas prekės ID', { status: 400, headers: corsHeaders });
     }
 
-    const product = await prismadb.product.findUnique({
+    const product = await prismadb.product.findFirst({
       where: {
         id: params.productId,
+        storeId: params.storeId,
       },
       include: {
         images: true,
@@ -29,6 +33,10 @@ export async function GET(req: Request, { params }: { params: { productId: strin
         },
       },
     });
+
+    if (!product) {
+      return new NextResponse('Prekė nerasta', { status: 404, headers: corsHeaders });
+    }
 
     return NextResponse.json(product, { headers: corsHeaders });
   } catch (error) {
@@ -75,6 +83,30 @@ export async function PATCH(req: Request, { params }: { params: { storeId: strin
 
     if (!storeByUserId) {
       return new NextResponse('Neautorizuota', { status: 403 });
+    }
+
+    const productByStore = await prismadb.product.findFirst({
+      where: {
+        id: params.productId,
+        storeId: params.storeId,
+      },
+    });
+
+    if (!productByStore) {
+      return new NextResponse('Prekė šioje parduotuvėje nerasta', { status: 404 });
+    }
+
+    const subcategory = await prismadb.subcategory.findFirst({
+      where: {
+        id: subcategoryId,
+        category: {
+          storeId: params.storeId,
+        },
+      },
+    });
+
+    if (!subcategory) {
+      return new NextResponse('Subkategorija šiai parduotuvei nerasta', { status: 404 });
     }
 
     await prismadb.product.update({
@@ -140,8 +172,13 @@ export async function DELETE(req: Request, { params }: { params: { storeId: stri
     const product = await prismadb.product.deleteMany({
       where: {
         id: params.productId,
+        storeId: params.storeId,
       },
     });
+
+    if (product.count === 0) {
+      return new NextResponse('Prekė šioje parduotuvėje nerasta', { status: 404 });
+    }
 
     return NextResponse.json(product);
   } catch (error) {

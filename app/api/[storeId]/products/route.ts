@@ -50,6 +50,19 @@ export async function POST(req: Request, { params }: { params: { storeId: string
       return new NextResponse('Neautorizuota', { status: 403 });
     }
 
+    const subcategory = await prismadb.subcategory.findFirst({
+      where: {
+        id: subcategoryId,
+        category: {
+          storeId: params.storeId,
+        },
+      },
+    });
+
+    if (!subcategory) {
+      return new NextResponse('Subkategorija šiai parduotuvei nerasta', { status: 404 });
+    }
+
     const product = await prismadb.product.create({
       data: {
         name,

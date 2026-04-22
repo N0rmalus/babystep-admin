@@ -10,20 +10,28 @@ export async function OPTIONS() {
   return NextResponse.json({}, { headers: corsHeaders });
 }
 
-export async function GET(req: Request, { params }: { params: { categoryId: string } }) {
+export async function GET(req: Request, { params }: { params: { storeId: string; categoryId: string } }) {
   try {
+    if (!params.storeId) {
+      return new NextResponse('Būtinas parduotuvės ID', { status: 400, headers: corsHeaders });
+    }
     if (!params.categoryId) {
-      return new NextResponse('Category ID is required', { status: 400, headers: corsHeaders });
+      return new NextResponse('Būtinas kategorijos ID', { status: 400, headers: corsHeaders });
     }
 
-    const category = await prismadb.category.findUnique({
+    const category = await prismadb.category.findFirst({
       where: {
         id: params.categoryId,
+        storeId: params.storeId,
       },
       include: {
         billboard: true,
       },
     });
+
+    if (!category) {
+      return new NextResponse('Kategorija šioje parduotuvėje nerasta', { status: 404, headers: corsHeaders });
+    }
 
     return NextResponse.json(category, { headers: corsHeaders });
   } catch (error) {
@@ -40,16 +48,16 @@ export async function PATCH(req: Request, { params }: { params: { storeId: strin
     const { name, billboardId } = body;
 
     if (!userId) {
-      return new NextResponse('Unauthenticated', { status: 401 });
+      return new NextResponse('Neautentifikuota', { status: 401 });
     }
     if (!name) {
-      return new NextResponse('Name is required', { status: 400 });
+      return new NextResponse('Būtina nurodyti pavadinimą', { status: 400 });
     }
     if (!billboardId) {
-      return new NextResponse('Billboard ID is required', { status: 400 });
+      return new NextResponse('Reikalingas skelbimų lentos ID', { status: 400 });
     }
     if (!params.categoryId) {
-      return new NextResponse('Category ID is required', { status: 400 });
+      return new NextResponse('Būtinas kategorijos ID', { status: 400 });
     }
 
     const storeByUserId = await prismadb.store.findFirst({
@@ -63,9 +71,32 @@ export async function PATCH(req: Request, { params }: { params: { storeId: strin
       return new NextResponse('Neautorizuota', { status: 403 });
     }
 
+    const categoryByStore = await prismadb.category.findFirst({
+      where: {
+        id: params.categoryId,
+        storeId: params.storeId,
+      },
+    });
+
+    if (!categoryByStore) {
+      return new NextResponse('Kategorija šioje parduotuvėje nerasta', { status: 404 });
+    }
+
+    const billboard = await prismadb.billboard.findFirst({
+      where: {
+        id: billboardId,
+        storeId: params.storeId,
+      },
+    });
+
+    if (!billboard) {
+      return new NextResponse('Skelbimų lenta šiai parduotuvei nerasta', { status: 404 });
+    }
+
     const category = await prismadb.category.updateMany({
       where: {
         id: params.categoryId,
+        storeId: params.storeId,
       },
       data: {
         name,
@@ -85,10 +116,10 @@ export async function DELETE(req: Request, { params }: { params: { storeId: stri
     const { userId } = auth();
 
     if (!userId) {
-      return new NextResponse('Unauthenticated', { status: 401 });
+      return new NextResponse('Neautentifikuota', { status: 401 });
     }
     if (!params.categoryId) {
-      return new NextResponse('Category ID is required', { status: 400 });
+      return new NextResponse('Būtinas kategorijos ID', { status: 400 });
     }
 
     const storeByUserId = await prismadb.store.findFirst({
@@ -105,8 +136,13 @@ export async function DELETE(req: Request, { params }: { params: { storeId: stri
     const category = await prismadb.category.deleteMany({
       where: {
         id: params.categoryId,
+        storeId: params.storeId,
       },
     });
+
+    if (category.count === 0) {
+      return new NextResponse('Kategorija šioje parduotuvėje nerasta', { status: 404 });
+    }
 
     return NextResponse.json(category);
   } catch (error) {

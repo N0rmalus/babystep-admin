@@ -10,17 +10,25 @@ export async function OPTIONS() {
   return NextResponse.json({}, { headers: corsHeaders });
 }
 
-export async function GET(req: Request, { params }: { params: { billboardId: string } }) {
+export async function GET(req: Request, { params }: { params: { storeId: string; billboardId: string } }) {
   try {
-    if (!params.billboardId) {
+    if (!params.storeId) {
       return new NextResponse('Būtinas parduotuvės ID', { status: 400, headers: corsHeaders });
     }
+    if (!params.billboardId) {
+      return new NextResponse('Reikalingas skelbimų lentos ID', { status: 400, headers: corsHeaders });
+    }
 
-    const billboard = await prismadb.billboard.findUnique({
+    const billboard = await prismadb.billboard.findFirst({
       where: {
         id: params.billboardId,
+        storeId: params.storeId,
       },
     });
+
+    if (!billboard) {
+      return new NextResponse('Skelbimų lenta šioje parduotuvėje nerasta', { status: 404, headers: corsHeaders });
+    }
 
     return NextResponse.json(billboard, { headers: corsHeaders });
   } catch (error) {
@@ -63,12 +71,17 @@ export async function PATCH(req: Request, { params }: { params: { storeId: strin
     const billboard = await prismadb.billboard.updateMany({
       where: {
         id: params.billboardId,
+        storeId: params.storeId,
       },
       data: {
         label,
         imageUrl,
       },
     });
+
+    if (billboard.count === 0) {
+      return new NextResponse('Skelbimų lenta šioje parduotuvėje nerasta', { status: 404 });
+    }
 
     return NextResponse.json(billboard);
   } catch (error) {
@@ -102,8 +115,13 @@ export async function DELETE(req: Request, { params }: { params: { storeId: stri
     const billboard = await prismadb.billboard.deleteMany({
       where: {
         id: params.billboardId,
+        storeId: params.storeId,
       },
     });
+
+    if (billboard.count === 0) {
+      return new NextResponse('Skelbimų lenta šioje parduotuvėje nerasta', { status: 404 });
+    }
 
     return NextResponse.json(billboard);
   } catch (error) {

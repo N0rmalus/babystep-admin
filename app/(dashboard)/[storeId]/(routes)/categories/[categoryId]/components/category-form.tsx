@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useState } from 'react';
 import { Billboard, Category } from '@prisma/client';
@@ -25,10 +24,12 @@ import { Heading } from '@/components/ui/heading';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { getFormErrorMessage } from '@/lib/get-form-error-message';
 import {
   categoryFormSchema,
   CategoryFormValues,
 } from '@/app/(dashboard)/[storeId]/(routes)/categories/[categoryId]/components/schema';
+import axios from 'axios';
 
 type Props = {
   initialData: Category | null;
@@ -38,33 +39,11 @@ type Props = {
 export const CategoryForm = ({ initialData, billboards }: Props) => {
   const params = useParams();
   const router = useRouter();
-
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-
   const title = initialData ? 'Redaguoti kategoriją' : 'Sukurti naują kategoriją';
   const toastMessage = initialData ? 'Kategorija atnaujinta.' : 'Kategorija sukurta.';
   const action = initialData ? 'Išsaugoti pakeitimus' : 'Sukurti kategoriją';
-
-  const getErrorMessage = (error: unknown) => {
-    if (axios.isAxiosError(error)) {
-      const data = error.response?.data;
-      if (typeof data === 'string' && data.trim().length > 0) {
-        return data;
-      }
-      if (data && typeof data === 'object' && 'message' in data) {
-        const message = (data as { message?: unknown }).message;
-        if (typeof message === 'string' && message.trim().length > 0) {
-          return message;
-        }
-      }
-      if (error.message) {
-        return error.message;
-      }
-    }
-
-    return 'Įvyko klaida.';
-  };
 
   const defaultValues: CategoryFormValues = initialData
     ? {
@@ -95,7 +74,7 @@ export const CategoryForm = ({ initialData, billboards }: Props) => {
       router.push(`/${params?.storeId}/categories`);
       toast.success(toastMessage);
     } catch (error) {
-      toast.error(getErrorMessage(error));
+      toast.error(getFormErrorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -109,7 +88,7 @@ export const CategoryForm = ({ initialData, billboards }: Props) => {
       router.push(`/${params?.storeId}/categories`);
       toast.success('Kategorija panaikinta.');
     } catch (error) {
-      toast.error(getErrorMessage(error));
+      toast.error(getFormErrorMessage(error));
     } finally {
       setLoading(false);
       setOpen(false);

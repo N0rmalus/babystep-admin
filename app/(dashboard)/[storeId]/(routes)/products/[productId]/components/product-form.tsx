@@ -33,6 +33,7 @@ import {
   productFormSchema,
   ProductFormValues,
 } from '@/app/(dashboard)/[storeId]/(routes)/products/[productId]/components/schema';
+import Link from 'next/link';
 
 type Props = {
   initialData:
@@ -141,6 +142,8 @@ export const ProductForm = ({ initialData, subcategories, categories }: Props) =
   const watchedIsFeatured = Boolean(form.watch('isFeatured'));
   const watchedIsArchived = Boolean(form.watch('isArchived'));
   const productNamePreview = watchedName.trim() || 'Nenurodytas pavadinimas';
+  const hasSubcategories = subcategories.length > 0;
+  const submitDisabled = loading || !hasSubcategories;
 
   const selectedSubcategoryName =
     subcategories.find((subcategory) => subcategory.id === watchedSubcategoryId)?.name || 'Nepasirinkta';
@@ -167,7 +170,7 @@ export const ProductForm = ({ initialData, subcategories, categories }: Props) =
         <form onSubmit={form.handleSubmit(onSubmit)} className="w-full space-y-8">
           <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_320px]">
             <div className="space-y-6">
-              <FormSection title="Nuotraukos" description="Pirmoji nuotrauka bus pagrindinė.">
+              <FormSection title="Nuotraukos" description="Pirmoji nuotrauka bus produkto miniatiūra.">
                 <FormField
                   control={form.control}
                   name="images"
@@ -212,10 +215,18 @@ export const ProductForm = ({ initialData, subcategories, categories }: Props) =
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Subkategorija</FormLabel>
-                        <Select disabled={loading} onValueChange={field.onChange} value={field.value}>
+                        <Select
+                          disabled={loading || !hasSubcategories}
+                          onValueChange={field.onChange}
+                          value={field.value}
+                        >
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="Pasirinkite subkategoriją" />
+                              <SelectValue
+                                placeholder={
+                                  hasSubcategories ? 'Pasirinkite subkategoriją' : 'Pirma sukurkite subkategoriją'
+                                }
+                              />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -227,6 +238,15 @@ export const ProductForm = ({ initialData, subcategories, categories }: Props) =
                             ))}
                           </SelectContent>
                         </Select>
+                        {!hasSubcategories && (
+                          <FormDescription>
+                            Pirma sukurkite bent vieną
+                            <Link href={`/${params?.storeId}/subcategories`} className="ml-1 text-blue-500 underline">
+                              subkategoriją
+                            </Link>
+                            , kad būtų galima išsaugoti prekę.
+                          </FormDescription>
+                        )}
                         <FormMessage />
                       </FormItem>
                     )}
@@ -369,7 +389,7 @@ export const ProductForm = ({ initialData, subcategories, categories }: Props) =
               </FormSection>
 
               <FormSection>
-                <Button disabled={loading} className="w-full" type="submit">
+                <Button disabled={submitDisabled} className="w-full" type="submit">
                   {loading ? 'Saugoma...' : action}
                 </Button>
                 <Button
@@ -377,7 +397,7 @@ export const ProductForm = ({ initialData, subcategories, categories }: Props) =
                   variant="outline"
                   disabled={loading}
                   className="w-full"
-                  onClick={() => router.back()}
+                  onClick={() => router.push(`/${params?.storeId}/products`)}
                 >
                   Atšaukti
                 </Button>

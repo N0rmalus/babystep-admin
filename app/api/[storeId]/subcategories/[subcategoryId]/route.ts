@@ -7,20 +7,30 @@ export async function OPTIONS() {
   return NextResponse.json({}, { headers: corsHeaders });
 }
 
-export async function GET(req: Request, { params }: { params: { subcategoryId: string } }) {
+export async function GET(req: Request, { params }: { params: { storeId: string; subcategoryId: string } }) {
   try {
+    if (!params.storeId) {
+      return new NextResponse('Būtinas parduotuvės ID', { status: 400, headers: corsHeaders });
+    }
     if (!params.subcategoryId) {
-      return new NextResponse('Subcategory ID is required', { status: 400, headers: corsHeaders });
+      return new NextResponse('Būtinas subkategorijos ID', { status: 400, headers: corsHeaders });
     }
 
-    const subcategory = await prismadb.subcategory.findUnique({
+    const subcategory = await prismadb.subcategory.findFirst({
       where: {
         id: params.subcategoryId,
+        category: {
+          storeId: params.storeId,
+        },
       },
       include: {
         category: true,
       },
     });
+
+    if (!subcategory) {
+      return new NextResponse('Subkategorija šioje parduotuvėje nerasta', { status: 404, headers: corsHeaders });
+    }
 
     return NextResponse.json(subcategory, { headers: corsHeaders });
   } catch (error) {
@@ -37,16 +47,16 @@ export async function PATCH(req: Request, { params }: { params: { storeId: strin
     const { name, categoryId } = body;
 
     if (!userId) {
-      return new NextResponse('Unauthenticated', { status: 401 });
+      return new NextResponse('Neautentifikuota', { status: 401 });
     }
     if (!name) {
-      return new NextResponse('Name is required', { status: 400 });
+      return new NextResponse('Būtina nurodyti pavadinimą', { status: 400 });
     }
     if (!categoryId) {
-      return new NextResponse('Category ID is required', { status: 400 });
+      return new NextResponse('Reikalingas kategorijos ID', { status: 400 });
     }
     if (!params.subcategoryId) {
-      return new NextResponse('Subcategory ID is required', { status: 400 });
+      return new NextResponse('Būtinas subkategorijos ID', { status: 400 });
     }
 
     const storeByUserId = await prismadb.store.findFirst({
@@ -58,6 +68,30 @@ export async function PATCH(req: Request, { params }: { params: { storeId: strin
 
     if (!storeByUserId) {
       return new NextResponse('Neautorizuota', { status: 403 });
+    }
+
+    const subcategoryByStore = await prismadb.subcategory.findFirst({
+      where: {
+        id: params.subcategoryId,
+        category: {
+          storeId: params.storeId,
+        },
+      },
+    });
+
+    if (!subcategoryByStore) {
+      return new NextResponse('Subkategorija šioje parduotuvėje nerasta', { status: 404 });
+    }
+
+    const category = await prismadb.category.findFirst({
+      where: {
+        id: categoryId,
+        storeId: params.storeId,
+      },
+    });
+
+    if (!category) {
+      return new NextResponse('Kategorija šiai parduotuvei nerasta', { status: 404 });
     }
 
     const subcategory = await prismadb.subcategory.updateMany({
@@ -82,10 +116,10 @@ export async function DELETE(req: Request, { params }: { params: { storeId: stri
     const { userId } = auth();
 
     if (!userId) {
-      return new NextResponse('Unauthenticated', { status: 401 });
+      return new NextResponse('Neautentifikuota', { status: 401 });
     }
     if (!params.subcategoryId) {
-      return new NextResponse('Subcategory ID is required', { status: 400 });
+      return new NextResponse('Būtinas subkategorijos ID', { status: 400 });
     }
 
     const storeByUserId = await prismadb.store.findFirst({
@@ -102,8 +136,15 @@ export async function DELETE(req: Request, { params }: { params: { storeId: stri
     const subcategory = await prismadb.subcategory.deleteMany({
       where: {
         id: params.subcategoryId,
+        category: {
+          storeId: params.storeId,
+        },
       },
     });
+
+    if (subcategory.count === 0) {
+      return new NextResponse('Subkategorija šioje parduotuvėje nerasta', { status: 404 });
+    }
 
     return NextResponse.json(subcategory);
   } catch (error) {

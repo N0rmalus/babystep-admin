@@ -2,10 +2,16 @@
 
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
+import toast from 'react-hot-toast';
 import { ImagePlus, Trash } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { CldUploadWidget } from 'next-cloudinary';
+import {
+  CldUploadWidget,
+  CloudinaryUploadWidgetError,
+  CloudinaryUploadWidgetInfo,
+  CloudinaryUploadWidgetResults,
+} from 'next-cloudinary';
 
 interface ImageUploadProps {
   disabled?: boolean;
@@ -16,13 +22,39 @@ interface ImageUploadProps {
 
 const ImageUpload: React.FC<ImageUploadProps> = ({ disabled, onChange, onRemove, value }) => {
   const [isMounted, setIsMounted] = useState(false);
+  const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? 'pjowkmpm';
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
-  const onUpload = (result: any) => {
-    onChange(result.info.secure_url);
+  const handleUploadSuccess = (result: CloudinaryUploadWidgetResults) => {
+    if (typeof result.info === 'string' || !result.info) {
+      toast.error('Nepavyko nuskaityti įkelto vaizdo informacijos.');
+      return;
+    }
+
+    const uploadedImage = result.info as CloudinaryUploadWidgetInfo;
+
+    if (!uploadedImage.secure_url) {
+      toast.error('Nepavyko gauti įkelto vaizdo nuorodos.');
+      return;
+    }
+
+    onChange(uploadedImage.secure_url);
+  };
+
+  const handleUploadError = (error: CloudinaryUploadWidgetError) => {
+    if (!error) {
+      return;
+    }
+
+    if (typeof error === 'string') {
+      toast.error(error);
+      return;
+    }
+
+    toast.error(error.statusText || error.status || 'Nepavyko įkelti vaizdo.');
   };
 
   if (!isMounted) {
@@ -43,16 +75,21 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ disabled, onChange, onRemove,
           </div>
         ))}
       </div>
-      <CldUploadWidget onUpload={onUpload} uploadPreset="pjowkmpm">
-        {({ open }) => {
+      <CldUploadWidget onError={handleUploadError} onSuccess={handleUploadSuccess} uploadPreset={uploadPreset}>
+        {({ open, isLoading }) => {
           const onClick = () => {
+            if (!uploadPreset) {
+              toast.error('Cloudinary upload preset nėra sukonfigūruotas.');
+              return;
+            }
+
             open();
           };
 
           return (
-            <Button type="button" disabled={disabled} variant="secondary" onClick={onClick}>
+            <Button type="button" disabled={disabled || isLoading} variant="secondary" onClick={onClick}>
               <ImagePlus className="mr-2 h-4 w-4" />
-              Įkelti vaizdą
+              {isLoading ? 'Paruošiama...' : 'Įkelti vaizdą'}
             </Button>
           );
         }}

@@ -38,6 +38,17 @@ export async function POST(req: Request, { params }: { params: { storeId: string
       return new NextResponse('Neautorizuota', { status: 403 });
     }
 
+    const billboard = await prismadb.billboard.findFirst({
+      where: {
+        id: billboardId,
+        storeId: params.storeId,
+      },
+    });
+
+    if (!billboard) {
+      return new NextResponse('Skelbimų lenta šiai parduotuvei nerasta', { status: 404 });
+    }
+
     const category = await prismadb.category.create({
       data: {
         name,

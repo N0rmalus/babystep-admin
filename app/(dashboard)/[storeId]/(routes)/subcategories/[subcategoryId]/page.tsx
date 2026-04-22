@@ -1,13 +1,30 @@
 import prismadb from '@/lib/prismadb';
+import { redirect } from 'next/navigation';
 import { SubcategoryForm } from './components/subcategory-form';
 
-const SubcategoryPage = async ({ params }: { params: { subcategoryId: string; storeId: string } }) => {
+type Props = {
+  params: {
+    subcategoryId: string;
+    storeId: string;
+  };
+};
+
+const SubcategoryPage = async ({ params }: Props) => {
   const subcategory =
     params.subcategoryId !== 'new'
-      ? await prismadb.subcategory.findUnique({
-          where: { id: params.subcategoryId },
+      ? await prismadb.subcategory.findFirst({
+          where: {
+            id: params.subcategoryId,
+            category: {
+              storeId: params.storeId,
+            },
+          },
         })
       : null;
+
+  if (params.subcategoryId !== 'new' && !subcategory) {
+    redirect(`/${params.storeId}/subcategories`);
+  }
 
   const categories = await prismadb.category.findMany({
     where: { storeId: params.storeId },

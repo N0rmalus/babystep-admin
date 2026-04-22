@@ -3,7 +3,7 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useState } from 'react';
-import { Image, Product, Subcategory } from '@prisma/client';
+import { Category, Image, Product, Subcategory } from '@prisma/client';
 import { Trash } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -41,9 +41,10 @@ type Props = {
       })
     | null;
   subcategories: Subcategory[];
+  categories: Category[];
 };
 
-export const ProductForm = ({ initialData, subcategories }: Props) => {
+export const ProductForm = ({ initialData, subcategories, categories }: Props) => {
   const params = useParams();
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -220,7 +221,8 @@ export const ProductForm = ({ initialData, subcategories }: Props) => {
                           <SelectContent>
                             {subcategories.map((subcategory) => (
                               <SelectItem key={subcategory.id} value={subcategory.id}>
-                                {subcategory.name}
+                                {subcategory.name} (Kategorija:{' '}
+                                {categories.find((category) => category.id === subcategory.categoryId)?.name})
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -370,7 +372,13 @@ export const ProductForm = ({ initialData, subcategories }: Props) => {
                 <Button disabled={loading} className="w-full" type="submit">
                   {loading ? 'Saugoma...' : action}
                 </Button>
-                <Button type="button" variant="outline" disabled={loading} className="w-full" onClick={() => router.back()}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={loading}
+                  className="w-full"
+                  onClick={() => router.back()}
+                >
                   Atšaukti
                 </Button>
               </FormSection>

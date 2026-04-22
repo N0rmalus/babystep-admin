@@ -29,12 +29,9 @@ type Props = {
 export const SubcategoryForm = ({ initialData, categories }: Props) => {
   const params = useParams();
   const router = useRouter();
-
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-
   const title = initialData ? 'Redaguoti subkategoriją' : 'Sukurti naują subkategoriją';
-  const description = initialData ? 'Redagavimas' : 'Nauja subkategorija';
   const toastMessage = initialData ? 'Subkategorija atnaujinta.' : 'Subkategorija sukurta.';
   const action = initialData ? 'Išsaugoti' : 'Išsaugoti';
 

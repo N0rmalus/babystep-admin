@@ -1,6 +1,5 @@
 'use client';
 
-import * as z from 'zod';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useState } from 'react';
@@ -13,24 +12,21 @@ import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Heading } from '@/components/ui/heading';
 import { Separator } from '@/components/ui/separator';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form/form';
 import { Input } from '@/components/ui/input';
 import { AlertModal } from '@/components/modals/alert-modal';
-import { Select, SelectContent, SelectTrigger, SelectValue, SelectItem } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  subcategoryFormSchema,
+  SubcategoryFormValues,
+} from '@/app/(dashboard)/[storeId]/(routes)/subcategories/[subcategoryId]/components/schema';
 
-const formSchema = z.object({
-  name: z.string().min(1),
-  categoryId: z.string().min(1),
-});
-
-type SubcategoryFormValues = z.infer<typeof formSchema>;
-
-interface SubcategoryFormProps {
+type Props = {
   initialData: Subcategory | null;
   categories: Category[];
-}
+};
 
-export const SubcategoryForm: React.FC<SubcategoryFormProps> = ({ initialData, categories }) => {
+export const SubcategoryForm = ({ initialData, categories }: Props) => {
   const params = useParams();
   const router = useRouter();
 
@@ -43,7 +39,7 @@ export const SubcategoryForm: React.FC<SubcategoryFormProps> = ({ initialData, c
   const action = initialData ? 'Išsaugoti' : 'Išsaugoti';
 
   const form = useForm<SubcategoryFormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(subcategoryFormSchema),
     defaultValues: initialData || {
       name: '',
       categoryId: '',
@@ -86,15 +82,18 @@ export const SubcategoryForm: React.FC<SubcategoryFormProps> = ({ initialData, c
   return (
     <>
       <AlertModal isOpen={open} onClose={() => setOpen(false)} onConfirm={onDelete} loading={loading} />
+
       <div className="flex items-center justify-between">
-        <Heading title={title} description={description} />
+        <Heading title={title} />
         {initialData && (
           <Button disabled={loading} variant="destructive" size="icon" onClick={() => setOpen(true)}>
             <Trash className="h-4 w-4" />
           </Button>
         )}
       </div>
+
       <Separator />
+
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="w-full space-y-8">
           <div className="grid grid-cols-3 gap-8">
@@ -136,6 +135,7 @@ export const SubcategoryForm: React.FC<SubcategoryFormProps> = ({ initialData, c
               )}
             />
           </div>
+
           <Button disabled={loading} className="ml-auto" type="submit">
             {action}
           </Button>

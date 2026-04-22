@@ -30,10 +30,10 @@ export const AlertModal: React.FC<AlertModalProps> = ({ isOpen, onClose, onConfi
       onClose={onClose}
     >
       <div className="flex w-full items-center justify-end space-x-2 pt-6">
-        <Button disabled={loading} variant="outline" onClick={onClose}>
+        <Button type="button" disabled={loading} variant="outline" onClick={onClose}>
           Atšaukti
         </Button>
-        <Button disabled={loading} variant="destructive" onClick={onConfirm}>
+        <Button type="button" disabled={loading} variant="destructive" onClick={onConfirm}>
           Tęsti
         </Button>
       </div>

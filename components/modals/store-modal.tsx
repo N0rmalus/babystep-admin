@@ -11,10 +11,9 @@ import { toast } from 'react-hot-toast';
 import axios from 'axios';
 
 // Personal imports
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { ToasterProvider } from '@/providers/toast-provider';
 
 const formSchema = z.object({
   name: z.string().min(1),
@@ -72,7 +71,7 @@ export const StoreModal = () => {
                   )}
                 />
                 <div className="flex w-full items-center justify-end space-x-2 pt-6">
-                  <Button disabled={loading} variant="outline" onClick={storeModal.onClose}>
+                  <Button type="button" disabled={loading} variant="outline" onClick={storeModal.onClose}>
                     {' '}
                     Atšaukti{' '}
                   </Button>

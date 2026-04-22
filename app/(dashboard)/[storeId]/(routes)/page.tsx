@@ -6,15 +6,14 @@ import { Overview } from '@/components/overview';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Heading } from '@/components/ui/heading';
 import { Separator } from '@/components/ui/separator';
-import prismadb from '@/lib/prismadb';
 import { formatter } from '@/lib/utils';
 import { CreditCard, Package, Wallet } from 'lucide-react';
 
-interface DashboardPageProps {
+type Props = {
   params: { storeId: string };
-}
+};
 
-const DashboardPage: React.FC<DashboardPageProps> = async ({ params }) => {
+const DashboardPage = async ({ params }: Props) => {
   const totalRevenue = await getTotalRevenue(params.storeId);
   const salesCount = await getSalesCount(params.storeId);
   const stockCount = await getStockCount(params.storeId);
@@ -23,7 +22,7 @@ const DashboardPage: React.FC<DashboardPageProps> = async ({ params }) => {
   return (
     <div className="flex-col">
       <div className="flex-1 space-y-4 p-8 pt-6">
-        <Heading title="Prietaisų skydelis" description="Parduotuvės apžvalga" />
+        <Heading title="Prietaisų skydelis" />
         <Separator />
         <div className="grid grid-cols-3 gap-4">
           <Card>

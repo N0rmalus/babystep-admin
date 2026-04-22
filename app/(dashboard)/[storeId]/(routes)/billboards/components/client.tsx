@@ -1,38 +1,19 @@
 'use client';
 
-import { Plus } from 'lucide-react';
-import { useParams, useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Heading } from '@/components/ui/heading';
-import { Separator } from '@/components/ui/separator';
-import { DataTable } from '@/components/ui/data-table';
-import { ApiList } from '@/components/ui/api-list';
+import { ResourceListView } from '@/components/dashboard/resource-list-view';
 import { BillboardColumn, columns } from './columns';
 
 type Props = {
   data: BillboardColumn[];
 };
 
-export const BillboardClient = ({ data }: Props) => {
-  const router = useRouter();
-  const params = useParams();
-
-  return (
-    <>
-      <div className="flex items-center justify-between">
-        <Heading title={`Skelbimų lentos (${data.length})`} />
-        <Button onClick={() => router.push(`/${params.storeId}/billboards/new`)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Pridėti naują
-        </Button>
-      </div>
-      <Separator />
-
-      <DataTable searchKey="label" columns={columns} data={data} />
-
-      <Heading title="API" />
-      <Separator />
-      <ApiList entityName="billboards" entityIdName="billboardId" />
-    </>
-  );
-};
+export const BillboardClient = ({ data }: Props) => (
+  <ResourceListView
+    columns={columns}
+    data={data}
+    entityIdName="billboardId"
+    entitySegment="billboards"
+    searchKey="label"
+    title="Skelbimų lentos"
+  />
+);

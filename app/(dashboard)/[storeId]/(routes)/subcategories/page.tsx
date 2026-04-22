@@ -1,10 +1,16 @@
 import { format } from 'date-fns';
+import { DashboardPageShell } from '@/components/dashboard/dashboard-page-shell';
 import prismadb from '@/lib/prismadb';
-
 import { SubcategoryClient } from './components/client';
 import { SubCategoryColumn } from './components/columns';
 
-const SubcategoriesPage = async ({ params }: { params: { storeId: string } }) => {
+type Props = {
+  params: {
+    storeId: string;
+  };
+};
+
+const SubcategoriesPage = async ({ params }: Props) => {
   const subcategories = await prismadb.subcategory.findMany({
     where: {
       category: {
@@ -27,11 +33,9 @@ const SubcategoriesPage = async ({ params }: { params: { storeId: string } }) =>
   }));
 
   return (
-    <div className="flex-col">
-      <div className="flex-1 space-y-4 p-8 pt-6">
-        <SubcategoryClient data={formattedSubcategories} />
-      </div>
-    </div>
+    <DashboardPageShell>
+      <SubcategoryClient data={formattedSubcategories} />
+    </DashboardPageShell>
   );
 };
 

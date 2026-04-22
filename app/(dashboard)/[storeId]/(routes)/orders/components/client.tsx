@@ -13,7 +13,9 @@ type Props = {
 export const OrderClient = ({ data }: Props) => {
   return (
     <>
-      <Heading title={`Užsakymai (${data.length})`} />
+      <div className="flex flex-col gap-3">
+        <Heading title={`Užsakymai (${data.length})`} />
+      </div>
       <Separator />
       <DataTable searchKey="products" columns={columns} data={data} />
     </>

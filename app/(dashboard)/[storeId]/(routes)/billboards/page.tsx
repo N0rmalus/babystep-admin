@@ -1,4 +1,5 @@
 import { format } from 'date-fns';
+import { DashboardPageShell } from '@/components/dashboard/dashboard-page-shell';
 import prismadb from '@/lib/prismadb';
 
 import { BillboardClient } from './components/client';
@@ -21,11 +22,9 @@ const BillboardsPage = async ({ params }: { params: { storeId: string } }) => {
   }));
 
   return (
-    <div className="flex-col">
-      <div className="flex-1 space-y-4 p-8 pt-6">
-        <BillboardClient data={formattedBillboards} />
-      </div>
-    </div>
+    <DashboardPageShell>
+      <BillboardClient data={formattedBillboards} />
+    </DashboardPageShell>
   );
 };
 

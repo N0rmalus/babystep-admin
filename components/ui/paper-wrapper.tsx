@@ -7,5 +7,5 @@ type Props = {
 };
 
 export const PaperWrapper = ({ children, className }: Props) => (
-  <div className={cn('rounded-xl border bg-card p-5 shadow-sm', className)}>{children}</div>
+  <div className={cn('rounded-xl border bg-card p-5', className)}>{children}</div>
 );

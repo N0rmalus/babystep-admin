@@ -1,4 +1,5 @@
 import { format } from 'date-fns';
+import { DashboardPageShell } from '@/components/dashboard/dashboard-page-shell';
 import prismadb from '@/lib/prismadb';
 import { formatter } from '@/lib/utils';
 
@@ -35,11 +36,9 @@ const ProductsPage = async ({ params }: Props) => {
   }));
 
   return (
-    <div className="flex-col">
-      <div className="flex-1 space-y-4 p-8 pt-6">
-        <ProductClient data={formattedProducts} />
-      </div>
-    </div>
+    <DashboardPageShell>
+      <ProductClient data={formattedProducts} />
+    </DashboardPageShell>
   );
 };
 

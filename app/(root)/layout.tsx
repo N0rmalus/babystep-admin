@@ -1,8 +1,13 @@
 import prismadb from '@/lib/prismadb';
 import { auth } from '@clerk/nextjs';
 import { redirect } from 'next/navigation';
+import { ReactNode } from 'react';
 
-export default async function SetupLayout({ children }: { children: React.ReactNode }) {
+type Props = {
+  children: ReactNode;
+};
+
+export default async function SetupLayout({ children }: Props) {
   const { userId } = auth();
 
   if (!userId) {

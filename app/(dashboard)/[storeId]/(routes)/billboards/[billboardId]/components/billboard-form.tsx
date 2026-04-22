@@ -1,7 +1,5 @@
 'use client';
 
-// Global imports
-import * as z from 'zod';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useState } from 'react';
@@ -10,28 +8,23 @@ import { Trash } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useParams, useRouter } from 'next/navigation';
-
-// Personal imports
 import { Button } from '@/components/ui/button';
 import { Heading } from '@/components/ui/heading';
 import { Separator } from '@/components/ui/separator';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form/form';
 import { Input } from '@/components/ui/input';
 import { AlertModal } from '@/components/modals/alert-modal';
 import ImageUpload from '@/components/ui/image-upload';
+import {
+  billboardFormSchema,
+  BillboardFormValues,
+} from '@/app/(dashboard)/[storeId]/(routes)/billboards/[billboardId]/components/schema';
 
-const formSchema = z.object({
-  label: z.string().min(1),
-  imageUrl: z.string().min(1),
-});
-
-type BillboardFormValues = z.infer<typeof formSchema>;
-
-interface BillboardFormProps {
+type Props = {
   initialData: Billboard | null;
-}
+};
 
-export const BillboardForm: React.FC<BillboardFormProps> = ({ initialData }) => {
+export const BillboardForm = ({ initialData }: Props) => {
   const params = useParams();
   const router = useRouter();
 
@@ -44,7 +37,7 @@ export const BillboardForm: React.FC<BillboardFormProps> = ({ initialData }) => 
   const action = initialData ? 'Išsaugoti' : 'Išsaugoti';
 
   const form = useForm<BillboardFormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(billboardFormSchema),
     defaultValues: initialData || {
       label: '',
       imageUrl: '',
@@ -88,15 +81,18 @@ export const BillboardForm: React.FC<BillboardFormProps> = ({ initialData }) => 
   return (
     <>
       <AlertModal isOpen={open} onClose={() => setOpen(false)} onConfirm={onDelete} loading={loading} />
+
       <div className="flex items-center justify-between">
-        <Heading title={title} description={description} />
+        <Heading title={title} />
         {initialData && (
           <Button disabled={loading} variant="destructive" size="icon" onClick={() => setOpen(true)}>
             <Trash className="h-4 w-4" />
           </Button>
         )}
       </div>
+
       <Separator />
+
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="w-full space-y-8">
           <FormField

@@ -1,7 +1,5 @@
 'use client';
 
-// Global imports
-import * as z from 'zod';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useState } from 'react';
@@ -10,29 +8,24 @@ import { Trash } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useParams, useRouter } from 'next/navigation';
-
-// Personal imports
 import { Button } from '@/components/ui/button';
 import { Heading } from '@/components/ui/heading';
 import { Separator } from '@/components/ui/separator';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form/form';
 import { Input } from '@/components/ui/input';
 import { AlertModal } from '@/components/modals/alert-modal';
-import { Select, SelectContent, SelectTrigger, SelectValue, SelectItem } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  categoryFormSchema,
+  CategoryFormValues,
+} from '@/app/(dashboard)/[storeId]/(routes)/categories/[categoryId]/components/schema';
 
-const formSchema = z.object({
-  name: z.string().min(1),
-  billboardId: z.string().min(1),
-});
-
-type CategoryFormValues = z.infer<typeof formSchema>;
-
-interface CategoryFormProps {
+type Props = {
   initialData: Category | null;
   billboards: Billboard[];
-}
+};
 
-export const CategoryForm: React.FC<CategoryFormProps> = ({ initialData, billboards }) => {
+export const CategoryForm = ({ initialData, billboards }: Props) => {
   const params = useParams();
   const router = useRouter();
 
@@ -40,12 +33,11 @@ export const CategoryForm: React.FC<CategoryFormProps> = ({ initialData, billboa
   const [loading, setLoading] = useState(false);
 
   const title = initialData ? 'Redaguoti kategoriją' : 'Sukurti naują kategoriją';
-  const description = initialData ? 'Redagavimas' : 'Nauja kategorija';
   const toastMessage = initialData ? 'Kategorija atnaujinta.' : 'Kategorija sukurta.';
   const action = initialData ? 'Išsaugoti' : 'Išsaugoti';
 
   const form = useForm<CategoryFormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(categoryFormSchema),
     defaultValues: initialData || {
       name: '',
       billboardId: '',
@@ -89,15 +81,18 @@ export const CategoryForm: React.FC<CategoryFormProps> = ({ initialData, billboa
   return (
     <>
       <AlertModal isOpen={open} onClose={() => setOpen(false)} onConfirm={onDelete} loading={loading} />
+
       <div className="flex items-center justify-between">
-        <Heading title={title} description={description} />
+        <Heading title={title} />
         {initialData && (
           <Button disabled={loading} variant="destructive" size="icon" onClick={() => setOpen(true)}>
             <Trash className="h-4 w-4" />
           </Button>
         )}
       </div>
+
       <Separator />
+
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="w-full space-y-8">
           <div className="grid grid-cols-3 gap-8">
@@ -139,6 +134,7 @@ export const CategoryForm: React.FC<CategoryFormProps> = ({ initialData, billboa
               )}
             />
           </div>
+
           <Button disabled={loading} className="ml-auto" type="submit">
             {action}
           </Button>

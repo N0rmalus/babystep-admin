@@ -8,28 +8,30 @@ import { Heading } from '@/components/ui/heading';
 import { Separator } from '@/components/ui/separator';
 import { DataTable } from '@/components/ui/data-table';
 import { ApiList } from '@/components/ui/api-list';
-import { ProductColumn, columns } from './columns';
+import { columns, ProductColumn } from './columns';
 
-interface ProductClientProps {
+type Props = {
   data: ProductColumn[];
-}
+};
 
-export const ProductClient: React.FC<ProductClientProps> = ({ data }) => {
+export const ProductClient = ({ data }: Props) => {
   const router = useRouter();
   const params = useParams();
 
   return (
     <>
       <div className="flex items-center justify-between">
-        <Heading title={`Prekės (${data.length})`} description="Tvarkykite savo parduotuvės prekes" />
+        <Heading title={`Prekės (${data.length})`} />
         <Button onClick={() => router.push(`/${params?.storeId}/products/new`)}>
           <Plus className="mr-2 h-4 w-4" />
           Pridėti naują
         </Button>
       </div>
       <Separator />
+
       <DataTable searchKey="name" columns={columns} data={data} />
-      <Heading title="API" description="API iškvietimas produktams" />
+
+      <Heading title="API" />
       <Separator />
       <ApiList entityName="products" entityIdName="productId" />
     </>

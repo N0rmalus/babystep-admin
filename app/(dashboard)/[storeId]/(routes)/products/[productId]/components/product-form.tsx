@@ -1,7 +1,5 @@
 'use client';
 
-// Global imports
-import * as z from 'zod';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useState } from 'react';
@@ -10,52 +8,49 @@ import { Trash } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useParams, useRouter } from 'next/navigation';
-
-// Personal imports
-import { Button } from '@/components/ui/button';
-import { Heading } from '@/components/ui/heading';
-import { Separator } from '@/components/ui/separator';
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
 import { AlertModal } from '@/components/modals/alert-modal';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form/form';
+import { Heading } from '@/components/ui/heading';
 import ImageUpload from '@/components/ui/image-upload';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
+import { formatter } from '@/lib/utils';
+import { ProductStatusToggle } from './product-status-toggle';
+import { FormSection } from '@/components/ui/form/form-section';
+import {
+  productFormSchema,
+  ProductFormValues,
+} from '@/app/(dashboard)/[storeId]/(routes)/products/[productId]/components/schema';
 
-const formSchema = z.object({
-  name: z.string().min(1),
-  images: z.object({ url: z.string() }).array(),
-  price: z.coerce.number().min(1),
-  amountInStock: z.coerce.number().min(0),
-  subcategoryId: z.string().min(1),
-  isFeatured: z.boolean().default(false).optional(),
-  isArchived: z.boolean().default(false).optional(),
-  description: z.string().min(0),
-});
-
-type ProductFormValues = z.infer<typeof formSchema>;
-
-interface ProductFormProps {
+type Props = {
   initialData:
     | (Product & {
         images: Image[];
       })
     | null;
   subcategories: Subcategory[];
-}
+};
 
-export const ProductForm: React.FC<ProductFormProps> = ({ initialData, subcategories }) => {
+export const ProductForm = ({ initialData, subcategories }: Props) => {
   const params = useParams();
   const router = useRouter();
-
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-
   const title = initialData ? 'Redaguoti prekę' : 'Sukurti naują prekę';
-  const pageDescription = initialData ? 'Redagavimas' : 'Nauja prekė';
   const toastMessage = initialData ? 'Prekė atnaujinta.' : 'Prekė sukurta.';
-  const action = initialData ? 'Išsaugoti' : 'Išsaugoti';
+  const action = initialData ? 'Išsaugoti pakeitimus' : 'Sukurti prekę';
 
   const getErrorMessage = (error: unknown) => {
     if (axios.isAxiosError(error)) {
@@ -76,25 +71,31 @@ export const ProductForm: React.FC<ProductFormProps> = ({ initialData, subcatego
     return 'Įvyko klaida.';
   };
 
+  const defaultValues: ProductFormValues = initialData
+    ? {
+        name: initialData.name,
+        images: initialData.images.map((image) => ({ url: image.url })),
+        price: Number(initialData.price),
+        amountInStock: initialData.amountInStock,
+        subcategoryId: initialData.subcategoryId,
+        isFeatured: initialData.isFeatured,
+        isArchived: initialData.isArchived,
+        description: initialData.description ?? '',
+      }
+    : {
+        name: '',
+        images: [],
+        price: 0,
+        amountInStock: 0,
+        subcategoryId: '',
+        description: '',
+        isFeatured: false,
+        isArchived: false,
+      };
+
   const form = useForm<ProductFormValues>({
-    resolver: zodResolver(formSchema),
-    // @ts-ignore
-    defaultValues: initialData
-      ? {
-          ...initialData,
-          price: parseFloat(String(initialData?.price)),
-          subcategoryId: initialData.subcategoryId,
-        }
-      : {
-          name: '',
-          images: [],
-          price: 0,
-          amountInStock: 0,
-          subcategoryId: '',
-          description: '',
-          isFeatured: false,
-          isArchived: false,
-        },
+    resolver: zodResolver(productFormSchema),
+    defaultValues,
   });
 
   const onSubmit = async (data: ProductFormValues) => {
@@ -130,157 +131,251 @@ export const ProductForm: React.FC<ProductFormProps> = ({ initialData, subcatego
     }
   };
 
+  const watchedName = form.watch('name');
+  const watchedPrice = Number(form.watch('price'));
+  const watchedAmountInStock = Number(form.watch('amountInStock'));
+  const watchedSubcategoryId = form.watch('subcategoryId');
+  const watchedImages = form.watch('images') ?? [];
+  const watchedDescription = form.watch('description') ?? '';
+  const watchedIsFeatured = Boolean(form.watch('isFeatured'));
+  const watchedIsArchived = Boolean(form.watch('isArchived'));
+  const productNamePreview = watchedName.trim() || 'Nenurodytas pavadinimas';
+
+  const selectedSubcategoryName =
+    subcategories.find((subcategory) => subcategory.id === watchedSubcategoryId)?.name || 'Nepasirinkta';
+
+  const priceLabel = Number.isFinite(watchedPrice) && watchedPrice > 0 ? formatter.format(watchedPrice) : 'Nenurodyta';
+  const stockLabel = Number.isFinite(watchedAmountInStock) ? `${watchedAmountInStock} vnt.` : 'Nenurodyta';
+
   return (
     <>
       <AlertModal isOpen={open} onClose={() => setOpen(false)} onConfirm={onDelete} loading={loading} />
+
       <div className="flex items-center justify-between">
-        <Heading title={title} description={pageDescription} />
+        <Heading title={title} />
         {initialData && (
-          <Button disabled={loading} variant="destructive" size="icon" onClick={() => setOpen(true)}>
+          <Button type="button" disabled={loading} variant="destructive" size="icon" onClick={() => setOpen(true)}>
             <Trash className="h-4 w-4" />
           </Button>
         )}
       </div>
+
       <Separator />
+
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="w-full space-y-8">
-          <FormField
-            control={form.control}
-            name="images"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel> Fono paveikslėlis </FormLabel>
-                <FormControl>
-                  <ImageUpload
-                    value={field.value.map((image) => image.url)}
-                    disabled={loading}
-                    onChange={(url) => field.onChange([...field.value, { url }])}
-                    onRemove={(url) => field.onChange([...field.value.filter((current) => current.url !== url)])}
+          <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_320px]">
+            <div className="space-y-6">
+              <FormSection title="Nuotraukos" description="Pirmoji nuotrauka bus pagrindinė.">
+                <FormField
+                  control={form.control}
+                  name="images"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <ImageUpload
+                          value={field.value.map((image) => image.url)}
+                          disabled={loading}
+                          onChange={(url) => field.onChange([...field.value, { url }])}
+                          onRemove={(url) => field.onChange(field.value.filter((current) => current.url !== url))}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Įkeltos nuotraukos: <span className="font-medium text-foreground">{watchedImages.length}</span>
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </FormSection>
+
+              <FormSection title="Pagrindinė informacija">
+                <div className="grid gap-5 md:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Pavadinimas</FormLabel>
+                        <FormControl>
+                          <Input maxLength={191} disabled={loading} placeholder="Prekės pavadinimas" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <div className="grid grid-cols-3 gap-8">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel> Pavadinimas </FormLabel>
-                  <FormControl>
-                    <Input maxLength={191} disabled={loading} placeholder="Prekės pavadinimas" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="price"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel> Kaina </FormLabel>
-                  <FormControl>
-                    <Input type="number" disabled={loading} placeholder="9.99" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="subcategoryId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel> Subkategorija </FormLabel>
-                  <Select disabled={loading} onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue defaultValue={field.value} placeholder="Pasirinkite subkategoriją" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {subcategories.map((subcategory) => (
-                        <SelectItem key={subcategory.id} value={subcategory.id}>
-                          {subcategory.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="amountInStock"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel> Kiekis sandėlyje </FormLabel>
-                  <FormControl>
-                    <Input type="number" disabled={loading} placeholder="9" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel> Aprašymas </FormLabel>
-                  <FormControl>
-                    <Textarea maxLength={512} placeholder="Prekės aprašymas" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="isFeatured"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4">
-                  <FormControl>
-                    <Checkbox
-                      checked={field.value}
-                      // @ts-ignore
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel>Rekomenduojama</FormLabel>
-                    <FormDescription>Ši prekė bus rodoma pagrindiniame puslapyje</FormDescription>
+
+                  <FormField
+                    control={form.control}
+                    name="subcategoryId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Subkategorija</FormLabel>
+                        <Select disabled={loading} onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Pasirinkite subkategoriją" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {subcategories.map((subcategory) => (
+                              <SelectItem key={subcategory.id} value={subcategory.id}>
+                                {subcategory.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="price"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Kaina</FormLabel>
+                        <FormControl>
+                          <Input type="number" min="0" step="0.01" disabled={loading} placeholder="9.99" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="amountInStock"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Kiekis sandėlyje</FormLabel>
+                        <FormControl>
+                          <Input type="number" min="0" step="1" disabled={loading} placeholder="9" {...field} />
+                        </FormControl>
+                        <FormDescription>Naudojama likučio būsenai ir pirkimo apribojimams.</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </FormSection>
+
+              <FormSection title="Aprašymas">
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <Textarea
+                          maxLength={512}
+                          rows={5}
+                          disabled={loading}
+                          placeholder="Prekės aprašymas"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormDescription>{watchedDescription.length}/512</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </FormSection>
+            </div>
+
+            <aside className="space-y-6 xl:sticky xl:top-6 xl:h-fit">
+              <FormSection title="Būsena" description="Nustatymai, kurie keičia produkto matomumą.">
+                <FormField
+                  control={form.control}
+                  name="isFeatured"
+                  render={({ field }) => (
+                    <FormItem>
+                      <ProductStatusToggle
+                        label="Rekomenduojama"
+                        description="Produktas bus rodomas pagrindiniame puslapyje ir akcentuojamas pasiūlymuose."
+                        checked={Boolean(field.value)}
+                        disabled={loading}
+                        onCheckedChange={field.onChange}
+                      />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="isArchived"
+                  render={({ field }) => (
+                    <FormItem>
+                      <ProductStatusToggle
+                        label="Archyvuota"
+                        description="Archyvuotos prekės nerodomos pirkėjams, bet lieka administravimo sistemoje."
+                        checked={Boolean(field.value)}
+                        disabled={loading}
+                        onCheckedChange={field.onChange}
+                      />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </FormSection>
+
+              <FormSection title="Greita peržiūra">
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-1">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Prekė</p>
+                    <p className="text-sm font-semibold leading-tight">{productNamePreview}</p>
+                    <p className="text-xs text-muted-foreground">Subkategorija: {selectedSubcategoryName}</p>
                   </div>
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="isArchived"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4">
-                  <FormControl>
-                    <Checkbox
-                      checked={field.value}
-                      // @ts-ignore
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel>Archivuota</FormLabel>
-                    <FormDescription>Ši prekė niekur nebus rodoma parduotuvėje</FormDescription>
+
+                  <Separator />
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-md border bg-background px-3 py-2">
+                      <p className="text-xs text-muted-foreground">Kaina</p>
+                      <p className="text-sm font-semibold">{priceLabel}</p>
+                    </div>
+                    <div className="rounded-md border bg-background px-3 py-2">
+                      <p className="text-xs text-muted-foreground">Likutis</p>
+                      <p className="text-sm font-semibold">{stockLabel}</p>
+                    </div>
+                    <div className="rounded-md border bg-background px-3 py-2">
+                      <p className="text-xs text-muted-foreground">Nuotraukos</p>
+                      <p className="text-sm font-semibold">{watchedImages.length}</p>
+                    </div>
+                    <div className="rounded-md border bg-background px-3 py-2">
+                      <p className="text-xs text-muted-foreground">Aprašymas</p>
+                      <p className="text-sm font-semibold">{watchedDescription.length} s.</p>
+                    </div>
                   </div>
-                </FormItem>
-              )}
-            />
+
+                  <Separator />
+
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant={watchedIsArchived ? 'destructive' : 'secondary'}>
+                      {watchedIsArchived ? 'Archyvuota' : 'Aktyvi'}
+                    </Badge>
+
+                    {watchedIsFeatured ? <Badge>Rekomenduojama</Badge> : <Badge variant="outline">Standartinė</Badge>}
+
+                    <Badge variant={watchedAmountInStock > 0 ? 'secondary' : 'destructive'}>
+                      {watchedAmountInStock > 0 ? 'Yra sandėlyje' : 'Išparduota'}
+                    </Badge>
+                  </div>
+                </div>
+              </FormSection>
+
+              <FormSection>
+                <Button disabled={loading} className="w-full" type="submit">
+                  {loading ? 'Saugoma...' : action}
+                </Button>
+                <Button type="button" variant="outline" disabled={loading} className="w-full" onClick={() => router.back()}>
+                  Atšaukti
+                </Button>
+              </FormSection>
+            </aside>
           </div>
-          <Button disabled={loading} className="ml-auto" type="submit">
-            {action}
-          </Button>
         </form>
       </Form>
     </>

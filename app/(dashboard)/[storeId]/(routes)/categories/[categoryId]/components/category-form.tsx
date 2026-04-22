@@ -215,7 +215,7 @@ export const CategoryForm = ({ initialData, billboards }: Props) => {
                       </div>
                     </>
                   ) : (
-                    <div className="flex items-center justify-center p-6 text-center text-sm text-muted-foreground">
+                    <div className="flex items-center justify-center bg-card p-6 text-center text-sm text-muted-foreground">
                       Pasirinkite skelbimų lentą, kad matytumėte jos peržiūrą.
                     </div>
                   )}
@@ -223,7 +223,7 @@ export const CategoryForm = ({ initialData, billboards }: Props) => {
               </FormSection>
             </div>
 
-            <aside className="space-y-6 xl:sticky xl:top-6 xl:h-fit">
+            <div className="xl:sticky xl:top-6 xl:h-fit">
               <FormSection>
                 <Button disabled={submitDisabled} className="w-full" type="submit">
                   {loading ? 'Saugoma...' : action}
@@ -238,7 +238,7 @@ export const CategoryForm = ({ initialData, billboards }: Props) => {
                   Atšaukti
                 </Button>
               </FormSection>
-            </aside>
+            </div>
           </div>
         </form>
       </Form>

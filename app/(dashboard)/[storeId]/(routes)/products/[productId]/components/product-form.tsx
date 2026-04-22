@@ -241,7 +241,10 @@ export const ProductForm = ({ initialData, subcategories, categories }: Props) =
                         {!hasSubcategories && (
                           <FormDescription>
                             Pirma sukurkite bent vieną
-                            <Link href={`/${params?.storeId}/subcategories`} className="ml-1 text-blue-500 underline">
+                            <Link
+                              href={`/${params?.storeId}/subcategories/new`}
+                              className="ml-1 text-blue-500 underline"
+                            >
                               subkategoriją
                             </Link>
                             , kad būtų galima išsaugoti prekę.
@@ -306,7 +309,7 @@ export const ProductForm = ({ initialData, subcategories, categories }: Props) =
               </FormSection>
             </div>
 
-            <aside className="space-y-6 xl:sticky xl:top-6 xl:h-fit">
+            <div className="flex flex-col gap-6 xl:sticky xl:top-6 xl:h-fit">
               <FormSection title="Būsena" description="Nustatymai, kurie keičia produkto matomumą.">
                 <FormField
                   control={form.control}
@@ -402,7 +405,7 @@ export const ProductForm = ({ initialData, subcategories, categories }: Props) =
                   Atšaukti
                 </Button>
               </FormSection>
-            </aside>
+            </div>
           </div>
         </form>
       </Form>

@@ -12,15 +12,16 @@ import {
   CloudinaryUploadWidgetInfo,
   CloudinaryUploadWidgetResults,
 } from 'next-cloudinary';
+import { cn } from '@/lib/utils';
 
-interface ImageUploadProps {
+type Props = {
   disabled?: boolean;
   onChange: (value: string) => void;
   onRemove: (value: string) => void;
   value: string[];
-}
+};
 
-const ImageUpload: React.FC<ImageUploadProps> = ({ disabled, onChange, onRemove, value }) => {
+const ImageUpload = ({ disabled, onChange, onRemove, value }: Props) => {
   const [isMounted, setIsMounted] = useState(false);
   const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? 'pjowkmpm';
 
@@ -63,7 +64,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ disabled, onChange, onRemove,
 
   return (
     <div>
-      <div className="mb-4 flex items-center gap-4">
+      <div className={cn('flex items-center gap-4', value.length > 0 && 'mb-4')}>
         {value.map((url) => (
           <div key={url} className="relative h-[200px] w-[200px] overflow-hidden rounded-md">
             <div className="absolute right-2 top-2 z-10">

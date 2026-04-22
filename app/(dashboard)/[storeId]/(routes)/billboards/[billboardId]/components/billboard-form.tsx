@@ -136,9 +136,9 @@ export const BillboardForm = ({ initialData }: Props) => {
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="w-full space-y-8">
           <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_320px]">
-            <div className="space-y-6">
+            <div className="flex flex-col gap-6">
               <FormSection title="Vaizdas">
-                <div className="space-y-5">
+                <div className="flex flex-col gap-4">
                   <FormField
                     control={form.control}
                     name="label"
@@ -168,7 +168,7 @@ export const BillboardForm = ({ initialData }: Props) => {
                           />
                         </FormControl>
                         <FormDescription>
-                          Šis paveikslėlis bus rodomas kategorijų hero zonoje ir jų peržiūrose.
+                          Šis paveikslėlis bus rodomas kategorijų hero zonoje (arba tituliniame puslapyje).
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -178,7 +178,7 @@ export const BillboardForm = ({ initialData }: Props) => {
               </FormSection>
 
               <FormSection title="Greita peržiūra">
-                <div className="overflow-hidden rounded-xl border bg-muted/20">
+                <div className="overflow-hidden rounded-xl bg-muted/20">
                   {watchedImageUrl ? (
                     <div
                       style={{
@@ -194,7 +194,7 @@ export const BillboardForm = ({ initialData }: Props) => {
                       </div>
                     </div>
                   ) : (
-                    <div className="flex items-center justify-center p-6 text-center text-sm text-muted-foreground">
+                    <div className="flex items-center justify-center bg-card p-6 text-center text-sm text-muted-foreground">
                       Įkelkite paveikslėlį, kad matytumėte skelbimų lentos peržiūrą.
                     </div>
                   )}
@@ -202,7 +202,7 @@ export const BillboardForm = ({ initialData }: Props) => {
               </FormSection>
             </div>
 
-            <aside className="space-y-6 xl:sticky xl:top-6 xl:h-fit">
+            <div className="xl:sticky xl:top-6 xl:h-fit">
               <FormSection>
                 <Button disabled={loading} className="w-full" type="submit">
                   {loading ? 'Saugoma...' : action}
@@ -217,7 +217,7 @@ export const BillboardForm = ({ initialData }: Props) => {
                   Atšaukti
                 </Button>
               </FormSection>
-            </aside>
+            </div>
           </div>
         </form>
       </Form>

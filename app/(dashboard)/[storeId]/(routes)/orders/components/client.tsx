@@ -4,16 +4,16 @@ import { Heading } from '@/components/ui/heading';
 import { Separator } from '@/components/ui/separator';
 import { DataTable } from '@/components/ui/data-table';
 
-import { OrderColumn, columns } from './columns';
+import { columns, OrderColumn } from './columns';
 
-interface OrderClientProps {
+type Props = {
   data: OrderColumn[];
-}
+};
 
-export const OrderClient: React.FC<OrderClientProps> = ({ data }) => {
+export const OrderClient = ({ data }: Props) => {
   return (
     <>
-      <Heading title={`Užsakymai (${data.length})`} description="Tvarkykite parduotuvės užsakymus" />
+      <Heading title={`Užsakymai (${data.length})`} />
       <Separator />
       <DataTable searchKey="products" columns={columns} data={data} />
     </>

@@ -8,28 +8,30 @@ import { Heading } from '@/components/ui/heading';
 import { Separator } from '@/components/ui/separator';
 import { DataTable } from '@/components/ui/data-table';
 import { ApiList } from '@/components/ui/api-list';
-import { SubCategoryColumn, columns } from './columns';
+import { columns, SubCategoryColumn } from './columns';
 
-interface SubCategoryClientProps {
+type Props = {
   data: SubCategoryColumn[];
-}
+};
 
-export const SubcategoryClient: React.FC<SubCategoryClientProps> = ({ data }) => {
+export const SubcategoryClient = ({ data }: Props) => {
   const router = useRouter();
   const params = useParams();
 
   return (
     <>
       <div className="flex items-center justify-between">
-        <Heading title={`Subkategorijos (${data.length})`} description="Tvarkykite parduotuvės subkategorijas" />
+        <Heading title={`Subkategorijos (${data.length})`} />
         <Button onClick={() => router.push(`/${params.storeId}/subcategories/new`)}>
           <Plus className="mr-2 h-4 w-4" />
           Pridėti naują
         </Button>
       </div>
       <Separator />
+
       <DataTable searchKey="name" columns={columns} data={data} />
-      <Heading title="API" description="API iškvietimas subkategorijoms" />
+
+      <Heading title="API" />
       <Separator />
       <ApiList entityName="subcategories" entityIdName="subcategoryId" />
     </>

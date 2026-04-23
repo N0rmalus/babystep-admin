@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { Page } from '@/components/dashboard/page';
-import prismadb from '@/lib/prismadb';
+import { getSubcategories } from '@/queries/get-subcategories';
 import { SubcategoryClient } from './components/client';
 import { SubCategoryColumn } from './components/columns';
 
@@ -11,18 +11,9 @@ type Props = {
 };
 
 const SubcategoriesPage = async ({ params }: Props) => {
-  const subcategories = await prismadb.subcategory.findMany({
-    where: {
-      category: {
-        storeId: params.storeId,
-      },
-    },
-    include: {
-      category: true,
-    },
-    orderBy: {
-      createdAt: 'desc',
-    },
+  const subcategories = await getSubcategories(params.storeId, {
+    includeCategory: true,
+    orderByCreatedAt: 'desc',
   });
 
   const formattedSubcategories: SubCategoryColumn[] = subcategories.map((item) => ({

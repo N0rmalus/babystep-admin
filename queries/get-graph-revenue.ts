@@ -1,3 +1,5 @@
+import 'server-only';
+
 import prismadb from '@/lib/prismadb';
 
 interface GraphData {

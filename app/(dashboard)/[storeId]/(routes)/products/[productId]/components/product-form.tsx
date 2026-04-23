@@ -270,9 +270,10 @@ export const ProductForm = ({ initialData, subcategories, categories }: Props) =
                     )}
                   />
                 </div>
-              </FormSection>
 
-              <FormSection title="Aprašymas">
+                <Separator />
+
+                <h3 className="text-base font-semibold tracking-tight">Produkto aprašymas</h3>
                 <FormField
                   control={form.control}
                   name="description"
@@ -287,10 +288,6 @@ export const ProductForm = ({ initialData, subcategories, categories }: Props) =
                           placeholder="Papasakokite apie prekę, jos savybes, medžiagas ir kuo ji išsiskiria."
                         />
                       </FormControl>
-                      <FormDescription>
-                        {watchedDescriptionText.length} simbolių. Galite naudoti antraštes, paryškinimą, citatas ir
-                        sąrašus.
-                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}

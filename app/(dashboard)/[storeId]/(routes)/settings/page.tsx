@@ -1,10 +1,9 @@
 import { auth } from '@clerk/nextjs';
 import { redirect } from 'next/navigation';
 
-import prismadb from '@/lib/prismadb';
-
 import { SettingsForm } from './components/settings-form';
 import { Page } from '@/components/dashboard/page';
+import { getStoreByUserId } from '@/queries/get-store-by-user-id';
 
 type Props = {
   params: {
@@ -19,12 +18,7 @@ const SettingsPage = async ({ params }: Props) => {
     redirect('/sign-in');
   }
 
-  const store = await prismadb.store.findFirst({
-    where: {
-      id: params.storeId,
-      userId,
-    },
-  });
+  const store = await getStoreByUserId(params.storeId, userId);
 
   if (!store) {
     redirect('/');

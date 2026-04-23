@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { Page } from '@/components/dashboard/page';
-import prismadb from '@/lib/prismadb';
+import { getProducts } from '@/queries/get-products';
 import { formatter } from '@/lib/utils';
 
 import { ProductClient } from './components/client';
@@ -13,16 +13,9 @@ type Props = {
 };
 
 const ProductsPage = async ({ params }: Props) => {
-  const products = await prismadb.product.findMany({
-    where: {
-      storeId: params.storeId,
-    },
-    include: {
-      subcategory: true,
-    },
-    orderBy: {
-      createdAt: 'desc',
-    },
+  const products = await getProducts(params.storeId, {
+    includeSubcategory: true,
+    orderByCreatedAt: 'desc',
   });
 
   const formattedProducts: ProductColumn[] = products.map((item) => ({

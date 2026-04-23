@@ -5,6 +5,8 @@ import { corsHeaders } from '@/lib/cors';
 
 // Personal imports
 import prismadb from '@/lib/prismadb';
+import { getBillboard } from '@/queries/get-billboard';
+import { getStoreByUserId } from '@/queries/get-store-by-user-id';
 
 export async function OPTIONS() {
   return NextResponse.json({}, { headers: corsHeaders });
@@ -19,12 +21,7 @@ export async function GET(req: Request, { params }: { params: { storeId: string;
       return new NextResponse('Reikalingas skelbimų lentos ID', { status: 400, headers: corsHeaders });
     }
 
-    const billboard = await prismadb.billboard.findFirst({
-      where: {
-        id: params.billboardId,
-        storeId: params.storeId,
-      },
-    });
+    const billboard = await getBillboard(params.storeId, params.billboardId);
 
     if (!billboard) {
       return new NextResponse('Skelbimų lenta šioje parduotuvėje nerasta', { status: 404, headers: corsHeaders });
@@ -57,12 +54,7 @@ export async function PATCH(req: Request, { params }: { params: { storeId: strin
       return new NextResponse('Reikalingas skelbimų lentos ID', { status: 400 });
     }
 
-    const storeByUserId = await prismadb.store.findFirst({
-      where: {
-        id: params.storeId,
-        userId,
-      },
-    });
+    const storeByUserId = await getStoreByUserId(params.storeId, userId);
 
     if (!storeByUserId) {
       return new NextResponse('Neautorizuota', { status: 403 });
@@ -101,12 +93,7 @@ export async function DELETE(req: Request, { params }: { params: { storeId: stri
       return new NextResponse('Reikalingas skelbimų lentos ID', { status: 400 });
     }
 
-    const storeByUserId = await prismadb.store.findFirst({
-      where: {
-        id: params.storeId,
-        userId,
-      },
-    });
+    const storeByUserId = await getStoreByUserId(params.storeId, userId);
 
     if (!storeByUserId) {
       return new NextResponse('Neautorizuota', { status: 403 });

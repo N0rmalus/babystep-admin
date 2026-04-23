@@ -4,7 +4,7 @@ import { formatter } from '@/lib/utils';
 import { OrderClient } from './components/client';
 import { OrderColumn } from './components/columns';
 import { Page } from '@/components/dashboard/page';
-import prismadb from '@/lib/prismadb';
+import { getOrders } from '@/queries/get-orders';
 
 type Props = {
   params: {
@@ -13,21 +13,7 @@ type Props = {
 };
 
 const OrdersPage = async ({ params }: Props) => {
-  const orders = await prismadb.order.findMany({
-    where: {
-      storeId: params.storeId,
-    },
-    include: {
-      orderItems: {
-        include: {
-          product: true,
-        },
-      },
-    },
-    orderBy: {
-      createdAt: 'desc',
-    },
-  });
+  const orders = await getOrders(params.storeId);
 
   const formattedOrders: OrderColumn[] = orders.map((item) => ({
     id: item.id,

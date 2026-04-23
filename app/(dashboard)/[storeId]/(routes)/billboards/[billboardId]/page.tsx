@@ -1,7 +1,7 @@
-import prismadb from '@/lib/prismadb';
 import { redirect } from 'next/navigation';
 import { BillboardForm } from './components/billboard-form';
 import { Page } from '@/components/dashboard/page';
+import { getBillboard } from '@/queries/get-billboard';
 
 type Props = {
   params: {
@@ -13,12 +13,7 @@ type Props = {
 const BillboardPage = async ({ params }: Props) => {
   const billboard =
     params.billboardId !== 'new'
-      ? await prismadb.billboard.findFirst({
-          where: {
-            id: params.billboardId,
-            storeId: params.storeId,
-          },
-        })
+      ? await getBillboard(params.storeId, params.billboardId)
       : null;
 
   if (params.billboardId !== 'new' && !billboard) {

@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { corsHeaders } from '@/lib/cors';
 import { stripe } from '@/lib/stripe';
 import prismadb from '@/lib/prismadb';
+import { getProducts } from '@/queries/get-products';
 
 type CheckoutRequest = {
   productIds?: string[];
@@ -51,20 +52,10 @@ export async function POST(req: Request, { params }: { params: { storeId: string
     const quantityByProductId = buildQuantityByProductId(sanitizedProductIds);
     const uniqueProductIds = Object.keys(quantityByProductId);
 
-    const products = await prismadb.product.findMany({
-      where: {
-        id: {
-          in: uniqueProductIds,
-        },
-        storeId: params.storeId,
-        isArchived: false,
-      },
-      select: {
-        id: true,
-        name: true,
-        price: true,
-        amountInStock: true,
-      },
+    const products = await getProducts(params.storeId, {
+      productIds: uniqueProductIds,
+      onlyActive: true,
+      selectCheckoutFields: true,
     });
 
     const availableProductIds = new Set(products.map((product) => product.id));

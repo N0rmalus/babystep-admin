@@ -2,6 +2,9 @@ import { auth } from '@clerk/nextjs';
 import { NextResponse } from 'next/server';
 import { corsHeaders } from '@/lib/cors';
 import prismadb from '@/lib/prismadb';
+import { getCategory } from '@/queries/get-category';
+import { getStoreByUserId } from '@/queries/get-store-by-user-id';
+import { getSubcategory } from '@/queries/get-subcategory';
 
 export async function OPTIONS() {
   return NextResponse.json({}, { headers: corsHeaders });
@@ -16,17 +19,7 @@ export async function GET(req: Request, { params }: { params: { storeId: string;
       return new NextResponse('Būtinas subkategorijos ID', { status: 400, headers: corsHeaders });
     }
 
-    const subcategory = await prismadb.subcategory.findFirst({
-      where: {
-        id: params.subcategoryId,
-        category: {
-          storeId: params.storeId,
-        },
-      },
-      include: {
-        category: true,
-      },
-    });
+    const subcategory = await getSubcategory(params.storeId, params.subcategoryId, { includeCategory: true });
 
     if (!subcategory) {
       return new NextResponse('Subkategorija šioje parduotuvėje nerasta', { status: 404, headers: corsHeaders });
@@ -59,36 +52,19 @@ export async function PATCH(req: Request, { params }: { params: { storeId: strin
       return new NextResponse('Būtinas subkategorijos ID', { status: 400 });
     }
 
-    const storeByUserId = await prismadb.store.findFirst({
-      where: {
-        id: params.storeId,
-        userId,
-      },
-    });
+    const storeByUserId = await getStoreByUserId(params.storeId, userId);
 
     if (!storeByUserId) {
       return new NextResponse('Neautorizuota', { status: 403 });
     }
 
-    const subcategoryByStore = await prismadb.subcategory.findFirst({
-      where: {
-        id: params.subcategoryId,
-        category: {
-          storeId: params.storeId,
-        },
-      },
-    });
+    const subcategoryByStore = await getSubcategory(params.storeId, params.subcategoryId);
 
     if (!subcategoryByStore) {
       return new NextResponse('Subkategorija šioje parduotuvėje nerasta', { status: 404 });
     }
 
-    const category = await prismadb.category.findFirst({
-      where: {
-        id: categoryId,
-        storeId: params.storeId,
-      },
-    });
+    const category = await getCategory(params.storeId, categoryId);
 
     if (!category) {
       return new NextResponse('Kategorija šiai parduotuvei nerasta', { status: 404 });
@@ -122,12 +98,7 @@ export async function DELETE(req: Request, { params }: { params: { storeId: stri
       return new NextResponse('Būtinas subkategorijos ID', { status: 400 });
     }
 
-    const storeByUserId = await prismadb.store.findFirst({
-      where: {
-        id: params.storeId,
-        userId,
-      },
-    });
+    const storeByUserId = await getStoreByUserId(params.storeId, userId);
 
     if (!storeByUserId) {
       return new NextResponse('Neautorizuota', { status: 403 });

@@ -5,6 +5,9 @@ import { corsHeaders } from '@/lib/cors';
 
 // Personal imports
 import prismadb from '@/lib/prismadb';
+import { getProducts } from '@/queries/get-products';
+import { getStoreByUserId } from '@/queries/get-store-by-user-id';
+import { getSubcategory } from '@/queries/get-subcategory';
 
 export async function OPTIONS() {
   return NextResponse.json({}, { headers: corsHeaders });
@@ -39,25 +42,13 @@ export async function POST(req: Request, { params }: { params: { storeId: string
       return new NextResponse('Būtinas parduotuvės ID', { status: 400 });
     }
 
-    const storeByUserId = await prismadb.store.findFirst({
-      where: {
-        id: params.storeId,
-        userId,
-      },
-    });
+    const storeByUserId = await getStoreByUserId(params.storeId, userId);
 
     if (!storeByUserId) {
       return new NextResponse('Neautorizuota', { status: 403 });
     }
 
-    const subcategory = await prismadb.subcategory.findFirst({
-      where: {
-        id: subcategoryId,
-        category: {
-          storeId: params.storeId,
-        },
-      },
-    });
+    const subcategory = await getSubcategory(params.storeId, subcategoryId);
 
     if (!subcategory) {
       return new NextResponse('Subkategorija šiai parduotuvei nerasta', { status: 404 });
@@ -98,21 +89,12 @@ export async function GET(req: Request, { params }: { params: { storeId: string 
       return new NextResponse('Būtinas parduotuvės ID', { status: 400, headers: corsHeaders });
     }
 
-    const products = await prismadb.product.findMany({
-      where: {
-        storeId: params.storeId,
-        subcategoryId,
-        isFeatured: isFeatured ? true : undefined,
-        isArchived: false,
-      },
-      include: {
-        images: true,
-        subcategory: {
-          include: {
-            category: true,
-          },
-        },
-      },
+    const products = await getProducts(params.storeId, {
+      subcategoryId,
+      isFeatured: isFeatured ? true : undefined,
+      onlyActive: true,
+      includeImages: true,
+      includeSubcategoryCategory: true,
     });
 
     return NextResponse.json(products, { headers: corsHeaders });

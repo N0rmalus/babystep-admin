@@ -5,6 +5,8 @@ import { corsHeaders } from '@/lib/cors';
 
 // Personal imports
 import prismadb from '@/lib/prismadb';
+import { getBillboards } from '@/queries/get-billboards';
+import { getStoreByUserId } from '@/queries/get-store-by-user-id';
 
 export async function OPTIONS() {
   return NextResponse.json({}, { headers: corsHeaders });
@@ -30,12 +32,7 @@ export async function POST(req: Request, { params }: { params: { storeId: string
       return new NextResponse('Būtinas parduotuvės ID', { status: 400 });
     }
 
-    const storeByUserId = await prismadb.store.findFirst({
-      where: {
-        id: params.storeId,
-        userId,
-      },
-    });
+    const storeByUserId = await getStoreByUserId(params.storeId, userId);
 
     if (!storeByUserId) {
       return new NextResponse('Neautorizuota', { status: 403 });
@@ -62,11 +59,7 @@ export async function GET(req: Request, { params }: { params: { storeId: string 
       return new NextResponse('Būtinas parduotuvės ID', { status: 400, headers: corsHeaders });
     }
 
-    const billboards = await prismadb.billboard.findMany({
-      where: {
-        storeId: params.storeId,
-      },
-    });
+    const billboards = await getBillboards(params.storeId);
 
     return NextResponse.json(billboards, { headers: corsHeaders });
   } catch (error) {

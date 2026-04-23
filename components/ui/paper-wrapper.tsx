@@ -4,8 +4,9 @@ import { cn } from '@/lib/utils';
 type Props = {
   children: ReactNode;
   className?: string;
+  borderless?: boolean;
 };
 
-export const PaperWrapper = ({ children, className }: Props) => (
-  <div className={cn('rounded-xl border bg-card p-5', className)}>{children}</div>
+export const PaperWrapper = ({ children, className, borderless }: Props) => (
+  <div className={cn('rounded-xl bg-card p-5', className, !borderless && 'border')}>{children}</div>
 );

@@ -8,11 +8,12 @@ type Props = {
   children: ReactNode;
   className?: string;
   contentClassName?: string;
+  borderless?: boolean;
 };
 
-export const FormSection = ({ title, description, children, className, contentClassName }: Props) => {
+export const FormSection = ({ title, description, children, className, contentClassName, borderless }: Props) => {
   return (
-    <PaperWrapper className="flex flex-col gap-4">
+    <PaperWrapper className="flex flex-col gap-4" borderless={borderless}>
       {(title || description) && (
         <div className="flex flex-col">
           {title && <h3 className="text-base font-semibold tracking-tight">{title}</h3>}

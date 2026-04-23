@@ -1,7 +1,7 @@
 import prismadb from '@/lib/prismadb';
 import { redirect } from 'next/navigation';
 import { SubcategoryForm } from './components/subcategory-form';
-import { DashboardPageShell } from '@/components/dashboard/dashboard-page-shell';
+import { Page } from '@/components/dashboard/page';
 
 type Props = {
   params: {
@@ -32,9 +32,9 @@ const SubcategoryPage = async ({ params }: Props) => {
   });
 
   return (
-    <DashboardPageShell>
+    <Page>
       <SubcategoryForm categories={categories} initialData={subcategory} />
-    </DashboardPageShell>
+    </Page>
   );
 };
 

@@ -1,7 +1,7 @@
 import prismadb from '@/lib/prismadb';
 import { redirect } from 'next/navigation';
 import { ProductForm } from './components/product-form';
-import { DashboardPageShell } from '@/components/dashboard/dashboard-page-shell';
+import { Page } from '@/components/dashboard/page';
 
 type Props = {
   params: {
@@ -38,9 +38,9 @@ const ProductPage = async ({ params }: Props) => {
   });
 
   return (
-    <DashboardPageShell>
+    <Page>
       <ProductForm subcategories={subcategories} categories={categories} initialData={product} />
-    </DashboardPageShell>
+    </Page>
   );
 };
 

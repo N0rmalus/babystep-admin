@@ -1,5 +1,5 @@
 import { format } from 'date-fns';
-import { DashboardPageShell } from '@/components/dashboard/dashboard-page-shell';
+import { Page } from '@/components/dashboard/page';
 import prismadb from '@/lib/prismadb';
 
 import { CategoryClient } from './components/client';
@@ -26,9 +26,9 @@ const CategoriesPage = async ({ params }: { params: { storeId: string } }) => {
   }));
 
   return (
-    <DashboardPageShell>
+    <Page>
       <CategoryClient data={formattedCategories} />
-    </DashboardPageShell>
+    </Page>
   );
 };
 

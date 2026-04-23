@@ -1,7 +1,7 @@
 import prismadb from '@/lib/prismadb';
 import { redirect } from 'next/navigation';
 import { BillboardForm } from './components/billboard-form';
-import { DashboardPageShell } from '@/components/dashboard/dashboard-page-shell';
+import { Page } from '@/components/dashboard/page';
 
 type Props = {
   params: {
@@ -26,9 +26,9 @@ const BillboardPage = async ({ params }: Props) => {
   }
 
   return (
-    <DashboardPageShell>
+    <Page>
       <BillboardForm initialData={billboard} />
-    </DashboardPageShell>
+    </Page>
   );
 };
 

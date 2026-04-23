@@ -22,8 +22,10 @@ const DashboardPage = async ({ params }: Props) => {
   return (
     <div className="flex-col">
       <div className="flex-1 space-y-4 p-4 pt-4 sm:p-6 sm:pt-6 lg:p-8">
-        <Heading title={params.storeId} />
+        <Heading title="Pagrindinis" />
+
         <Separator />
+
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

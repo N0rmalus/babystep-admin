@@ -1,10 +1,10 @@
 import { format } from 'date-fns';
-import prismadb from '@/lib/prismadb';
 import { formatter } from '@/lib/utils';
 
 import { OrderClient } from './components/client';
 import { OrderColumn } from './components/columns';
-import { DashboardPageShell } from '@/components/dashboard/dashboard-page-shell';
+import { Page } from '@/components/dashboard/page';
+import prismadb from '@/lib/prismadb';
 
 type Props = {
   params: {
@@ -44,9 +44,9 @@ const OrdersPage = async ({ params }: Props) => {
   }));
 
   return (
-    <DashboardPageShell>
+    <Page>
       <OrderClient data={formattedOrders} />
-    </DashboardPageShell>
+    </Page>
   );
 };
 

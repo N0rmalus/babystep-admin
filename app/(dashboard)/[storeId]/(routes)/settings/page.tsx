@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import prismadb from '@/lib/prismadb';
 
 import { SettingsForm } from './components/settings-form';
-import { DashboardPageShell } from '@/components/dashboard/dashboard-page-shell';
+import { Page } from '@/components/dashboard/page';
 
 type Props = {
   params: {
@@ -31,9 +31,9 @@ const SettingsPage = async ({ params }: Props) => {
   }
 
   return (
-    <DashboardPageShell>
+    <Page>
       <SettingsForm initialData={store} />
-    </DashboardPageShell>
+    </Page>
   );
 };
 

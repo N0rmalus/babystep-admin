@@ -82,3 +82,52 @@ body,
     @apply bg-background text-foreground;
   }
 }
+
+@layer components {
+  .tiptap p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    @apply pointer-events-none float-left h-0 text-muted-foreground;
+  }
+
+  .tiptap h2 {
+    @apply mt-6 text-xl font-semibold tracking-tight;
+  }
+
+  .tiptap h3 {
+    @apply mt-5 text-lg font-semibold tracking-tight;
+  }
+
+  .tiptap p + p,
+  .tiptap ul + p,
+  .tiptap ol + p,
+  .tiptap blockquote + p,
+  .tiptap h2 + p,
+  .tiptap h3 + p {
+    @apply mt-3;
+  }
+
+  .tiptap ul,
+  .tiptap ol {
+    @apply my-3 ml-5 space-y-1;
+  }
+
+  .tiptap ul {
+    @apply list-disc;
+  }
+
+  .tiptap ol {
+    @apply list-decimal;
+  }
+
+  .tiptap blockquote {
+    @apply my-4 border-l-2 border-border pl-4 text-muted-foreground;
+  }
+
+  .tiptap strong {
+    @apply font-semibold;
+  }
+
+  .tiptap em {
+    @apply italic;
+  }
+}

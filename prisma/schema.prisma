@@ -76,7 +76,7 @@ model Product {
   amountInStock Int
   isFeatured    Boolean     @default(false)
   isArchived    Boolean     @default(false)
-  description   String?     @db.VarChar(512)
+  description   String?     @db.Text
   images        Image[]
   orderItems    OrderItem[]
   createdAt     DateTime    @default(now())

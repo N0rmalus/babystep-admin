@@ -8,7 +8,7 @@ export const productFormSchema = z.object({
   subcategoryId: z.string().min(1),
   isFeatured: z.boolean().default(false).optional(),
   isArchived: z.boolean().default(false).optional(),
-  description: z.string().max(512).default(''),
+  description: z.string().default(''),
 });
 
 export type ProductFormValues = z.infer<typeof productFormSchema>;

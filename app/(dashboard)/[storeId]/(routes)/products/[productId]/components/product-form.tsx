@@ -24,8 +24,9 @@ import ImageUpload from '@/components/ui/image-upload';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { Textarea } from '@/components/ui/textarea';
+import { TiptapEditor } from '@/components/ui/tiptap-editor';
 import { getFormErrorMessage } from '@/lib/get-form-error-message';
+import { getPlainTextFromRichText, normalizeRichTextContent } from '@/lib/rich-text';
 import { formatter } from '@/lib/utils';
 import { ProductStatusToggle } from './product-status-toggle';
 import { FormSection } from '@/components/ui/form/form-section';
@@ -64,7 +65,7 @@ export const ProductForm = ({ initialData, subcategories, categories }: Props) =
         subcategoryId: initialData.subcategoryId,
         isFeatured: initialData.isFeatured,
         isArchived: initialData.isArchived,
-        description: initialData.description ?? '',
+        description: normalizeRichTextContent(initialData.description),
       }
     : {
         name: '',
@@ -121,6 +122,9 @@ export const ProductForm = ({ initialData, subcategories, categories }: Props) =
   const watchedSubcategoryId = form.watch('subcategoryId');
   const watchedImages = form.watch('images') ?? [];
   const watchedDescription = form.watch('description') ?? '';
+  const watchedDescriptionText = getPlainTextFromRichText(watchedDescription);
+  const watchedDescriptionPreview =
+    watchedDescriptionText.length > 160 ? `${watchedDescriptionText.slice(0, 160).trim()}...` : watchedDescriptionText;
   const watchedIsFeatured = Boolean(form.watch('isFeatured'));
   const watchedIsArchived = Boolean(form.watch('isArchived'));
   const productNamePreview = watchedName.trim() || 'Nenurodytas pavadinimas';
@@ -275,15 +279,18 @@ export const ProductForm = ({ initialData, subcategories, categories }: Props) =
                   render={({ field }) => (
                     <FormItem>
                       <FormControl>
-                        <Textarea
-                          maxLength={512}
-                          rows={5}
+                        <TiptapEditor
+                          value={field.value}
+                          onChange={field.onChange}
+                          onBlur={field.onBlur}
                           disabled={loading}
-                          placeholder="Prekės aprašymas"
-                          {...field}
+                          placeholder="Papasakokite apie prekę, jos savybes, medžiagas ir kuo ji išsiskiria."
                         />
                       </FormControl>
-                      <FormDescription>{watchedDescription.length}/512</FormDescription>
+                      <FormDescription>
+                        {watchedDescriptionText.length} simbolių. Galite naudoti antraštes, paryškinimą, citatas ir
+                        sąrašus.
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -353,8 +360,17 @@ export const ProductForm = ({ initialData, subcategories, categories }: Props) =
                     </div>
                     <div className="rounded-md border bg-background px-3 py-2">
                       <p className="text-xs text-muted-foreground">Aprašymas</p>
-                      <p className="text-sm font-semibold">{watchedDescription.length} s.</p>
+                      <p className="text-sm font-semibold">{watchedDescriptionText.length} s.</p>
                     </div>
+                  </div>
+
+                  <Separator />
+
+                  <div className="rounded-md border bg-background px-3 py-2">
+                    <p className="text-xs text-muted-foreground">Aprašymo peržiūra</p>
+                    <p className="mt-1 text-sm leading-6 text-foreground">
+                      {watchedDescriptionPreview || 'Aprašymas dar nepridėtas.'}
+                    </p>
                   </div>
 
                   <Separator />

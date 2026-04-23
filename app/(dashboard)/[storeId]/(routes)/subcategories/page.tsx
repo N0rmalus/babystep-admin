@@ -5,12 +5,13 @@ import { SubcategoryClient } from './components/client';
 import { SubCategoryColumn } from './components/columns';
 
 type Props = {
-  params: {
+  params: Promise<{
     storeId: string;
-  };
+  }>;
 };
 
-const SubcategoriesPage = async ({ params }: Props) => {
+const SubcategoriesPage = async (props: Props) => {
+  const params = await props.params;
   const subcategories = await getSubcategories(params.storeId, {
     includeCategory: true,
     orderByCreatedAt: 'desc',

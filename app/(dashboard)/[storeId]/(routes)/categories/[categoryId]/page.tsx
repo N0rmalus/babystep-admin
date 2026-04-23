@@ -5,13 +5,14 @@ import { getCategory } from '@/queries/get-category';
 import { getBillboards } from '@/queries/get-billboards';
 
 type Props = {
-  params: {
+  params: Promise<{
     categoryId: string;
     storeId: string;
-  };
+  }>;
 };
 
-const CategoryPage = async ({ params }: Props) => {
+const CategoryPage = async (props: Props) => {
+  const params = await props.params;
   const category =
     params.categoryId !== 'new'
       ? await getCategory(params.storeId, params.categoryId)

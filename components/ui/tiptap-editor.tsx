@@ -1,24 +1,14 @@
 'use client';
 
-import { forwardRef, useEffect } from 'react';
 import type { AriaAttributes } from 'react';
+import { forwardRef, useEffect } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import {
-  Bold,
-  Heading2,
-  Heading3,
-  Italic,
-  List,
-  ListOrdered,
-  Pilcrow,
-  Quote,
-  Redo2,
-  Undo2,
-} from 'lucide-react';
-import { EditorContent, useEditor, type Editor } from '@tiptap/react';
+import { Bold, Heading2, Heading3, Italic, List, ListOrdered, Pilcrow, Quote, Redo2, Undo2 } from 'lucide-react';
+import { type Editor, EditorContent, useEditor } from '@tiptap/react';
 import Placeholder from '@tiptap/extension-placeholder';
 import StarterKit from '@tiptap/starter-kit';
 import { Button } from '@/components/ui/button';
+import useMounted from '@/hooks/use-mounted';
 import { cn } from '@/lib/utils';
 import { normalizeRichTextContent } from '@/lib/rich-text';
 
@@ -59,7 +49,7 @@ const ToolbarButton = ({ editor, icon: Icon, label, disabled, isActive, onClick 
   </Button>
 );
 
-export const TiptapEditor = forwardRef<HTMLDivElement, TiptapEditorProps>(
+const TiptapEditorContent = forwardRef<HTMLDivElement, TiptapEditorProps>(
   (
     {
       value,
@@ -93,8 +83,7 @@ export const TiptapEditor = forwardRef<HTMLDivElement, TiptapEditorProps>(
           id: id ?? '',
           'aria-describedby': ariaDescribedBy ?? '',
           'aria-invalid': ariaInvalid ? 'true' : 'false',
-          class:
-            'tiptap min-h-[240px] w-full px-4 py-3 text-sm leading-6 text-foreground focus:outline-none',
+          class: 'tiptap min-h-[240px] w-full px-4 py-3 text-sm leading-6 text-foreground focus:outline-none',
         },
       },
       onUpdate: ({ editor: currentEditor }) => {
@@ -117,8 +106,7 @@ export const TiptapEditor = forwardRef<HTMLDivElement, TiptapEditorProps>(
             id: id ?? '',
             'aria-describedby': ariaDescribedBy ?? '',
             'aria-invalid': ariaInvalid ? 'true' : 'false',
-            class:
-              'tiptap min-h-[240px] w-full px-4 py-3 text-sm leading-6 text-foreground focus:outline-none',
+            class: 'tiptap min-h-[240px] w-full px-4 py-3 text-sm leading-6 text-foreground focus:outline-none',
           },
         },
       });
@@ -235,6 +223,33 @@ export const TiptapEditor = forwardRef<HTMLDivElement, TiptapEditorProps>(
         <EditorContent editor={editor} />
       </div>
     );
+  },
+);
+TiptapEditorContent.displayName = 'TiptapEditorContent';
+
+export const TiptapEditor = forwardRef<HTMLDivElement, TiptapEditorProps>(
+  ({ disabled = false, className, ...props }, ref) => {
+    const mounted = useMounted();
+
+    if (!mounted) {
+      return (
+        <div
+          ref={ref}
+          className={cn(
+            'overflow-hidden rounded-md border border-input bg-background shadow-sm transition focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2',
+            disabled && 'cursor-not-allowed opacity-70',
+            className,
+          )}
+        >
+          <div className="flex flex-wrap items-center gap-1 border-b bg-muted/40 px-2 py-2">
+            <div className="h-8 w-full rounded bg-muted sm:w-56" />
+          </div>
+          <div className="min-h-[240px] px-4 py-3 text-sm text-muted-foreground">Kraunamas redaktorius...</div>
+        </div>
+      );
+    }
+
+    return <TiptapEditorContent ref={ref} disabled={disabled} className={className} {...props} />;
   },
 );
 TiptapEditor.displayName = 'TiptapEditor';

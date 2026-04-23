@@ -7,12 +7,13 @@ import { ProductClient } from './components/client';
 import { ProductColumn } from './components/columns';
 
 type Props = {
-  params: {
+  params: Promise<{
     storeId: string;
-  };
+  }>;
 };
 
-const ProductsPage = async ({ params }: Props) => {
+const ProductsPage = async (props: Props) => {
+  const params = await props.params;
   const products = await getProducts(params.storeId, {
     includeSubcategory: true,
     orderByCreatedAt: 'desc',

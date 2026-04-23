@@ -1,4 +1,5 @@
-import { auth, UserButton } from '@clerk/nextjs';
+import { UserButton } from '@clerk/nextjs';
+import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import { MainNav, MobileNav } from '@/components/main-nav';
 import StoreSwitcher from '@/components/store-switcher';
@@ -6,7 +7,7 @@ import prismadb from '@/lib/prismadb';
 import { ThemeToggle } from '@/components/theme-toggle';
 
 export const Navbar = async () => {
-  const { userId } = auth();
+  const { userId } = await auth();
 
   if (!userId) {
     redirect('/sign-in');
@@ -26,7 +27,7 @@ export const Navbar = async () => {
         <div className="ml-auto flex items-center gap-2 sm:gap-3 xl:gap-4">
           <MobileNav />
           <ThemeToggle />
-          <UserButton afterSignOutUrl="/" />
+          <UserButton />
         </div>
       </div>
     </div>

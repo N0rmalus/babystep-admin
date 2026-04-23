@@ -37,7 +37,7 @@ export const CellAction: React.FC<CellActionProps> = ({ data }) => {
       await axios.delete(`/api/${params?.storeId}/categories/${data.id}`);
       router.refresh();
       toast.success('Kategorija panaikinta.');
-    } catch (error) {
+    } catch {
       toast.error('Pirmiausia įsitikinkite, kad pašalinote visas prekes, naudojančias šią kategoriją.');
     } finally {
       setLoading(false);

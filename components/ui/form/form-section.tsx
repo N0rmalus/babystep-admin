@@ -13,7 +13,7 @@ type Props = {
 
 export const FormSection = ({ title, description, children, className, contentClassName, borderless }: Props) => {
   return (
-    <PaperWrapper className="flex flex-col gap-4" borderless={borderless}>
+    <PaperWrapper className={cn('flex flex-col gap-4', className)} borderless={borderless}>
       {(title || description) && (
         <div className="flex flex-col">
           {title && <h3 className="text-base font-semibold tracking-tight">{title}</h3>}

@@ -1,11 +1,12 @@
-import { auth } from '@clerk/nextjs';
+import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import prismadb from '@/lib/prismadb';
 
 // Updates the name function
-export async function PATCH(req: Request, { params }: { params: { storeId: string } }) {
+export async function PATCH(req: Request, props: { params: Promise<{ storeId: string }> }) {
+  const params = await props.params;
   try {
-    const { userId } = auth();
+    const { userId } = await auth();
     const body = await req.json();
 
     const { name } = body;
@@ -38,9 +39,10 @@ export async function PATCH(req: Request, { params }: { params: { storeId: strin
 }
 
 // Delete the store function
-export async function DELETE(req: Request, { params }: { params: { storeId: string } }) {
+export async function DELETE(req: Request, props: { params: Promise<{ storeId: string }> }) {
+  const params = await props.params;
   try {
-    const { userId } = auth();
+    const { userId } = await auth();
 
     if (!userId) {
       return new NextResponse('Neautentifikuota', { status: 401 });

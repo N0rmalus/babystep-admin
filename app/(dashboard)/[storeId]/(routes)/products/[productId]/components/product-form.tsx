@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import { useState } from 'react';
 import { Category, Image, Product, Subcategory } from '@prisma/client';
 import { Trash } from 'lucide-react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useParams, useRouter } from 'next/navigation';
 import { AlertModal } from '@/components/modals/alert-modal';
@@ -39,7 +39,8 @@ import axios from 'axios';
 
 type Props = {
   initialData:
-    | (Product & {
+    | (Omit<Product, 'price'> & {
+        price: number;
         images: Image[];
       })
     | null;
@@ -60,7 +61,7 @@ export const ProductForm = ({ initialData, subcategories, categories }: Props) =
     ? {
         name: initialData.name,
         images: initialData.images.map((image) => ({ url: image.url })),
-        price: Number(initialData.price),
+        price: initialData.price,
         amountInStock: initialData.amountInStock,
         subcategoryId: initialData.subcategoryId,
         isFeatured: initialData.isFeatured,
@@ -116,7 +117,10 @@ export const ProductForm = ({ initialData, subcategories, categories }: Props) =
     }
   };
 
-  const watchedName = form.watch('name');
+  const watchedName = useWatch({
+    control: form.control,
+    name: 'name',
+  });
   const watchedPrice = Number(form.watch('price'));
   const watchedAmountInStock = Number(form.watch('amountInStock'));
   const watchedSubcategoryId = form.watch('subcategoryId');
@@ -285,7 +289,6 @@ export const ProductForm = ({ initialData, subcategories, categories }: Props) =
                           onChange={field.onChange}
                           onBlur={field.onBlur}
                           disabled={loading}
-                          placeholder="Papasakokite apie prekę, jos savybes, medžiagas ir kuo ji išsiskiria."
                         />
                       </FormControl>
                       <FormMessage />

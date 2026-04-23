@@ -5,13 +5,14 @@ import { getCategories } from '@/queries/get-categories';
 import { getSubcategory } from '@/queries/get-subcategory';
 
 type Props = {
-  params: {
+  params: Promise<{
     subcategoryId: string;
     storeId: string;
-  };
+  }>;
 };
 
-const SubcategoryPage = async ({ params }: Props) => {
+const SubcategoryPage = async (props: Props) => {
+  const params = await props.params;
   const categories = await getCategories(params.storeId);
 
   const subcategory =

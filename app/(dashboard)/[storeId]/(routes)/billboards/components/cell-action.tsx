@@ -37,7 +37,7 @@ export const CellAction: React.FC<CellActionProps> = ({ data }) => {
       await axios.delete(`/api/${params.storeId}/billboards/${data.id}`);
       router.refresh();
       toast.success('Skelbimų lenta panaikinta.');
-    } catch (error) {
+    } catch {
       toast.error('Pirmiausia įsitikinkite, kad pašalinote visas kategorijas, naudojančias šią skelbimų lentą.');
     } finally {
       setLoading(false);

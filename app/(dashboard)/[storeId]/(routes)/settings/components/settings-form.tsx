@@ -44,7 +44,7 @@ export const SettingsForm = ({ initialData }: Props) => {
       await axios.patch(`/api/stores/${params.storeId}`, data);
       router.refresh();
       toast.success('Parduotuvė atnaujinta.');
-    } catch (error) {
+    } catch {
       toast.error('Kažkas nepavyko.');
     } finally {
       setLoading(false);
@@ -58,7 +58,7 @@ export const SettingsForm = ({ initialData }: Props) => {
       router.refresh();
       router.push('/');
       toast.success('Parduotuvė ištrinta.');
-    } catch (error) {
+    } catch {
       toast.error('Pirmiausia įsitikinkite, kad pašalinote visas prekes ir kategorijas.');
     } finally {
       setLoading(false);

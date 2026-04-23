@@ -6,13 +6,14 @@ import { getProduct } from '@/queries/get-product';
 import { getSubcategories } from '@/queries/get-subcategories';
 
 type Props = {
-  params: {
+  params: Promise<{
     productId: string;
     storeId: string;
-  };
+  }>;
 };
 
-const ProductPage = async ({ params }: Props) => {
+const ProductPage = async (props: Props) => {
+  const params = await props.params;
   const categories = await getCategories(params.storeId);
   const subcategories = await getSubcategories(params.storeId);
 
@@ -22,9 +23,16 @@ const ProductPage = async ({ params }: Props) => {
     redirect(`/${params.storeId}/products`);
   }
 
+  const serializedProduct = product
+    ? {
+        ...product,
+        price: Number(product.price),
+      }
+    : null;
+
   return (
     <Page>
-      <ProductForm subcategories={subcategories} categories={categories} initialData={product} />
+      <ProductForm subcategories={subcategories} categories={categories} initialData={serializedProduct} />
     </Page>
   );
 };

@@ -21,6 +21,7 @@ jobs:
       STRIPE_API_KEY: sk_test_ci_placeholder
       FRONTEND_STORE_URL: http://localhost:3001
       STRIPE_WEBHOOK_SECRET: whsec_ci_placeholder
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
     steps:
       - name: Checkout repository

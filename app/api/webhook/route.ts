@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/nextjs';
 import Stripe from 'stripe';
 import { headers } from 'next/headers';
 import { NextResponse } from 'next/server';
@@ -120,6 +121,7 @@ export async function POST(req: Request) {
       });
     });
   } catch (error) {
+    Sentry.captureException(error);
     console.log('[WEBHOOK_CHECKOUT_SESSION_COMPLETED]', error);
     return new NextResponse('Webhook processing error', { status: 500 });
   }

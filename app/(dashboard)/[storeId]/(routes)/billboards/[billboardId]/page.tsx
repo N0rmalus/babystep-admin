@@ -4,13 +4,14 @@ import { Page } from '@/components/dashboard/page';
 import { getBillboard } from '@/queries/get-billboard';
 
 type Props = {
-  params: {
+  params: Promise<{
     billboardId: string;
     storeId: string;
-  };
+  }>;
 };
 
-const BillboardPage = async ({ params }: Props) => {
+const BillboardPage = async (props: Props) => {
+  const params = await props.params;
   const billboard =
     params.billboardId !== 'new'
       ? await getBillboard(params.storeId, params.billboardId)

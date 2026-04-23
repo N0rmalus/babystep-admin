@@ -1,7 +1,6 @@
 'use client';
 
 import Image from 'next/image';
-import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { ImagePlus, Trash } from 'lucide-react';
 
@@ -13,6 +12,7 @@ import {
   CloudinaryUploadWidgetResults,
 } from 'next-cloudinary';
 import { cn } from '@/lib/utils';
+import useMounted from '@/hooks/use-mounted';
 
 type Props = {
   disabled?: boolean;
@@ -22,12 +22,8 @@ type Props = {
 };
 
 const ImageUpload = ({ disabled, onChange, onRemove, value }: Props) => {
-  const [isMounted, setIsMounted] = useState(false);
+  const isMounted = useMounted();
   const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? 'pjowkmpm';
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
 
   const handleUploadSuccess = (result: CloudinaryUploadWidgetResults) => {
     if (typeof result.info === 'string' || !result.info) {
@@ -72,7 +68,7 @@ const ImageUpload = ({ disabled, onChange, onRemove, value }: Props) => {
                 <Trash className="h-4 w-4" />
               </Button>
             </div>
-            <Image fill className="object-cover" alt="Image" src={url} />
+            <Image fill className="object-cover" alt="Image" src={url} sizes="200px" />
           </div>
         ))}
       </div>

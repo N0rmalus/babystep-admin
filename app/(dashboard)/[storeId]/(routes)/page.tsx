@@ -10,10 +10,11 @@ import { formatter } from '@/lib/utils';
 import { CreditCard, Package, Wallet } from 'lucide-react';
 
 type Props = {
-  params: { storeId: string };
+  params: Promise<{ storeId: string }>;
 };
 
-const DashboardPage = async ({ params }: Props) => {
+const DashboardPage = async (props: Props) => {
+  const params = await props.params;
   const totalRevenue = await getTotalRevenue(params.storeId);
   const salesCount = await getSalesCount(params.storeId);
   const stockCount = await getStockCount(params.storeId);

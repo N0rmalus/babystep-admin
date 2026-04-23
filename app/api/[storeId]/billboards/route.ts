@@ -1,5 +1,5 @@
 // Global imports
-import { auth } from '@clerk/nextjs';
+import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { corsHeaders } from '@/lib/cors';
 
@@ -12,9 +12,10 @@ export async function OPTIONS() {
   return NextResponse.json({}, { headers: corsHeaders });
 }
 
-export async function POST(req: Request, { params }: { params: { storeId: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ storeId: string }> }) {
+  const params = await props.params;
   try {
-    const { userId } = auth();
+    const { userId } = await auth();
     const body = await req.json();
 
     const { label, imageUrl } = body;
@@ -53,7 +54,8 @@ export async function POST(req: Request, { params }: { params: { storeId: string
   }
 }
 
-export async function GET(req: Request, { params }: { params: { storeId: string } }) {
+export async function GET(req: Request, props: { params: Promise<{ storeId: string }> }) {
+  const params = await props.params;
   try {
     if (!params.storeId) {
       return new NextResponse('Būtinas parduotuvės ID', { status: 400, headers: corsHeaders });

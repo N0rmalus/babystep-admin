@@ -7,12 +7,13 @@ import { Page } from '@/components/dashboard/page';
 import { getOrders } from '@/queries/get-orders';
 
 type Props = {
-  params: {
+  params: Promise<{
     storeId: string;
-  };
+  }>;
 };
 
-const OrdersPage = async ({ params }: Props) => {
+const OrdersPage = async (props: Props) => {
+  const params = await props.params;
   const orders = await getOrders(params.storeId);
 
   const formattedOrders: OrderColumn[] = orders.map((item) => ({

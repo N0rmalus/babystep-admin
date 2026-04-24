@@ -83,7 +83,7 @@ const TiptapEditorContent = forwardRef<HTMLDivElement, TiptapEditorProps>(
           id: id ?? '',
           'aria-describedby': ariaDescribedBy ?? '',
           'aria-invalid': ariaInvalid ? 'true' : 'false',
-          class: 'tiptap min-h-[240px] w-full px-4 py-3 text-sm leading-6 text-foreground focus:outline-none',
+          class: 'tiptap min-h-[240px] w-full px-4 py-3 text-sm leading-6 text-foreground focus:outline-hidden',
         },
       },
       onUpdate: ({ editor: currentEditor }) => {
@@ -106,7 +106,7 @@ const TiptapEditorContent = forwardRef<HTMLDivElement, TiptapEditorProps>(
             id: id ?? '',
             'aria-describedby': ariaDescribedBy ?? '',
             'aria-invalid': ariaInvalid ? 'true' : 'false',
-            class: 'tiptap min-h-[240px] w-full px-4 py-3 text-sm leading-6 text-foreground focus:outline-none',
+            class: 'tiptap min-h-[240px] w-full px-4 py-3 text-sm leading-6 text-foreground focus:outline-hidden',
           },
         },
       });
@@ -131,7 +131,7 @@ const TiptapEditorContent = forwardRef<HTMLDivElement, TiptapEditorProps>(
       <div
         ref={ref}
         className={cn(
-          'overflow-hidden rounded-md border border-input bg-background shadow-sm transition focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2',
+          'overflow-hidden rounded-md border border-input bg-background shadow-xs transition focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2',
           disabled && 'cursor-not-allowed opacity-70',
           className,
         )}
@@ -236,7 +236,7 @@ export const TiptapEditor = forwardRef<HTMLDivElement, TiptapEditorProps>(
         <div
           ref={ref}
           className={cn(
-            'overflow-hidden rounded-md border border-input bg-background shadow-sm transition focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2',
+            'overflow-hidden rounded-md border border-input bg-background shadow-xs transition focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2',
             disabled && 'cursor-not-allowed opacity-70',
             className,
           )}

@@ -175,7 +175,7 @@ export const ProductForm = ({ initialData, subcategories, categories }: Props) =
                         />
                       </FormControl>
                       <FormDescription>
-                        Įkeltos nuotraukos: <span className="font-medium text-foreground">{watchedImages.length}</span>
+                        Įkeltos nuotraukos: <span className="text-foreground font-medium">{watchedImages.length}</span>
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -333,60 +333,6 @@ export const ProductForm = ({ initialData, subcategories, categories }: Props) =
                     </FormItem>
                   )}
                 />
-              </FormSection>
-
-              <FormSection title="Greita peržiūra">
-                <div className="flex flex-col gap-4">
-                  <div className="flex flex-col gap-1">
-                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Prekė</p>
-                    <p className="text-sm font-semibold leading-tight">{productNamePreview}</p>
-                    <p className="text-xs text-muted-foreground">Subkategorija: {selectedSubcategoryName}</p>
-                  </div>
-
-                  <Separator />
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-md border bg-background px-3 py-2">
-                      <p className="text-xs text-muted-foreground">Kaina</p>
-                      <p className="text-sm font-semibold">{priceLabel}</p>
-                    </div>
-                    <div className="rounded-md border bg-background px-3 py-2">
-                      <p className="text-xs text-muted-foreground">Likutis</p>
-                      <p className="text-sm font-semibold">{stockLabel}</p>
-                    </div>
-                    <div className="rounded-md border bg-background px-3 py-2">
-                      <p className="text-xs text-muted-foreground">Nuotraukos</p>
-                      <p className="text-sm font-semibold">{watchedImages.length}</p>
-                    </div>
-                    <div className="rounded-md border bg-background px-3 py-2">
-                      <p className="text-xs text-muted-foreground">Aprašymas</p>
-                      <p className="text-sm font-semibold">{watchedDescriptionText.length} s.</p>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  <div className="rounded-md border bg-background px-3 py-2">
-                    <p className="text-xs text-muted-foreground">Aprašymo peržiūra</p>
-                    <p className="mt-1 text-sm leading-6 text-foreground">
-                      {watchedDescriptionPreview || 'Aprašymas dar nepridėtas.'}
-                    </p>
-                  </div>
-
-                  <Separator />
-
-                  <div className="flex flex-wrap gap-2">
-                    <Badge variant={watchedIsArchived ? 'destructive' : 'secondary'}>
-                      {watchedIsArchived ? 'Archyvuota' : 'Aktyvi'}
-                    </Badge>
-
-                    {watchedIsFeatured ? <Badge>Rekomenduojama</Badge> : <Badge variant="outline">Standartinė</Badge>}
-
-                    <Badge variant={watchedAmountInStock > 0 ? 'secondary' : 'destructive'}>
-                      {watchedAmountInStock > 0 ? 'Yra sandėlyje' : 'Išparduota'}
-                    </Badge>
-                  </div>
-                </div>
               </FormSection>
 
               <FormSection>

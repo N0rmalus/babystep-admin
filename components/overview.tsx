@@ -7,11 +7,11 @@ type OverviewDatum = {
   total: number;
 };
 
-interface OverviewProps {
+type Props = {
   data: OverviewDatum[];
-}
+};
 
-export const Overview: React.FC<OverviewProps> = ({ data }) => {
+export const Overview = ({ data }: Props) => {
   return (
     <ResponsiveContainer width="100%" height={350}>
       <BarChart data={data}>

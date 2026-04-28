@@ -62,10 +62,10 @@ const ImageUpload = ({ disabled, onChange, onRemove, value }: Props) => {
     <div>
       <div className={cn('flex items-center gap-4', value.length > 0 && 'mb-4')}>
         {value.map((url) => (
-          <div key={url} className="relative h-[200px] w-[200px] overflow-hidden rounded-md">
-            <div className="absolute right-2 top-2 z-10">
+          <div key={url} className="relative size-50 overflow-hidden rounded-md">
+            <div className="absolute top-2 right-2 z-10">
               <Button type="button" onClick={() => onRemove(url)} variant="destructive" size="icon">
-                <Trash className="h-4 w-4" />
+                <Trash className="size-4" />
               </Button>
             </div>
             <Image fill className="object-cover" alt="Image" src={url} sizes="200px" />
@@ -85,7 +85,7 @@ const ImageUpload = ({ disabled, onChange, onRemove, value }: Props) => {
 
           return (
             <Button type="button" disabled={disabled || isLoading} variant="secondary" onClick={onClick}>
-              <ImagePlus className="mr-2 h-4 w-4" />
+              <ImagePlus className="mr-2 size-4" />
               {isLoading ? 'Paruošiama...' : 'Įkelti vaizdą'}
             </Button>
           );

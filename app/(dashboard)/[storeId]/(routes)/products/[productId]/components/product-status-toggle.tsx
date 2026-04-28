@@ -2,13 +2,13 @@ import { CheckedState } from '@radix-ui/react-checkbox';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 
-interface Props {
+type Props = {
   label: string;
   description: string;
   checked: boolean;
   disabled?: boolean;
   onCheckedChange: (checked: boolean) => void;
-}
+};
 
 export const ProductStatusToggle = ({ label, description, checked, disabled, onCheckedChange }: Props) => {
   const handleCheckedChange = (value: CheckedState) => {
@@ -25,8 +25,8 @@ export const ProductStatusToggle = ({ label, description, checked, disabled, onC
     >
       <Checkbox checked={checked} disabled={disabled} onCheckedChange={handleCheckedChange} />
       <div className="flex flex-col gap-1">
-        <p className="text-sm font-medium leading-none">{label}</p>
-        <p className="text-sm text-muted-foreground">{description}</p>
+        <p className="text-sm leading-none font-medium">{label}</p>
+        <p className="text-muted-foreground text-sm">{description}</p>
       </div>
     </div>
   );

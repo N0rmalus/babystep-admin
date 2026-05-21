@@ -117,29 +117,9 @@ export const ProductForm = ({ initialData, subcategories, categories }: Props) =
     }
   };
 
-  const watchedName = useWatch({
-    control: form.control,
-    name: 'name',
-  });
-  const watchedPrice = Number(form.watch('price'));
-  const watchedAmountInStock = Number(form.watch('amountInStock'));
-  const watchedSubcategoryId = form.watch('subcategoryId');
   const watchedImages = form.watch('images') ?? [];
-  const watchedDescription = form.watch('description') ?? '';
-  const watchedDescriptionText = getPlainTextFromRichText(watchedDescription);
-  const watchedDescriptionPreview =
-    watchedDescriptionText.length > 160 ? `${watchedDescriptionText.slice(0, 160).trim()}...` : watchedDescriptionText;
-  const watchedIsFeatured = Boolean(form.watch('isFeatured'));
-  const watchedIsArchived = Boolean(form.watch('isArchived'));
-  const productNamePreview = watchedName.trim() || 'Nenurodytas pavadinimas';
   const hasSubcategories = subcategories.length > 0;
   const submitDisabled = loading || !hasSubcategories;
-
-  const selectedSubcategoryName =
-    subcategories.find((subcategory) => subcategory.id === watchedSubcategoryId)?.name || 'Nepasirinkta';
-
-  const priceLabel = Number.isFinite(watchedPrice) && watchedPrice > 0 ? formatter.format(watchedPrice) : 'Nenurodyta';
-  const stockLabel = Number.isFinite(watchedAmountInStock) ? `${watchedAmountInStock} vnt.` : 'Nenurodyta';
 
   return (
     <>
@@ -170,8 +150,14 @@ export const ProductForm = ({ initialData, subcategories, categories }: Props) =
                         <ImageUpload
                           value={field.value.map((image) => image.url)}
                           disabled={loading}
-                          onChange={(url) => field.onChange([...field.value, { url }])}
-                          onRemove={(url) => field.onChange(field.value.filter((current) => current.url !== url))}
+                          onChange={(url) => {
+                            const currentImages = form.getValues('images') ?? [];
+                            field.onChange([...currentImages, { url }]);
+                          }}
+                          onRemove={(url) => {
+                            const currentImages = form.getValues('images') ?? [];
+                            field.onChange(currentImages.filter((current) => current.url !== url));
+                          }}
                         />
                       </FormControl>
                       <FormDescription>
@@ -307,7 +293,7 @@ export const ProductForm = ({ initialData, subcategories, categories }: Props) =
                     <FormItem>
                       <ProductStatusToggle
                         label="Rekomenduojama"
-                        description="Produktas bus rodomas pagrindiniame puslapyje ir akcentuojamas pasiūlymuose."
+                        description="Produktas bus rodomas pagrindiniame puslapyje."
                         checked={Boolean(field.value)}
                         disabled={loading}
                         onCheckedChange={field.onChange}

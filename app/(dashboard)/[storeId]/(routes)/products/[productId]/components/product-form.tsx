@@ -254,7 +254,6 @@ export const ProductForm = ({ initialData, subcategories, categories }: Props) =
                         <FormControl>
                           <Input type="number" min="0" step="1" disabled={loading} placeholder="9" {...field} />
                         </FormControl>
-                        <FormDescription>Naudojama likučio būsenai ir pirkimo apribojimams.</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}

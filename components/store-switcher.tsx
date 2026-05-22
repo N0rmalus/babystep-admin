@@ -59,17 +59,17 @@ export default function StoreSwitcher({ className, items = [] }: StoreSwitcherPr
           role="combobox"
           aria-expanded={open}
           aria-label="Pasirinkite parduotuvę"
-          className={cn('w-[200px] min-w-0 justify-between gap-2', className)}
+          className={cn('w-50 min-w-0 justify-between gap-2', className)}
         >
           <StoreIcon className="h-4 w-4 shrink-0" />
           <span className="truncate">{currentStore?.label ?? 'Pasirinkite parduotuvę'}</span>
           <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-[280px] max-w-[calc(100vw-2rem)] p-0">
+      <PopoverContent align="start" className="w-70 max-w-[calc(100vw-2rem)] p-0">
         <div className="border-b px-3 py-0.5">
           <div className="flex items-center gap-2">
-            <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <Search className="text-muted-foreground h-4 w-4 shrink-0" />
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
@@ -79,8 +79,8 @@ export default function StoreSwitcher({ className, items = [] }: StoreSwitcherPr
           </div>
         </div>
 
-        <div className="max-h-[280px] overflow-y-auto p-1">
-          <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">Parduotuvės</div>
+        <div className="max-h-70 overflow-y-auto p-1">
+          <div className="text-muted-foreground px-2 py-1.5 text-xs font-medium">Parduotuvės</div>
 
           {filteredItems.length > 0 ? (
             filteredItems.map((store) => (
@@ -88,7 +88,7 @@ export default function StoreSwitcher({ className, items = [] }: StoreSwitcherPr
                 key={store.value}
                 type="button"
                 onClick={() => onStoreSelect(store)}
-                className="flex w-full items-center rounded-sm px-2 py-2 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground"
+                className="hover:bg-accent hover:text-accent-foreground flex w-full items-center rounded-sm px-2 py-2 text-left text-sm transition-colors"
               >
                 <StoreIcon className="mr-2 h-4 w-4 shrink-0" />
                 <span className="truncate">{store.label}</span>
@@ -101,7 +101,7 @@ export default function StoreSwitcher({ className, items = [] }: StoreSwitcherPr
               </button>
             ))
           ) : (
-            <div className="px-2 py-3 text-sm text-muted-foreground">Parduotuvių nerasta.</div>
+            <div className="text-muted-foreground px-2 py-3 text-sm">Parduotuvių nerasta.</div>
           )}
         </div>
 
@@ -113,7 +113,7 @@ export default function StoreSwitcher({ className, items = [] }: StoreSwitcherPr
               setSearch('');
               storeModal.onOpen();
             }}
-            className="flex w-full items-center rounded-sm px-2 py-2 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground"
+            className="hover:bg-accent hover:text-accent-foreground flex w-full items-center rounded-sm px-2 py-2 text-left text-sm transition-colors"
           >
             <PlusCircle className="mr-2 h-5 w-5 shrink-0" />
             <span>Nauja parduotuvė</span>

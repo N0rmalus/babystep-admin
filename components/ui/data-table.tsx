@@ -14,6 +14,7 @@ import {
   useReactTable,
 } from '@tanstack/react-table';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Check, XIcon } from 'lucide-react';
 
 type Props<TData, TValue> = {
   columns: ColumnDef<TData, TValue>[];
@@ -47,7 +48,7 @@ export function DataTable<TData, TValue>({ columns, data, searchKey }: Props<TDa
         />
       </div>
       <div className="overflow-hidden rounded-md border">
-        <Table className="min-w-[720px]">
+        <Table className="min-w-180">
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
@@ -66,7 +67,19 @@ export function DataTable<TData, TValue>({ columns, data, searchKey }: Props<TDa
               table.getRowModel().rows.map((row) => (
                 <TableRow key={row.id} data-state={row.getIsSelected() && 'selected'}>
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+                    <TableCell key={cell.id}>
+                      {typeof cell.getValue() === 'boolean' ? (
+                        <>
+                          {cell.getValue<boolean>() === true ? (
+                            <Check className="size-4 text-green-500" />
+                          ) : (
+                            <XIcon className="size-4 text-red-500"  />
+                          )}
+                        </>
+                      ) : (
+                        flexRender(cell.column.columnDef.cell, cell.getContext())
+                      )}
+                    </TableCell>
                   ))}
                 </TableRow>
               ))

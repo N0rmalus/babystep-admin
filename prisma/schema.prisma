@@ -73,6 +73,9 @@ model Product {
   subcategory   Subcategory @relation(fields: [subcategoryId], references: [id])
   name          String
   price         Decimal
+  salePrice     Decimal?
+  saleStartsAt  DateTime?
+  saleEndsAt    DateTime?
   amountInStock Int
   isFeatured    Boolean     @default(false)
   isArchived    Boolean     @default(false)
@@ -112,11 +115,12 @@ model Order {
 }
 
 model OrderItem {
-  id        String  @id @default(uuid())
+  id        String   @id @default(uuid())
   orderId   String
-  order     Order   @relation(fields: [orderId], references: [id])
+  order     Order    @relation(fields: [orderId], references: [id])
   productId String
-  product   Product @relation(fields: [productId], references: [id])
+  product   Product  @relation(fields: [productId], references: [id])
+  unitPrice Decimal?
 
   @@index([orderId])
   @@index([productId])

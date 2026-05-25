@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { getOrderItemPrice } from '@/lib/product-pricing';
 import prismadb from '@/lib/prismadb';
 
 export const getTotalRevenue = async (storeId: string) => {
@@ -19,7 +20,7 @@ export const getTotalRevenue = async (storeId: string) => {
 
   const totalRevenue = paidOrders.reduce((total, order) => {
     const orderTotal = order.orderItems.reduce((orderSum, item) => {
-      return orderSum + item.product.price.toNumber();
+      return orderSum + getOrderItemPrice(item);
     }, 0);
     return total + orderTotal;
   }, 0);

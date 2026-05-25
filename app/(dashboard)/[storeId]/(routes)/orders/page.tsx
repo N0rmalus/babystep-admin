@@ -4,6 +4,7 @@ import { formatter } from '@/lib/utils';
 import { OrderClient } from './components/client';
 import { OrderColumn } from './components/columns';
 import { Page } from '@/components/dashboard/page';
+import { getOrderItemPrice } from '@/lib/product-pricing';
 import { getOrders } from '@/queries/get-orders';
 
 type Props = {
@@ -23,7 +24,7 @@ const OrdersPage = async (props: Props) => {
     products: item.orderItems.map((orderItem) => orderItem.product.name).join(', '),
     totalPrice: formatter.format(
       item.orderItems.reduce((total, item) => {
-        return total + Number(item.product.price);
+        return total + getOrderItemPrice(item);
       }, 0),
     ),
     isPaid: item.isPaid,

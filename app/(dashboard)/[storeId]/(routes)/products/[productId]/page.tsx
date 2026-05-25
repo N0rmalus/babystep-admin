@@ -27,6 +27,9 @@ const ProductPage = async (props: Props) => {
     ? {
         ...product,
         price: Number(product.price),
+        salePrice: product.salePrice ? Number(product.salePrice) : null,
+        saleStartsAt: product.saleStartsAt?.toISOString() ?? null,
+        saleEndsAt: product.saleEndsAt?.toISOString() ?? null,
       }
     : null;
 

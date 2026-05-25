@@ -2,6 +2,7 @@ import Stripe from 'stripe';
 import { NextResponse } from 'next/server';
 
 import { corsHeaders } from '@/lib/cors';
+import { getProductEffectivePrice } from '@/lib/product-pricing';
 import { stripe } from '@/lib/stripe';
 import prismadb from '@/lib/prismadb';
 import { getProducts } from '@/queries/get-products';
@@ -90,16 +91,24 @@ export async function POST(req: Request, props: { params: Promise<{ storeId: str
       );
     }
 
-    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = products.map((product) => ({
-      quantity: quantityByProductId[product.id],
-      price_data: {
-        currency: 'EUR',
-        product_data: {
-          name: product.name,
+    const effectivePriceByProductId = new Map(
+      products.map((product) => [product.id, getProductEffectivePrice(product)]),
+    );
+
+    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = products.map((product) => {
+      const effectivePrice = effectivePriceByProductId.get(product.id) ?? 0;
+
+      return {
+        quantity: quantityByProductId[product.id],
+        price_data: {
+          currency: 'EUR',
+          product_data: {
+            name: product.name,
+          },
+          unit_amount: Math.round(effectivePrice * 100),
         },
-        unit_amount: Math.round(product.price.toNumber() * 100),
-      },
-    }));
+      };
+    });
 
     const order = await prismadb.order.create({
       data: {
@@ -107,6 +116,7 @@ export async function POST(req: Request, props: { params: Promise<{ storeId: str
         isPaid: false,
         orderItems: {
           create: sanitizedProductIds.map((productId) => ({
+            unitPrice: effectivePriceByProductId.get(productId) ?? 0,
             product: {
               connect: {
                 id: productId,

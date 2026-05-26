@@ -60,9 +60,9 @@ const ImageUpload = ({ disabled, onChange, onRemove, value }: Props) => {
 
   return (
     <div>
-      <div className={cn('flex items-center gap-4', value.length > 0 && 'mb-4')}>
+      <div className={cn('flex flex-wrap items-center gap-4', value.length > 0 && 'mb-4')}>
         {value.map((url) => (
-          <div key={url} className="relative size-50 overflow-hidden rounded-md">
+          <div key={url} className="relative size-50 shrink-0 overflow-hidden rounded-md">
             <div className="absolute top-2 right-2 z-10">
               <Button type="button" onClick={() => onRemove(url)} variant="destructive" size="icon">
                 <Trash className="h-4 w-4" />

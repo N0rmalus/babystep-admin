@@ -4,6 +4,17 @@ import { Prisma, Product } from '@prisma/client';
 import prismadb from '@/lib/prismadb';
 import { getProductPricing } from '@/lib/product-pricing';
 
+export type PublicProduct = Prisma.ProductGetPayload<{
+  include: {
+    images: true;
+    subcategory: {
+      include: {
+        category: true;
+      };
+    };
+  };
+}>;
+
 type GetProductsOptions = {
   includeImages?: boolean;
   includeSubcategory?: boolean;
@@ -11,6 +22,7 @@ type GetProductsOptions = {
   onlyActive?: boolean;
   isFeatured?: boolean;
   isOnSale?: boolean;
+  categoryId?: string;
   subcategoryId?: string;
   productIds?: string[];
   orderByCreatedAt?: 'asc' | 'desc';
@@ -36,18 +48,7 @@ export function getProducts(
 export function getProducts(
   storeId: string,
   options: GetProductsOptions & { includeImages: true; includeSubcategoryCategory: true },
-): Promise<
-  Prisma.ProductGetPayload<{
-    include: {
-      images: true;
-      subcategory: {
-        include: {
-          category: true;
-        };
-      };
-    };
-  }>[]
->;
+): Promise<PublicProduct[]>;
 export function getProducts(
   storeId: string,
   options: GetProductsOptions & { includeSubcategory: true },
@@ -57,6 +58,7 @@ export async function getProducts(storeId: string, options?: GetProductsOptions)
   const products = await prismadb.product.findMany({
     where: {
       storeId,
+      ...(options?.categoryId ? { subcategory: { categoryId: options.categoryId } } : {}),
       ...(options?.subcategoryId ? { subcategoryId: options.subcategoryId } : {}),
       ...(typeof options?.isFeatured === 'boolean' ? { isFeatured: options.isFeatured } : {}),
       ...(options?.isOnSale ? { salePrice: { not: null } } : {}),

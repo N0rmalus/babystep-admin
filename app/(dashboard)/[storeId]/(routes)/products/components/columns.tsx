@@ -3,6 +3,7 @@
 import { ColumnDef } from '@tanstack/react-table';
 import { Badge } from '@/components/ui/badge';
 import { CellAction } from './cell-action';
+import { TriangleAlert } from 'lucide-react';
 
 export type ProductColumn = {
   id: string;
@@ -34,6 +35,20 @@ export const columns: ColumnDef<ProductColumn>[] = [
   {
     accessorKey: 'amountInStock',
     header: 'Sandėlyje',
+    cell: ({ row }) => {
+      const product = row.original;
+
+      if (product.amountInStock === 0) {
+        return (
+          <div className="flex items-center gap-2">
+            {product.amountInStock}
+            <TriangleAlert size={16} className="text-red-500" />
+          </div>
+        );
+      }
+
+      return product.amountInStock;
+    },
   },
   {
     accessorKey: 'price',

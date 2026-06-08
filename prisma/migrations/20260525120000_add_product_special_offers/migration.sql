@@ -1,0 +1,7 @@
+ALTER TABLE "Product"
+ADD COLUMN "salePrice" DECIMAL(65,30),
+ADD COLUMN "saleStartsAt" TIMESTAMP(3),
+ADD COLUMN "saleEndsAt" TIMESTAMP(3);
+
+ALTER TABLE "OrderItem"
+ADD COLUMN "unitPrice" DECIMAL(65,30);

@@ -4,11 +4,10 @@ import toast from 'react-hot-toast';
 import { useState } from 'react';
 import { Category, Image, Product, Subcategory } from '@prisma/client';
 import { Trash } from 'lucide-react';
-import { useForm, useWatch } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useParams, useRouter } from 'next/navigation';
 import { AlertModal } from '@/components/modals/alert-modal';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -26,8 +25,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { TiptapEditor } from '@/components/ui/tiptap-editor';
 import { getFormErrorMessage } from '@/lib/get-form-error-message';
-import { getPlainTextFromRichText, normalizeRichTextContent } from '@/lib/rich-text';
-import { formatter } from '@/lib/utils';
+import { normalizeRichTextContent } from '@/lib/rich-text';
 import { ProductStatusToggle } from './product-status-toggle';
 import { FormSection } from '@/components/ui/form/form-section';
 import {
@@ -39,13 +37,32 @@ import axios from 'axios';
 
 type Props = {
   initialData:
-    | (Omit<Product, 'price'> & {
+    | (Omit<Product, 'price' | 'salePrice' | 'saleStartsAt' | 'saleEndsAt'> & {
         price: number;
+        salePrice: number | null;
+        saleStartsAt: string | null;
+        saleEndsAt: string | null;
         images: Image[];
       })
     | null;
   subcategories: Subcategory[];
   categories: Category[];
+};
+
+const formatDateTimeLocalValue = (value?: string | null) => {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+
+  return localDate.toISOString().slice(0, 16);
 };
 
 export const ProductForm = ({ initialData, subcategories, categories }: Props) => {
@@ -62,6 +79,9 @@ export const ProductForm = ({ initialData, subcategories, categories }: Props) =
         name: initialData.name,
         images: initialData.images.map((image) => ({ url: image.url })),
         price: initialData.price,
+        salePrice: initialData.salePrice,
+        saleStartsAt: formatDateTimeLocalValue(initialData.saleStartsAt),
+        saleEndsAt: formatDateTimeLocalValue(initialData.saleEndsAt),
         amountInStock: initialData.amountInStock,
         subcategoryId: initialData.subcategoryId,
         isFeatured: initialData.isFeatured,
@@ -72,6 +92,9 @@ export const ProductForm = ({ initialData, subcategories, categories }: Props) =
         name: '',
         images: [],
         price: 0,
+        salePrice: null,
+        saleStartsAt: null,
+        saleEndsAt: null,
         amountInStock: 0,
         subcategoryId: '',
         description: '',
@@ -85,12 +108,18 @@ export const ProductForm = ({ initialData, subcategories, categories }: Props) =
   });
 
   const onSubmit = async (data: ProductFormValues) => {
+    const payload = {
+      ...data,
+      saleStartsAt: data.saleStartsAt || null,
+      saleEndsAt: data.saleEndsAt || null,
+    };
+
     try {
       setLoading(true);
       if (initialData) {
-        await axios.patch(`/api/${params?.storeId}/products/${params?.productId}`, data);
+        await axios.patch(`/api/${params?.storeId}/products/${params?.productId}`, payload);
       } else {
-        await axios.post(`/api/${params?.storeId}/products`, data);
+        await axios.post(`/api/${params?.storeId}/products`, payload);
       }
       router.refresh();
       router.push(`/${params?.storeId}/products`);
@@ -161,7 +190,7 @@ export const ProductForm = ({ initialData, subcategories, categories }: Props) =
                         />
                       </FormControl>
                       <FormDescription>
-                        Įkeltos nuotraukos: <span className="font-medium text-foreground">{watchedImages.length}</span>
+                        Įkeltos nuotraukos: <span className="text-foreground font-medium">{watchedImages.length}</span>
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -247,6 +276,29 @@ export const ProductForm = ({ initialData, subcategories, categories }: Props) =
 
                   <FormField
                     control={form.control}
+                    name="salePrice"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Akcijos kaina</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            disabled={loading}
+                            placeholder="7.99"
+                            {...field}
+                            value={field.value ?? ''}
+                          />
+                        </FormControl>
+                        <FormDescription>Palik tuščią, jei prekė neturi akcijos.</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
                     name="amountInStock"
                     render={({ field }) => (
                       <FormItem>
@@ -254,6 +306,36 @@ export const ProductForm = ({ initialData, subcategories, categories }: Props) =
                         <FormControl>
                           <Input type="number" min="0" step="1" disabled={loading} placeholder="9" {...field} />
                         </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="saleStartsAt"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Akcijos pradžia</FormLabel>
+                        <FormControl>
+                          <Input type="datetime-local" disabled={loading} {...field} value={field.value ?? ''} />
+                        </FormControl>
+                        <FormDescription>Neprivaloma. Jei tuščia, akcija prasideda iš karto.</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="saleEndsAt"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Akcijos pabaiga</FormLabel>
+                        <FormControl>
+                          <Input type="datetime-local" disabled={loading} {...field} value={field.value ?? ''} />
+                        </FormControl>
+                        <FormDescription>Neprivaloma. Jei tuščia, akcija veikia be pabaigos datos.</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}

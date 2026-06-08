@@ -1,5 +1,6 @@
 import { format } from 'date-fns';
 import { Page } from '@/components/dashboard/page';
+import { getProductPricing, type SaleStatus } from '@/lib/product-pricing';
 import { getProducts } from '@/queries/get-products';
 import { formatter } from '@/lib/utils';
 
@@ -12,6 +13,14 @@ type Props = {
   }>;
 };
 
+const saleStatusLabels = {
+  none: 'Nėra',
+  active: 'Aktyvi',
+  scheduled: 'Suplanuota',
+  ended: 'Pasibaigusi',
+  invalid: 'Patikrinti',
+} satisfies Record<SaleStatus, string>;
+
 const ProductsPage = async (props: Props) => {
   const params = await props.params;
   const products = await getProducts(params.storeId, {
@@ -19,15 +28,23 @@ const ProductsPage = async (props: Props) => {
     orderByCreatedAt: 'desc',
   });
 
-  const formattedProducts: ProductColumn[] = products.map((item) => ({
-    id: item.id,
-    name: item.name,
-    isFeatured: item.isFeatured,
-    isArchived: item.isArchived,
-    price: formatter.format(item.price.toNumber()),
-    subcategory: item.subcategory?.name || '',
-    createdAt: format(item.createdAt, 'dd/MM/yyyy'),
-  }));
+  const formattedProducts: ProductColumn[] = products.map((item) => {
+    const pricing = getProductPricing(item);
+
+    return {
+      id: item.id,
+      name: item.name,
+      isFeatured: item.isFeatured,
+      isArchived: item.isArchived,
+      amountInStock: item.amountInStock,
+      price: formatter.format(pricing.regularPrice),
+      salePrice: pricing.salePrice === null ? null : formatter.format(pricing.salePrice),
+      saleStatus: saleStatusLabels[pricing.status],
+      isOnSale: pricing.isOnSale,
+      subcategory: item.subcategory?.name || '',
+      createdAt: format(item.createdAt, 'dd/MM/yyyy'),
+    };
+  });
 
   return (
     <Page>

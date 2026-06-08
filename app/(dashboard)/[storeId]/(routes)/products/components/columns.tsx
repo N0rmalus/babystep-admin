@@ -62,7 +62,7 @@ export const columns: ColumnDef<ProductColumn>[] = [
 
       return (
         <div className="flex flex-col">
-          <span className={product.isOnSale ? 'text-muted-foreground line-through' : 'text-muted-foreground'}>
+          <span className={product.isOnSale ? 'text-muted-foreground line-through' : ''}>
             {product.price}
           </span>
           <span className="font-medium">{product.salePrice}</span>

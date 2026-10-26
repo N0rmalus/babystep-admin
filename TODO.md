@@ -46,8 +46,8 @@ High-level plan. How Montonio works is not researched yet: read their docs first
 
 ## Dead code / cleanup
 
-- [ ] Delete the empty untracked `pages/` folder (causes all 17 local `npm run typescript` errors).
-- [ ] Remove unused `components/ui/textarea.tsx`.
-- [ ] Remove unused `getPlainTextFromRichText`.
-- [ ] Remove `prettier.config.js` (overridden by `.prettierrc`).
-- [ ] Move `@neon/*` packages to devDependencies (tooling only).
+- [x] Delete the empty untracked `pages/` folder (causes all 17 local `npm run typescript` errors).
+- [x] Remove unused `components/ui/textarea.tsx`.
+- [x] Remove unused `getPlainTextFromRichText`.
+- [x] Remove `prettier.config.js` (overridden by `.prettierrc`).
+- [x] Move `@neon/*` packages to devDependencies (tooling only).

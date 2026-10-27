@@ -51,3 +51,16 @@ High-level plan. How Montonio works is not researched yet: read their docs first
 - [x] Remove unused `getPlainTextFromRichText`.
 - [x] Remove `prettier.config.js` (overridden by `.prettierrc`).
 - [x] Move `@neon/*` packages to devDependencies (tooling only).
+
+## Customer accounts (after the Montonio migration)
+
+Planned feature: optional customer accounts with order history, saved addresses and product reviews. Start with `/grill-me`, then `to-prd` to turn it into a detailed plan. The storefront side (sign-in, account pages, review form) belongs in the store repo and its design in Claude Design.
+
+- [ ] **Separate Clerk application for customers.** Don't reuse the admin's Clerk app: any signed-in user there can create a store, so shoppers must not be able to log in to the admin. Turn off sign-up on the admin app.
+- [ ] **Verify customer tokens in the API.** The storefront is on a different domain, so it sends the Clerk session token (`getToken()`) as an `Authorization: Bearer` header, and the API verifies it against the customer Clerk app. Clerk refreshes tokens itself: no custom refresh logic.
+- [ ] **Data model.** Customer data lives in Prisma, linked by Clerk user ID: `customerId` on `Order`, new `Address` and `Review` models. Write the migration on the `dev` branch only.
+- [ ] **Customer endpoints.** My orders, my addresses (create, edit, delete, default), and creating a review. Every handler checks that the record belongs to the signed-in customer.
+- [ ] **Keep guest checkout.** Accounts are optional. Attach the order to the account when signed in; consider linking earlier guest orders by verified email.
+- [ ] **Saved addresses in checkout.** Prefill delivery details from the default address when signed in.
+- [ ] **Reviews.** Verified purchase only (the customer has a paid order with the product), one review per product per customer, moderation in the admin (approve or hide), and a "verified purchase" label plus a short note on how reviews are checked (EU consumer rules require disclosing this).
+- [ ] **GDPR.** Account and data deletion (and export), and update the storefront's privacy policy to cover accounts and reviews.

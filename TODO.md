@@ -64,3 +64,12 @@ Planned feature: optional customer accounts with order history, saved addresses 
 - [ ] **Saved addresses in checkout.** Prefill delivery details from the default address when signed in.
 - [ ] **Reviews.** Verified purchase only (the customer has a paid order with the product), one review per product per customer, moderation in the admin (approve or hide), and a "verified purchase" label plus a short note on how reviews are checked (EU consumer rules require disclosing this).
 - [ ] **GDPR.** Account and data deletion (and export), and update the storefront's privacy policy to cover accounts and reviews.
+
+## Customizable billboards
+
+Banners become editable and more flexible. Design the layouts in Claude Design first (as part of the home page), then build the admin side, then the storefront side (see the store's TODO). Rules are in the store's DESIGN.md ("Density and promotions").
+
+- [ ] **Extend the `Billboard` model.** Add a layout (text-over-left, text-over-center, split, image-only), eyebrow, title (today's `label`), subtitle, button text and link, light or dark text, image focus point, optional mobile image, and active start/end dates (like product sales). Migrate existing billboards so they keep working. Migration on the `dev` branch only.
+- [ ] **Home banners managed in the admin.** Today the storefront shows one billboard chosen by its `INDEX_BILLBOARD_ID` env var. Replace that with a list of home banners: mark billboards for the home page, set their order, and return only active ones (within their dates) from a public endpoint.
+- [ ] **Billboard form.** Layout picker, all new fields, mobile image upload (Cloudinary), focus point, dates, and a live preview of how the banner will look.
+- [ ] **Keep the API backward compatible** until the storefront is updated: existing billboard responses keep `label` and `imageUrl`.

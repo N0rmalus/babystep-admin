@@ -83,7 +83,7 @@ React
 
 Tailwind
 - Theme tokens from `app/globals.css` (`@theme`); no `tailwind.config.js`.
-- Use built-in scale values, not arbitrary ones (`p-10`, not `p-[41px]`). Never build class names at runtime.
+- Prefer built-in scale values (`p-10`, not `p-[41px]`). Use an arbitrary value only when no step fits, and keep it in one named constant (or token), not repeated across files. Never build class names at runtime.
 - Extract repeated class sets into components, not `@apply`. Conditional classes as ternaries inside `cn()`, not object keys.
 
 ## Agent skills

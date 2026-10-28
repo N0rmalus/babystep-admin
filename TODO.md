@@ -4,6 +4,16 @@ Findings from the 2026-10-24 audit, ranked by impact on a shop taking real order
 
 Payments are moving from Stripe to Montonio. Don't spend time on Stripe-only fixes; the items below are written so they carry over.
 
+## Product variants (plan before the overselling fix and Montonio)
+
+Some products come in sizes or colors. Variants change how stock works, so plan them first: the overselling fix and the Montonio checkout both handle stock, and should be built per variant once, not twice. Start with `/grill-me`, then `to-prd`.
+
+- [ ] **Data model.** A `ProductVariant` model: the product's options (e.g. size, color), its own stock and SKU, an optional own price (else the product's) and optional own images (e.g. per color). Products without variants keep working as today. Migration on the `dev` branch only.
+- [ ] **Stock per variant.** Checkout, stock reservation, the webhook's stock decrement and archiving sold-out items all work per variant. Order items record the variant and its options at purchase time.
+- [ ] **Checkout contract.** Checkout accepts line items `{ productId, variantId?, quantity }` instead of repeated product IDs. Keep accepting the old `{ productIds }` until the storefront is updated.
+- [ ] **Public API.** Product responses include variants with options, price, stock and images, so the storefront can show what is available.
+- [ ] **Admin form.** A variant editor in the product form: define options, generate combinations, set stock, SKU, price and images per variant.
+
 ## Montonio migration
 
 High-level plan. How Montonio works is not researched yet: read their docs first and fill in the details from there.
@@ -19,7 +29,7 @@ High-level plan. How Montonio works is not researched yet: read their docs first
 
 ## High
 
-- [ ] **Overselling charges customers without a paid order.** Checkout checks stock but doesn't reserve it; if two people pay for the last item, the second webhook fails with 500 and the order stays unpaid while the customer has paid. Fix it independently of the provider: reserve stock when the order is created in checkout, and release it when the order is cancelled or expires. `app/api/[storeId]/checkout/route.ts:76`, `app/api/webhook/route.ts:104`
+- [ ] **Overselling charges customers without a paid order.** (Plan "Product variants" first: reserve stock per variant.) Checkout checks stock but doesn't reserve it; if two people pay for the last item, the second webhook fails with 500 and the order stays unpaid while the customer has paid. Fix it independently of the provider: reserve stock when the order is created in checkout, and release it when the order is cancelled or expires. `app/api/[storeId]/checkout/route.ts:76`, `app/api/webhook/route.ts:104`
 - [ ] **Product PATCH can wipe all images.** Images are deleted and re-added in two separate steps; if the second fails the product has none. Do it in one transaction. `app/api/[storeId]/products/[productId]/route.ts:131-163`
 - [ ] **Sale dates drift by the timezone offset on every save.** The form sends dates without a timezone and the server (UTC in prod) reads them as UTC, which can change the charged price. `product-form.tsx:65`, `product-form.tsx:113`
 
@@ -90,3 +100,11 @@ The storefront shows a newsletter form that is a mock until this exists.
 - [ ] **Choose an email service** (e.g. MailerLite, Brevo or Mailchimp; check EU data storage and the free tier).
 - [ ] **Signup endpoint.** A public `POST` that validates the email and adds it to the list with double opt-in (a confirmation email), with rate limiting.
 - [ ] **Consent.** Record when and where the person signed up, and make unsubscribing work. Cover it in the privacy policy.
+
+## Product specifications
+
+Structured "Papildoma informacija" shown on the product page, next to the rich-text description.
+
+- [ ] **Data model.** Label/value specification rows per product (e.g. Matmenys, Medžiaga, Sudėtis, Priežiūra), ordered. Allow a variant to override a value (e.g. dimensions per size). Migration on the `dev` branch only.
+- [ ] **Consistent labels.** A shared list of common labels to pick from (free text still allowed), so the same spec is spelled the same everywhere and can become a catalog filter later.
+- [ ] **Product form and API.** Edit the rows in the product form; include them in the public product response.

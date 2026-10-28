@@ -73,3 +73,20 @@ Banners become editable and more flexible. Design the layouts in Claude Design f
 - [ ] **Home banners managed in the admin.** Today the storefront shows one billboard chosen by its `INDEX_BILLBOARD_ID` env var. Replace that with a list of home banners: mark billboards for the home page, set their order, and return only active ones (within their dates) from a public endpoint.
 - [ ] **Billboard form.** Layout picker, all new fields, mobile image upload (Cloudinary), focus point, dates, and a live preview of how the banner will look.
 - [ ] **Keep the API backward compatible** until the storefront is updated: existing billboard responses keep `label` and `imageUrl`.
+
+## Product age range
+
+The home page has a "Pagal amžių" section (0–6 mėn., 6–12 mėn., 1–3 m.) that is a mock in the storefront until this exists.
+
+- [ ] **Data model.** Add optional `ageFromMonths` and `ageToMonths` (Int) to `Product`. A range, not tags, so a 3–12 month product appears in both 0–6 and 6–12. Migration on the `dev` branch only.
+- [ ] **Age groups in one place.** Define the groups (0–6, 6–12, 12–36 months, with Lithuanian labels) as one constant shared by the API and the form.
+- [ ] **Product form.** Two number fields ("nuo" / "iki" mėn.) or age-group checkboxes, with validation (from ≤ to, no negatives).
+- [ ] **API filter.** `?age=<group>` on the products endpoint returns products whose range overlaps the group. Products without an age range are left out of age results. Usable later as a catalog filter on category pages.
+
+## Newsletter
+
+The storefront shows a newsletter form that is a mock until this exists.
+
+- [ ] **Choose an email service** (e.g. MailerLite, Brevo or Mailchimp; check EU data storage and the free tier).
+- [ ] **Signup endpoint.** A public `POST` that validates the email and adds it to the list with double opt-in (a confirmation email), with rate limiting.
+- [ ] **Consent.** Record when and where the person signed up, and make unsubscribing work. Cover it in the privacy policy.

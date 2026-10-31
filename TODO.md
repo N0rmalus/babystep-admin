@@ -108,3 +108,21 @@ Structured "Papildoma informacija" shown on the product page, next to the rich-t
 - [ ] **Data model.** Label/value specification rows per product (e.g. Matmenys, Medžiaga, Sudėtis, Priežiūra), ordered. Allow a variant to override a value (e.g. dimensions per size). Migration on the `dev` branch only.
 - [ ] **Consistent labels.** A shared list of common labels to pick from (free text still allowed), so the same spec is spelled the same everywhere and can become a catalog filter later.
 - [ ] **Product form and API.** Edit the rows in the product form; include them in the public product response.
+
+## Checkout endpoints for the storefront
+
+The storefront's checkout (`../babystep-store/docs/design/checkout/`) needs these public endpoints. Montonio keys stay in the admin.
+
+- [ ] **Delivery options:** carriers, prices and the free-shipping threshold from one shared config (see Decisions in `docs/montonio-research.md`).
+- [ ] **Pickup points:** proxy Montonio Shipping `GET /shipping-methods/pickup-points` for Omniva and Unisend parcel machines in LT, merged into one list, cached (e.g. for a day).
+- [ ] **Payment methods:** proxy `GET /stores/payment-methods`, returning Lithuanian banks (`name`, `code`, `logoUrl`) and whether cards are enabled. Cache it.
+- [ ] **Create order:** the new checkout request (line items with variants, delivery, contact, payment method + bank code), stock reservation, Montonio order, returns `paymentUrl`.
+- [ ] **Order status by our order ID** for the confirmation page.
+- [ ] **Order confirmation email** (choose a provider; the newsletter service may cover transactional email).
+
+## Migration from WordPress
+
+The plan lives in the storefront's TODO ("Migration from WordPress"). Admin side:
+
+- [ ] **Montonio keys: never regenerate the live store's keys.** The live WordPress shop uses that Montonio store's production keys; regenerating invalidates them. Develop with sandbox keys, ideally from a separate Montonio store for the new site. Decide with Montonio which store the new site uses at launch.
+- [ ] **Data imports** (products, reviews, maybe customers and orders) into the `dev` branch first, then `prod` at switch-over.

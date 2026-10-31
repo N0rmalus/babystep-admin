@@ -21,7 +21,7 @@ Prettier: single quotes, 120 cols, trailing commas, tailwind plugin (`.prettierr
 
 - API routes are used by the storefront: never change a response shape without telling me and listing what in babystep-store must change.
 - Database: only the Neon `dev` branch. Never run `prisma migrate reset`, `db push --force-reset`, or anything that drops data. Ask before any migration.
-- Never read or print `.env` values. Stripe: test mode only.
+- Never read or print `.env` values. Payments: Stripe test mode only; Montonio sandbox keys only (Stripe is being replaced by Montonio, see docs/montonio-research.md).
 - Prefer existing shadcn components in `components/ui` over new ones.
 - All user-facing strings (UI copy, toasts, API error responses) are in Lithuanian.
 

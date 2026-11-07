@@ -3,7 +3,6 @@ import 'server-only';
 import { Prisma, Product } from '@prisma/client';
 import { isOnSale } from '@/lib/catalog-rules';
 import prismadb from '@/lib/prismadb';
-import { getProductPricing } from '@/lib/product-pricing';
 import { hasStockVariants, withStockCount } from '@/lib/product-variant';
 import { buildPublicProduct } from '@/lib/public-product';
 
@@ -168,7 +167,13 @@ export async function getProducts(storeId: string, options?: GetProductsOptions)
     options?.includeStockCount && hasStockVariants(product) ? withStockCount(product) : product,
   );
 
-  return filterOnSale({ products: productsWithStock, isOnSale: options?.isOnSale });
+  if (!options?.isOnSale) {
+    return productsWithStock;
+  }
+
+  const saleProductIds = await getSaleProductIds(getIds(productsWithStock));
+
+  return productsWithStock.filter(({ id }) => saleProductIds.has(id));
 }
 
 const getProductsWhere = (storeId: string, options?: GetProductsOptions) => {
@@ -184,16 +189,19 @@ const getProductsWhere = (storeId: string, options?: GetProductsOptions) => {
   } satisfies Prisma.ProductWhereInput;
 };
 
-const filterOnSale = <TProduct extends Parameters<typeof getProductPricing>[0]>({
-  products,
-  isOnSale,
-}: {
-  products: TProduct[];
-  isOnSale?: boolean;
-}) => {
-  if (!isOnSale) {
-    return products;
+// The sale rule needs the public product shape (any active variant on sale, not just the product's own sale
+// price), so shapes without variant prices load it separately for the matched products
+const getSaleProductIds = async (productIds: string[]) => {
+  if (productIds.length === 0) {
+    return new Set<string>();
   }
 
-  return products.filter((product) => getProductPricing(product).isOnSale);
+  const products = await prismadb.product.findMany({
+    where: { id: { in: productIds } },
+    include: PUBLIC_PRODUCT_INCLUDE,
+  });
+
+  return new Set(getIds(products.map(toPublicProduct).filter((product) => isOnSale(product))));
 };
+
+const getIds = (products: { id: string }[]) => products.map(({ id }) => id);

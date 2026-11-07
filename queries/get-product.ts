@@ -2,26 +2,49 @@ import 'server-only';
 
 import { Prisma, Product } from '@prisma/client';
 import prismadb from '@/lib/prismadb';
-import { DEFAULT_COMBINATION_KEY } from '@/lib/product-variant';
 import { ORDERED_IMAGES, PUBLIC_PRODUCT_INCLUDE, toPublicProduct, type PublicProduct } from '@/queries/get-products';
 
-const DEFAULT_VARIANT_SELECT = {
-  where: {
-    combinationKey: DEFAULT_COMBINATION_KEY,
+// What the variant editor in the product form needs: active variants and the product's groups in order
+const VARIANT_EDITOR_INCLUDE = {
+  images: ORDERED_IMAGES,
+  variants: {
+    where: { isArchived: false },
+    orderBy: { createdAt: 'asc' },
+    select: {
+      id: true,
+      sku: true,
+      stockCount: true,
+      price: true,
+      salePrice: true,
+      combinationKey: true,
+      optionValues: { select: { optionValueId: true } },
+    },
   },
-  select: {
-    id: true,
-    sku: true,
-    stockCount: true,
+  optionGroups: {
+    orderBy: { position: 'asc' },
+    select: { groupId: true },
   },
-} satisfies Prisma.Product$variantsArgs;
+} satisfies Prisma.ProductInclude;
+
+// Every variant (archived too) with whether it has orders: the input for planVariantChanges
+const PLAN_VARIANTS_INCLUDE = {
+  variants: {
+    select: {
+      id: true,
+      combinationKey: true,
+      isArchived: true,
+      _count: { select: { orderItems: true } },
+    },
+  },
+} satisfies Prisma.ProductInclude;
 
 type GetProductOptions = {
-  includeImages?: boolean;
   // Returns the public product shape: images, subcategory with category, `options` and resolved `variants`
   includeVariants?: boolean;
-  // Adds `variants` holding only the default variant (empty for a product with options)
-  includeDefaultVariant?: boolean;
+  // Adds images, active variants with their option value ids, and the product's ordered group ids
+  includeVariantEditor?: boolean;
+  // Adds every variant with its combination key, archived flag and order count
+  includePlanVariants?: boolean;
 };
 
 export function getProduct(
@@ -32,10 +55,13 @@ export function getProduct(
 export function getProduct(
   storeId: string,
   productId: string,
-  options: GetProductOptions & { includeImages: true; includeDefaultVariant: true },
-): Promise<Prisma.ProductGetPayload<{
-  include: { images: true; variants: { select: typeof DEFAULT_VARIANT_SELECT.select } };
-}> | null>;
+  options: GetProductOptions & { includeVariantEditor: true },
+): Promise<Prisma.ProductGetPayload<{ include: typeof VARIANT_EDITOR_INCLUDE }> | null>;
+export function getProduct(
+  storeId: string,
+  productId: string,
+  options: GetProductOptions & { includePlanVariants: true },
+): Promise<Prisma.ProductGetPayload<{ include: typeof PLAN_VARIANTS_INCLUDE }> | null>;
 export function getProduct(storeId: string, productId: string, options?: GetProductOptions): Promise<Product | null>;
 export async function getProduct(storeId: string, productId: string, options?: GetProductOptions): Promise<unknown> {
   const where = {
@@ -49,17 +75,13 @@ export async function getProduct(storeId: string, productId: string, options?: G
     return product ? toPublicProduct(product) : null;
   }
 
-  const hasInclude = options?.includeImages || options?.includeDefaultVariant;
+  if (options?.includeVariantEditor) {
+    return prismadb.product.findFirst({ where, include: VARIANT_EDITOR_INCLUDE });
+  }
 
-  return prismadb.product.findFirst({
-    where,
-    ...(hasInclude
-      ? {
-          include: {
-            ...(options.includeImages ? { images: ORDERED_IMAGES } : {}),
-            ...(options.includeDefaultVariant ? { variants: DEFAULT_VARIANT_SELECT } : {}),
-          },
-        }
-      : {}),
-  });
+  if (options?.includePlanVariants) {
+    return prismadb.product.findFirst({ where, include: PLAN_VARIANTS_INCLUDE });
+  }
+
+  return prismadb.product.findFirst({ where });
 }

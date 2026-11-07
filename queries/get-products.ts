@@ -10,6 +10,7 @@ const STOCK_VARIANTS_SELECT = {
   select: {
     stockCount: true,
     isArchived: true,
+    combinationKey: true,
   },
 } satisfies Prisma.Product$variantsArgs;
 
@@ -103,7 +104,8 @@ type GetProductsOptions = {
   // Returns the public product shape: images, subcategory with category, `options` and resolved `variants`
   includeVariants?: boolean;
   includeSubcategory?: boolean;
-  // Adds `stockCount` (available stock of active variants) and leaves raw variants out
+  // Adds `stockCount` (available stock of active variants) and `variantCount` (active option variants), and leaves
+  // raw variants out
   includeStockCount?: boolean;
   onlyActive?: boolean;
   isFeatured?: boolean;
@@ -126,7 +128,9 @@ export function getProducts(
 export function getProducts(
   storeId: string,
   options: GetProductsOptions & { includeSubcategory: true; includeStockCount: true },
-): Promise<(Prisma.ProductGetPayload<{ include: { subcategory: true } }> & { stockCount: number })[]>;
+): Promise<
+  (Prisma.ProductGetPayload<{ include: { subcategory: true } }> & { stockCount: number; variantCount: number })[]
+>;
 export function getProducts(
   storeId: string,
   options: GetProductsOptions & { includeSubcategory: true },

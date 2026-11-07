@@ -48,8 +48,9 @@ export const buildPublicProduct = <
   const optionVariants = variants.filter((variant) => variant.combinationKey !== DEFAULT_COMBINATION_KEY);
   const activeOptionVariants = optionVariants.filter((variant) => !variant.isArchived);
   const defaultVariant = getDefaultVariant(variants);
-  // A product with options never falls back to its default variant: if all option variants are archived it is unavailable
-  const hasOptions = groups.length > 0 || optionVariants.length > 0;
+  // A product with options never falls back to its default variant: if all option variants are archived it is
+  // unavailable. Archived option variants left over after all groups were removed don't count (ADR 0001).
+  const hasOptions = groups.length > 0 || activeOptionVariants.length > 0;
 
   if (hasOptions || !defaultVariant) {
     return {

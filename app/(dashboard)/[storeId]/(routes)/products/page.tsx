@@ -38,6 +38,7 @@ const ProductsPage = async (props: Props) => {
       isFeatured: item.isFeatured,
       isArchived: item.isArchived,
       stockCount: item.stockCount,
+      variantCount: item.variantCount,
       price: formatter.format(pricing.regularPrice),
       salePrice: pricing.salePrice === null ? null : formatter.format(pricing.salePrice),
       saleStatus: saleStatusLabels[pricing.status],

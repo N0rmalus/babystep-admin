@@ -202,6 +202,20 @@ describe('buildPublicProduct', () => {
     expect(product).toMatchObject({ stockCount: 0, options: [], variants: [] });
   });
 
+  it('treats a product whose groups were removed as a plain product, ignoring its archived option variants', () => {
+    const product = buildPublicProduct(
+      createProduct({
+        groups: [],
+        variants: [
+          createVariant({ id: 'default', stockCount: 4 }),
+          createVariant({ id: 'sized', stockCount: 6, isArchived: true, optionValueIds: ['size-0-6'] }),
+        ],
+      }),
+    );
+
+    expect(product).toMatchObject({ hasOptions: false, stockCount: 4, options: [], variants: [] });
+  });
+
   it('keeps a product with option groups unavailable when only its default variant is still active', () => {
     const product = buildPublicProduct(
       createProduct({

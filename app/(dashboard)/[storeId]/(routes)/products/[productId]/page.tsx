@@ -1,7 +1,10 @@
 import { redirect } from 'next/navigation';
 import { ProductForm } from './components/product-form';
+import { EMPTY_DEFAULT_VARIANT } from './components/schema';
 import { Page } from '@/components/dashboard/page';
 import { getCategories } from '@/queries/get-categories';
+import { DEFAULT_COMBINATION_KEY } from '@/lib/product-variant';
+import { getOptionGroups } from '@/queries/get-option-groups';
 import { getProduct } from '@/queries/get-product';
 import { getSubcategories } from '@/queries/get-subcategories';
 
@@ -16,22 +19,27 @@ const ProductPage = async (props: Props) => {
   const params = await props.params;
   const categories = await getCategories(params.storeId);
   const subcategories = await getSubcategories(params.storeId);
+  const optionGroups = await getOptionGroups(params.storeId);
 
   const product = await getProduct(params.storeId, params.productId, {
-    includeImages: true,
-    includeDefaultVariant: true,
+    includeVariantEditor: true,
   });
 
   if (params.productId !== 'new' && !product) {
     redirect(`/${params.storeId}/products`);
   }
 
-  const defaultVariant = product?.variants.at(0);
+  const storeGroups = optionGroups.map(({ id, name, values }) => ({
+    id,
+    name,
+    values: values.map((value) => ({ id: value.id, label: value.label })),
+  }));
+  const chosenGroups = product ? getChosenGroups({ product, storeGroups }) : [];
   const serializedProduct = product
     ? {
         ...product,
-        sku: defaultVariant?.sku ?? '',
-        stockCount: defaultVariant?.stockCount ?? 0,
+        optionGroups: chosenGroups,
+        variants: getVariantRows({ variants: product.variants, hasGroups: chosenGroups.length > 0 }),
         price: Number(product.price),
         salePrice: product.salePrice ? Number(product.salePrice) : null,
         saleStartsAt: product.saleStartsAt?.toISOString() ?? null,
@@ -41,9 +49,72 @@ const ProductPage = async (props: Props) => {
 
   return (
     <Page>
-      <ProductForm subcategories={subcategories} categories={categories} initialData={serializedProduct} />
+      <ProductForm
+        subcategories={subcategories}
+        categories={categories}
+        storeGroups={storeGroups}
+        initialData={serializedProduct}
+      />
     </Page>
   );
 };
 
 export default ProductPage;
+
+type ChosenGroupsOptions = {
+  product: { optionGroups: { groupId: string }[]; variants: { optionValues: { optionValueId: string }[] }[] };
+  storeGroups: { id: string; values: { id: string }[] }[];
+};
+
+// The product's groups in order, each with the values its active variants use (in the group's value order)
+const getChosenGroups = ({ product, storeGroups }: ChosenGroupsOptions) => {
+  const usedValueIds = new Set(
+    product.variants.flatMap((variant) => variant.optionValues.map(({ optionValueId }) => optionValueId)),
+  );
+
+  return product.optionGroups.flatMap(({ groupId }) => {
+    const storeGroup = storeGroups.find(({ id }) => id === groupId);
+
+    if (!storeGroup) {
+      return [];
+    }
+
+    return [{ id: groupId, valueIds: storeGroup.values.flatMap(({ id }) => (usedValueIds.has(id) ? [id] : [])) }];
+  });
+};
+
+type EditorVariant = {
+  id: string;
+  sku: string | null;
+  stockCount: number;
+  price: { toNumber: () => number } | null;
+  salePrice: { toNumber: () => number } | null;
+  combinationKey: string;
+  optionValues: { optionValueId: string }[];
+};
+
+type VariantRowsOptions = {
+  variants: EditorVariant[];
+  hasGroups: boolean;
+};
+
+// A product without groups edits only its default variant, or an empty default row if it has none (ADR 0001).
+// That also covers a product whose store-level groups were deleted: its option variants are left out.
+const getVariantRows = ({ variants, hasGroups }: VariantRowsOptions) => {
+  if (!hasGroups) {
+    const defaultVariant = variants.find((variant) => variant.combinationKey === DEFAULT_COMBINATION_KEY);
+
+    return defaultVariant ? [toVariantRow(defaultVariant)] : [EMPTY_DEFAULT_VARIANT];
+  }
+
+  return variants.map(toVariantRow);
+};
+
+const toVariantRow = (variant: EditorVariant) => ({
+  id: variant.id,
+  optionValueIds: variant.optionValues.map(({ optionValueId }) => optionValueId),
+  sku: variant.sku ?? '',
+  stockCount: variant.stockCount,
+  price: variant.price?.toNumber() ?? null,
+  salePrice: variant.salePrice?.toNumber() ?? null,
+});

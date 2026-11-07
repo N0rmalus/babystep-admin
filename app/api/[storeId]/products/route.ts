@@ -11,12 +11,7 @@ import {
   normalizeOptionalDate,
   normalizeOptionalPrice,
 } from '@/lib/product-pricing';
-import {
-  DEFAULT_COMBINATION_KEY,
-  INVALID_STOCK_COUNT_MESSAGE,
-  isValidStockCount,
-  normalizeOptionalSku,
-} from '@/lib/product-variant';
+import { prepareVariantChanges, saveProductVariants } from '@/lib/product-variant-writes';
 import { isSkuConflictError, SKU_TAKEN_MESSAGE } from '@/lib/sku-conflict';
 import { getProductCatalog, type ProductCatalogSort } from '@/queries/get-product-catalog';
 import { getProducts } from '@/queries/get-products';
@@ -90,8 +85,6 @@ export async function POST(req: Request, props: { params: Promise<{ storeId: str
       salePrice,
       saleStartsAt,
       saleEndsAt,
-      stockCount,
-      sku,
       subcategoryId,
       images,
       isFeatured,
@@ -134,9 +127,6 @@ export async function POST(req: Request, props: { params: Promise<{ storeId: str
     if (saleValidationMessage) {
       return new NextResponse(saleValidationMessage, { status: 400 });
     }
-    if (!isValidStockCount(stockCount)) {
-      return new NextResponse(INVALID_STOCK_COUNT_MESSAGE, { status: 400 });
-    }
     if (!subcategoryId) {
       return new NextResponse('Būtinas subkategorijos ID', { status: 400 });
     }
@@ -156,32 +146,41 @@ export async function POST(req: Request, props: { params: Promise<{ storeId: str
       return new NextResponse('Subkategorija šiai parduotuvei nerasta', { status: 404 });
     }
 
-    const product = await prismadb.product.create({
-      data: {
-        name,
-        price: normalizedPrice,
-        salePrice: normalizedSalePrice,
-        saleStartsAt: normalizedSaleStartsAt,
-        saleEndsAt: normalizedSaleEndsAt,
-        subcategoryId,
-        isFeatured,
-        isArchived,
-        description,
+    const variantChanges = await prepareVariantChanges({ storeId: params.storeId, body });
+
+    if (!variantChanges.isValid) {
+      return new NextResponse(variantChanges.message, { status: 400 });
+    }
+
+    const product = await prismadb.$transaction(async (tx) => {
+      const createdProduct = await tx.product.create({
+        data: {
+          name,
+          price: normalizedPrice,
+          salePrice: normalizedSalePrice,
+          saleStartsAt: normalizedSaleStartsAt,
+          saleEndsAt: normalizedSaleEndsAt,
+          subcategoryId,
+          isFeatured,
+          isArchived,
+          description,
+          storeId: params.storeId,
+          images: {
+            createMany: {
+              data: images.map((image: { url: string }, position: number) => ({ url: image.url, position })),
+            },
+          },
+        },
+      });
+
+      await saveProductVariants(tx, {
         storeId: params.storeId,
-        images: {
-          createMany: {
-            data: images.map((image: { url: string }, position: number) => ({ url: image.url, position })),
-          },
-        },
-        variants: {
-          create: {
-            storeId: params.storeId,
-            combinationKey: DEFAULT_COMBINATION_KEY,
-            sku: normalizeOptionalSku(sku),
-            stockCount,
-          },
-        },
-      },
+        productId: createdProduct.id,
+        groupIds: variantChanges.groupIds,
+        plan: variantChanges.plan,
+      });
+
+      return createdProduct;
     });
 
     return NextResponse.json(product);

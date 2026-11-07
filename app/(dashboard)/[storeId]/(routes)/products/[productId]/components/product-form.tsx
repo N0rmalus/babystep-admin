@@ -29,9 +29,12 @@ import { normalizeRichTextContent } from '@/lib/rich-text';
 import { ProductStatusToggle } from './product-status-toggle';
 import { FormSection } from '@/components/ui/form/form-section';
 import {
+  EMPTY_DEFAULT_VARIANT,
   productFormSchema,
   ProductFormValues,
+  toVariantPayload,
 } from '@/app/(dashboard)/[storeId]/(routes)/products/[productId]/components/schema';
+import { StoreOptionGroup, VariantEditor } from './variant-editor';
 import Link from 'next/link';
 import axios from 'axios';
 
@@ -43,12 +46,13 @@ type Props = {
         saleStartsAt: string | null;
         saleEndsAt: string | null;
         images: Image[];
-        sku: string;
-        stockCount: number;
+        optionGroups: ProductFormValues['optionGroups'];
+        variants: ProductFormValues['variants'];
       })
     | null;
   subcategories: Subcategory[];
   categories: Category[];
+  storeGroups: StoreOptionGroup[];
 };
 
 const formatDateTimeLocalValue = (value?: string | null) => {
@@ -67,7 +71,7 @@ const formatDateTimeLocalValue = (value?: string | null) => {
   return localDate.toISOString().slice(0, 16);
 };
 
-export const ProductForm = ({ initialData, subcategories, categories }: Props) => {
+export const ProductForm = ({ initialData, subcategories, categories, storeGroups }: Props) => {
   const params = useParams();
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -84,8 +88,8 @@ export const ProductForm = ({ initialData, subcategories, categories }: Props) =
         salePrice: initialData.salePrice,
         saleStartsAt: formatDateTimeLocalValue(initialData.saleStartsAt),
         saleEndsAt: formatDateTimeLocalValue(initialData.saleEndsAt),
-        stockCount: initialData.stockCount,
-        sku: initialData.sku,
+        optionGroups: initialData.optionGroups,
+        variants: initialData.variants,
         subcategoryId: initialData.subcategoryId,
         isFeatured: initialData.isFeatured,
         isArchived: initialData.isArchived,
@@ -98,8 +102,8 @@ export const ProductForm = ({ initialData, subcategories, categories }: Props) =
         salePrice: null,
         saleStartsAt: null,
         saleEndsAt: null,
-        stockCount: 0,
-        sku: '',
+        optionGroups: [],
+        variants: [EMPTY_DEFAULT_VARIANT],
         subcategoryId: '',
         description: '',
         isFeatured: false,
@@ -111,9 +115,10 @@ export const ProductForm = ({ initialData, subcategories, categories }: Props) =
     defaultValues,
   });
 
-  const onSubmit = async (data: ProductFormValues) => {
+  const handleSubmit = async ({ optionGroups, variants, ...data }: ProductFormValues) => {
     const payload = {
       ...data,
+      ...toVariantPayload({ optionGroups, variants }),
       saleStartsAt: data.saleStartsAt || null,
       saleEndsAt: data.saleEndsAt || null,
     };
@@ -170,7 +175,7 @@ export const ProductForm = ({ initialData, subcategories, categories }: Props) =
       <Separator />
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="w-full space-y-8">
+        <form onSubmit={form.handleSubmit(handleSubmit)} className="w-full space-y-8">
           <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_320px]">
             <div className="space-y-6">
               <FormSection title="Nuotraukos" description="Pirmoji nuotrauka bus produkto miniatiūra.">
@@ -303,36 +308,6 @@ export const ProductForm = ({ initialData, subcategories, categories }: Props) =
 
                   <FormField
                     control={form.control}
-                    name="stockCount"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Laisva</FormLabel>
-                        <FormControl>
-                          <Input type="number" min="0" step="1" disabled={loading} placeholder="9" {...field} />
-                        </FormControl>
-                        <FormDescription>Įveskite laisvą kiekį, be rezervuotų.</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="sku"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>SKU</FormLabel>
-                        <FormControl>
-                          <Input disabled={loading} placeholder="BS-0001" {...field} />
-                        </FormControl>
-                        <FormDescription>Neprivaloma. Turi būti unikalus parduotuvėje.</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
                     name="saleStartsAt"
                     render={({ field }) => (
                       <FormItem>
@@ -382,6 +357,13 @@ export const ProductForm = ({ initialData, subcategories, categories }: Props) =
                     </FormItem>
                   )}
                 />
+              </FormSection>
+
+              <FormSection
+                title="Variantai"
+                description="Pasirinkite savybes ir jų reikšmes, tada sugeneruokite derinius. Neegzistuojančius derinius ištrinkite."
+              >
+                <VariantEditor storeGroups={storeGroups} isDisabled={loading} />
               </FormSection>
             </div>
 

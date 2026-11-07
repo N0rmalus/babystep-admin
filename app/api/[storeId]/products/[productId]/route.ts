@@ -12,11 +12,11 @@ import {
   normalizeOptionalPrice,
 } from '@/lib/product-pricing';
 import {
-  DEFAULT_COMBINATION_KEY,
-  INVALID_STOCK_COUNT_MESSAGE,
-  isValidStockCount,
-  normalizeOptionalSku,
-} from '@/lib/product-variant';
+  isVariantWithOrdersError,
+  prepareVariantChanges,
+  saveProductVariants,
+  VARIANT_HAS_ORDERS_MESSAGE,
+} from '@/lib/product-variant-writes';
 import { isSkuConflictError, SKU_TAKEN_MESSAGE } from '@/lib/sku-conflict';
 import { getProduct } from '@/queries/get-product';
 import { getStoreByUserId } from '@/queries/get-store-by-user-id';
@@ -63,8 +63,6 @@ export async function PATCH(req: Request, props: { params: Promise<{ storeId: st
       salePrice,
       saleStartsAt,
       saleEndsAt,
-      stockCount,
-      sku,
       subcategoryId,
       images,
       isFeatured,
@@ -107,9 +105,6 @@ export async function PATCH(req: Request, props: { params: Promise<{ storeId: st
     if (saleValidationMessage) {
       return new NextResponse(saleValidationMessage, { status: 400 });
     }
-    if (!isValidStockCount(stockCount)) {
-      return new NextResponse(INVALID_STOCK_COUNT_MESSAGE, { status: 400 });
-    }
     if (!subcategoryId) {
       return new NextResponse('Būtinas subkategorijos ID', { status: 400 });
     }
@@ -135,11 +130,18 @@ export async function PATCH(req: Request, props: { params: Promise<{ storeId: st
       return new NextResponse('Subkategorija šiai parduotuvei nerasta', { status: 404 });
     }
 
-    const normalizedSku = normalizeOptionalSku(sku);
+    const variantChanges = await prepareVariantChanges({
+      storeId: params.storeId,
+      productId: params.productId,
+      body,
+    });
 
-    // Until the variant editor (#70) the form edits only the default variant's Laisva and SKU.
-    const [, product] = await prismadb.$transaction([
-      prismadb.product.update({
+    if (!variantChanges.isValid) {
+      return new NextResponse(variantChanges.message, { status: 400 });
+    }
+
+    const product = await prismadb.$transaction(async (tx) => {
+      await tx.product.update({
         where: {
           id: params.productId,
         },
@@ -157,8 +159,9 @@ export async function PATCH(req: Request, props: { params: Promise<{ storeId: st
           isArchived,
           description,
         },
-      }),
-      prismadb.product.update({
+      });
+
+      const updatedProduct = await tx.product.update({
         where: {
           id: params.productId,
         },
@@ -169,32 +172,25 @@ export async function PATCH(req: Request, props: { params: Promise<{ storeId: st
             },
           },
         },
-      }),
-      prismadb.productVariant.upsert({
-        where: {
-          productId_combinationKey: {
-            productId: params.productId,
-            combinationKey: DEFAULT_COMBINATION_KEY,
-          },
-        },
-        update: {
-          sku: normalizedSku,
-          stockCount,
-        },
-        create: {
-          storeId: params.storeId,
-          productId: params.productId,
-          combinationKey: DEFAULT_COMBINATION_KEY,
-          sku: normalizedSku,
-          stockCount,
-        },
-      }),
-    ]);
+      });
+
+      await saveProductVariants(tx, {
+        storeId: params.storeId,
+        productId: params.productId,
+        groupIds: variantChanges.groupIds,
+        plan: variantChanges.plan,
+      });
+
+      return updatedProduct;
+    });
 
     return NextResponse.json(product);
   } catch (error) {
     if (isSkuConflictError(error)) {
       return new NextResponse(SKU_TAKEN_MESSAGE, { status: 409 });
+    }
+    if (isVariantWithOrdersError(error)) {
+      return new NextResponse(VARIANT_HAS_ORDERS_MESSAGE, { status: 409 });
     }
     console.log('[PRODUCT_PATCH]', error);
     return new NextResponse('Internal error', { status: 500 });

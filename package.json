@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint .",
     "postinstall": "prisma generate",
-    "typescript": "next typegen && tsc --noEmit"
+    "typescript": "next typegen && tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.2.5",
@@ -64,6 +65,7 @@
     "prettier": "^3.8.3",
     "prettier-plugin-tailwindcss": "^0.0.0-insiders.f7d2598",
     "prisma": "^5.0.0",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^5.1.0"
   }
 }

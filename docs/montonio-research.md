@@ -52,7 +52,7 @@ These answer "Open decisions for the owner" below and are what later sessions bu
 
 **Rollout:** the store isn't live, so both repos switch together. **No backward compatibility** with `{ productIds }`; the new checkout request (line items with variants, delivery, contact, payment method) replaces it.
 
-**Keys:** development uses **sandbox keys only**. Production keys live only in Vercel when going live.
+**Keys:** development uses **sandbox keys only**. Production keys live only in the host's environment variables when going live (Hostinger is planned, after a test deploy; see the store's TODO).
 
 **Still to confirm with Montonio:** when the monthly fee is charged; whether Unisend is LP Express; whether they offer a pickup-point selector for custom integrations; whether parcels can be dropped off at Omniva parcel machines; the calculator showed slightly lower rates (Unisend 1,99 €, Omniva 2,30 € / courier 5,50 €) than the pricing page used above.
 
@@ -85,9 +85,9 @@ Things only the owner can do in Montonio's Partner System. Development needs onl
 3. **Payment methods:** enable bank payments and cards (Apple Pay and Google Pay come with cards) for the store. Leave Pay Later off.
 4. **Shipping:** activate Omniva and Unisend parcel machines and SmartPosti courier on Montonio contracts (sandbox uses dummy carrier credentials). Find out whether the shipping API uses the same keys.
 5. **Branded tracking:** upload the logo and colors for the tracking page and emails (Core plan).
-6. **Before launch only:** production keys go into Vercel's environment variables, never into the local `.env`.
+6. **Before launch only:** production keys go into the host's environment variables, never into the local `.env`.
 
-Webhooks: Montonio has to reach `notificationUrl` over the internet, so `localhost` won't work. Test webhooks on a Vercel preview deployment (with the sandbox keys in Vercel's Preview environment) or through a tunnel such as `cloudflared` / `ngrok`. Montonio's help article "How to test order webhooks locally" covers this.
+Webhooks: Montonio has to reach `notificationUrl` over the internet, so `localhost` won't work. Test webhooks on a deployed staging setup (with the sandbox keys in its environment variables) or through a tunnel such as `cloudflared` / `ngrok`. Montonio's help article "How to test order webhooks locally" covers this.
 
 ## Our current Stripe flow
 

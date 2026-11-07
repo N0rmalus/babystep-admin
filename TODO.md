@@ -6,13 +6,12 @@ Payments are moving from Stripe to Montonio. Don't spend time on Stripe-only fix
 
 ## Product variants (plan before the overselling fix and Montonio)
 
-Some products come in sizes or colors. Variants change how stock works, so plan them first: the overselling fix and the Montonio checkout both handle stock, and should be built per variant once, not twice. Start with `/grill-me`, then `to-prd`.
+Planned on 2026-11-07: every decision is in `docs/product-variants.md` (the source for `/to-prd`, one PRD per step). Terms in `GLOSSARY.md`, ADRs 0001 and 0002 in `docs/adr/`. Each step is committed separately and tested on `dev`.
 
-- [ ] **Data model.** A `ProductVariant` model: the product's options (e.g. size, color), its own stock and SKU, an optional own price (else the product's) and optional own images (e.g. per color). Products without variants keep working as today. Migration on the `dev` branch only.
-- [ ] **Stock per variant.** Checkout, stock reservation, the webhook's stock decrement and archiving sold-out items all work per variant. Order items record the variant and its options at purchase time.
-- [ ] **Checkout contract.** Checkout accepts line items `{ productId, variantId?, quantity }` instead of repeated product IDs. Keep accepting the old `{ productIds }` until the storefront is updated.
-- [ ] **Public API.** Product responses include variants with options, price, stock and images, so the storefront can show what is available.
-- [ ] **Admin form.** A variant editor in the product form: define options, generate combinations, set stock, SKU, price and images per variant.
+- [ ] **Step 1, admin.** Schema and `dev` migration (default variant per product), the "Savybės" page for store-level groups (Dydis, Spalva), the variant editor with bulk edit, image tags, the public product shape, catalog rules for variants, order item snapshot fields and the variant label helper.
+- [ ] **Step 2, storefront.** See the store's TODO ("Product variants").
+- [ ] **Step 3, Montonio checkout.** Line items per variant, stock reservation and release, the cleanup route, review flags and the checkout error codes. Listed under "Checkout endpoints for the storefront" and "High".
+- [ ] **Steps 4 and 5.** "Product specifications" (with the size guide) and "Product age range" use the shapes fixed in the plan.
 
 ## Montonio migration
 
@@ -20,7 +19,7 @@ High-level plan. How Montonio works is not researched yet: read their docs first
 
 - [ ] **Research Montonio.** How orders are created and paid, how payment results reach us, which payment states exist, what customer data comes back, and whether it offers anything for shipping.
 - [ ] **Replace payment creation in checkout.** `app/api/[storeId]/checkout/route.ts:130` creates the Stripe session. Keep the contract the storefront uses (`{ productIds }` in, `{ url }` out) so the store needs no change at switch-over, and link the payment to our `order.id`.
-- [ ] **Replace the payment webhook.** `app/api/webhook/route.ts`. Keep the existing transaction (mark paid once, decrement stock, archive sold-out products). Mark an order paid only once the payment is confirmed, and verify that the notification really comes from the provider.
+- [ ] **Replace the payment webhook.** `app/api/webhook/route.ts`. Keep marking paid once, but stock is now reserved at checkout, so `PAID` no longer decrements stock or archives sold-out products (see "Stock and reservation" in `docs/product-variants.md`). Mark an order paid only once the payment is confirmed, and verify that the notification really comes from the provider.
 - [ ] **Charge shipping.** Today nothing is charged: the Stripe session has no shipping line, while the storefront shows 4,99 € and the delivery page promises 3,49 € (parcel locker) and 6,49 € (courier). Decide the delivery options and prices, then have checkout accept a delivery method, compute the price server-side, apply the free-shipping threshold and store it on the order.
 - [ ] **Keep collecting address and phone.** Stripe's hosted page collects them today (`billing_address_collection`, `phone_number_collection`) and the webhook copies them onto the order. Make sure orders still get them after the switch.
 - [ ] **Return customers to the storefront with our order ID** so the store can show a real confirmation (see the storefront TODO).
@@ -29,20 +28,22 @@ High-level plan. How Montonio works is not researched yet: read their docs first
 
 ## High
 
-- [ ] **Overselling charges customers without a paid order.** (Plan "Product variants" first: reserve stock per variant.) Checkout checks stock but doesn't reserve it; if two people pay for the last item, the second webhook fails with 500 and the order stays unpaid while the customer has paid. Fix it independently of the provider: reserve stock when the order is created in checkout, and release it when the order is cancelled or expires. `app/api/[storeId]/checkout/route.ts:76`, `app/api/webhook/route.ts:104`
+- [ ] **Overselling charges customers without a paid order.** (Planned: reserve per variant by decrementing at checkout, built in the Montonio checkout; see "Stock and reservation" in `docs/product-variants.md` and ADR 0002.) Checkout checks stock but doesn't reserve it; if two people pay for the last item, the second webhook fails with 500 and the order stays unpaid while the customer has paid. Fix it independently of the provider: reserve stock when the order is created in checkout, and release it when the order is cancelled or expires. `app/api/[storeId]/checkout/route.ts:76`, `app/api/webhook/route.ts:104`
 - [ ] **Product PATCH can wipe all images.** Images are deleted and re-added in two separate steps; if the second fails the product has none. Do it in one transaction. `app/api/[storeId]/products/[productId]/route.ts:131-163`
 - [ ] **Sale dates drift by the timezone offset on every save.** The form sends dates without a timezone and the server (UTC in prod) reads them as UTC, which can change the charged price. `product-form.tsx:65`, `product-form.tsx:113`
 
 ## Medium
 
 - [ ] Orders table: "Apmokėta" column is always blank, no date column, abandoned unpaid orders mixed with real ones. `orders/components/columns.tsx:179`
-- [ ] Unpaid orders are never cleaned up. Once stock is reserved, the cleanup job is also what releases the reservation, so build it with the overselling fix.
+- [ ] Unpaid orders are never cleaned up. Once stock is reserved, the cleanup job is also what releases the reservation, so build it with the overselling fix: the `release-reservations` cron route in `docs/product-variants.md`.
 - [ ] Public checkout has no rate limit. Matters more once checkout reserves stock, because spam orders could lock it up.
 - [ ] Server doesn't validate stock amounts; negative values are saved.
 - [ ] Product images from the form are saved as-is instead of keeping only the URL.
 - [ ] Revenue chart sums the same month across different years.
 - [ ] Deleting something still in use (e.g. a sold product) returns a generic English 500.
 - [ ] Public single-product GET returns archived products.
+
+- [ ] **Price history for discount rules.** If the EU Omnibus requirement applies (see the storefront's "Price reductions" item), record each variant's price changes (products without variants through their default variant) so the API can return the lowest price of the last 30 days, and use it as the "before" price for sales. Do it before launch, so history starts recording early; until 30 days of history exist, use the current regular price as the reference.
 
 ## Low
 
@@ -88,6 +89,8 @@ Banners become editable and more flexible. Design the layouts in Claude Design f
 
 The home page has a "Pagal amžių" section (0–6 mėn., 6–12 mėn., 1–3 m.) that is a mock in the storefront until this exists.
 
+Dydis values carry an age range (see "Age picker" in `docs/product-variants.md`): a product with age-based sizes matches through its in-stock variants, and the product-level range below is the fallback for products without them.
+
 - [ ] **Data model.** Add optional `ageFromMonths` and `ageToMonths` (Int) to `Product`. A range, not tags, so a 3–12 month product appears in both 0–6 and 6–12. Migration on the `dev` branch only.
 - [ ] **Age groups in one place.** Define the groups (0–6, 6–12, 12–36 months, with Lithuanian labels) as one constant shared by the API and the form.
 - [ ] **Product form.** Two number fields ("nuo" / "iki" mėn.) or age-group checkboxes, with validation (from ≤ to, no negatives).
@@ -105,7 +108,7 @@ The storefront shows a newsletter form that is a mock until this exists.
 
 Structured "Papildoma informacija" shown on the product page, next to the rich-text description.
 
-- [ ] **Data model.** Label/value specification rows per product (e.g. Matmenys, Medžiaga, Sudėtis, Priežiūra), ordered. Allow a variant to override a value (e.g. dimensions per size). Migration on the `dev` branch only.
+- [ ] **Data model.** Label/value specification rows per product (e.g. Matmenys, Medžiaga, Sudėtis, Priežiūra), ordered. A row can vary by one option group, with a value per option value (e.g. dimensions per Dydis), not per variant. The size guide is built from these rows plus the Dydis height and weight ranges (see "Specifications and size guide" in `docs/product-variants.md`). Migration on the `dev` branch only.
 - [ ] **Consistent labels.** A shared list of common labels to pick from (free text still allowed), so the same spec is spelled the same everywhere and can become a catalog filter later.
 - [ ] **Product form and API.** Edit the rows in the product form; include them in the public product response.
 
@@ -116,13 +119,15 @@ The storefront's checkout (`../babystep-store/docs/design/checkout/`) needs thes
 - [ ] **Delivery options:** carriers, prices and the free-shipping threshold from one shared config (see Decisions in `docs/montonio-research.md`).
 - [ ] **Pickup points:** proxy Montonio Shipping `GET /shipping-methods/pickup-points` for Omniva and Unisend parcel machines in LT, merged into one list, cached (e.g. for a day).
 - [ ] **Payment methods:** proxy `GET /stores/payment-methods`, returning Lithuanian banks (`name`, `code`, `logoUrl`) and whether cards are enabled. Cache it.
-- [ ] **Create order:** the new checkout request (line items with variants, delivery, contact, payment method + bank code), stock reservation, Montonio order, returns `paymentUrl`.
+- [ ] **Create order:** the new checkout request (line items with variants, delivery, contact, payment method + bank code), stock reservation, Montonio order, returns `paymentUrl`. Line items, reservation, release and error codes as in `docs/product-variants.md`.
 - [ ] **Order status by our order ID** for the confirmation page.
 - [ ] **Order confirmation email** (choose a provider; the newsletter service may cover transactional email).
+- [ ] **Promo codes:** create and manage codes in the admin, validate them in the checkout request and apply the discount server-side.
 
 ## Migration from WordPress
 
 The plan lives in the storefront's TODO ("Migration from WordPress"). Admin side:
 
 - [ ] **Montonio keys: never regenerate the live store's keys.** The live WordPress shop uses that Montonio store's production keys; regenerating invalidates them. Develop with sandbox keys, ideally from a separate Montonio store for the new site. Decide with Montonio which store the new site uses at launch.
-- [ ] **Data imports** (products, reviews, maybe customers and orders) into the `dev` branch first, then `prod` at switch-over.
+- [ ] **Products by hand.** Enter products and variants by hand in the new admin (no importer). On switch-over day, update stock numbers from WooCommerce.
+- [ ] **Data imports** (reviews, maybe customers and orders) into the `dev` branch first, then `prod` at switch-over.

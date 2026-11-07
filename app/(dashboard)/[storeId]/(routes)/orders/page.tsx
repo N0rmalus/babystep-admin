@@ -5,6 +5,7 @@ import { OrderClient } from './components/client';
 import { OrderColumn } from './components/columns';
 import { Page } from '@/components/dashboard/page';
 import { getOrderItemTotal } from '@/lib/product-pricing';
+import { getOrderItemText, OrderItemSnapshot } from '@/lib/variant-label';
 import { getOrders } from '@/queries/get-orders';
 
 type Props = {
@@ -40,7 +41,7 @@ const OrdersPage = async (props: Props) => {
 
 export default OrdersPage;
 
-// Variant labels come with #65; until then show the snapshot name and quantity.
-const formatOrderItem = ({ productName, quantity }: { productName: string; quantity: number }) => {
-  return quantity > 1 ? `${productName} × ${quantity}` : productName;
+// Built from the order item snapshot, never live product data.
+const formatOrderItem = ({ quantity, ...snapshot }: OrderItemSnapshot & { quantity: number }) => {
+  return `${getOrderItemText(snapshot)} × ${quantity}`;
 };

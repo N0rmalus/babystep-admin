@@ -37,9 +37,7 @@ export async function GET(req: Request, props: { params: Promise<{ storeId: stri
     }
 
     const product = await getProduct(params.storeId, params.productId, {
-      includeImages: true,
-      includeSubcategoryCategory: true,
-      includeStockCount: true,
+      includeVariants: true,
     });
 
     if (!product) {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getOrderItemTotal, getProductPricing } from '@/lib/product-pricing';
+import { getOrderItemTotal, getProductPricing, resolveVariantPrices } from '@/lib/product-pricing';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const NOW = new Date('2026-06-15T12:00:00Z');
@@ -73,5 +73,37 @@ describe('getProductPricing', () => {
 describe('getOrderItemTotal', () => {
   it('multiplies the unit price paid by the quantity', () => {
     expect(getOrderItemTotal({ unitPrice: { toNumber: () => 19.99 }, quantity: 3 })).toBe(59.97);
+  });
+});
+
+describe('resolveVariantPrices', () => {
+  const product = { price: 20, salePrice: 15 };
+
+  it('inherits both the price and the sale price when the variant overrides neither', () => {
+    expect(resolveVariantPrices({ product, variant: { price: null, salePrice: null } })).toEqual({
+      price: 20,
+      salePrice: 15,
+    });
+  });
+
+  it('overrides both when the variant has its own price, keeping its own sale price', () => {
+    expect(resolveVariantPrices({ product, variant: { price: 24, salePrice: 18 } })).toEqual({
+      price: 24,
+      salePrice: 18,
+    });
+  });
+
+  it('treats an overriding variant without a sale price as not on sale, ignoring the product sale price', () => {
+    expect(resolveVariantPrices({ product, variant: { price: 24, salePrice: null } })).toEqual({
+      price: 24,
+      salePrice: null,
+    });
+  });
+
+  it('lets getProductPricing judge the resolved sale against the product sale window', () => {
+    const prices = resolveVariantPrices({ product, variant: { price: 24, salePrice: 18 } });
+
+    expect(getProductPricing({ ...prices, saleStartsAt: TOMORROW }, NOW).isOnSale).toBe(false);
+    expect(getProductPricing({ ...prices, saleStartsAt: YESTERDAY }, NOW).effectivePrice).toBe(18);
   });
 });

@@ -52,9 +52,7 @@ export const getProductCatalog = async (
     subcategoryId: options.subcategoryId,
     isOnSale: options.baseIsOnSale ? true : undefined,
     onlyActive: true,
-    includeImages: true,
-    includeSubcategoryCategory: true,
-    includeStockCount: true,
+    includeVariants: true,
   });
 
   const filteredProducts = sortProducts(

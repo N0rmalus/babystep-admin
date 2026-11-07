@@ -232,9 +232,7 @@ export async function GET(req: Request, props: { params: Promise<{ storeId: stri
       isFeatured: isFeatured ? true : undefined,
       isOnSale: isOnSale ? true : undefined,
       onlyActive: true,
-      includeImages: true,
-      includeSubcategoryCategory: true,
-      includeStockCount: true,
+      includeVariants: true,
     });
 
     return NextResponse.json(products, { headers: corsHeaders });

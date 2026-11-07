@@ -2,8 +2,8 @@ import 'server-only';
 
 import { Prisma, Product } from '@prisma/client';
 import prismadb from '@/lib/prismadb';
-import { DEFAULT_COMBINATION_KEY, hasStockVariants, withStockCount } from '@/lib/product-variant';
-import { ORDERED_IMAGES, STOCK_VARIANTS_SELECT, type PublicProduct } from '@/queries/get-products';
+import { DEFAULT_COMBINATION_KEY } from '@/lib/product-variant';
+import { ORDERED_IMAGES, PUBLIC_PRODUCT_INCLUDE, toPublicProduct, type PublicProduct } from '@/queries/get-products';
 
 const DEFAULT_VARIANT_SELECT = {
   where: {
@@ -18,9 +18,8 @@ const DEFAULT_VARIANT_SELECT = {
 
 type GetProductOptions = {
   includeImages?: boolean;
-  includeSubcategoryCategory?: boolean;
-  // Adds `stockCount` (available stock of active variants) and leaves raw variants out
-  includeStockCount?: boolean;
+  // Returns the public product shape: images, subcategory with category, `options` and resolved `variants`
+  includeVariants?: boolean;
   // Adds `variants` holding only the default variant (empty for a product with options)
   includeDefaultVariant?: boolean;
 };
@@ -28,7 +27,7 @@ type GetProductOptions = {
 export function getProduct(
   storeId: string,
   productId: string,
-  options: GetProductOptions & { includeImages: true; includeSubcategoryCategory: true; includeStockCount: true },
+  options: GetProductOptions & { includeVariants: true },
 ): Promise<PublicProduct | null>;
 export function getProduct(
   storeId: string,
@@ -39,40 +38,28 @@ export function getProduct(
 }> | null>;
 export function getProduct(storeId: string, productId: string, options?: GetProductOptions): Promise<Product | null>;
 export async function getProduct(storeId: string, productId: string, options?: GetProductOptions): Promise<unknown> {
-  const hasInclude =
-    options?.includeImages ||
-    options?.includeSubcategoryCategory ||
-    options?.includeStockCount ||
-    options?.includeDefaultVariant;
+  const where = {
+    id: productId,
+    storeId,
+  };
 
-  const product = await prismadb.product.findFirst({
-    where: {
-      id: productId,
-      storeId,
-    },
+  if (options?.includeVariants) {
+    const product = await prismadb.product.findFirst({ where, include: PUBLIC_PRODUCT_INCLUDE });
+
+    return product ? toPublicProduct(product) : null;
+  }
+
+  const hasInclude = options?.includeImages || options?.includeDefaultVariant;
+
+  return prismadb.product.findFirst({
+    where,
     ...(hasInclude
       ? {
           include: {
             ...(options.includeImages ? { images: ORDERED_IMAGES } : {}),
-            ...(options.includeStockCount ? { variants: STOCK_VARIANTS_SELECT } : {}),
             ...(options.includeDefaultVariant ? { variants: DEFAULT_VARIANT_SELECT } : {}),
-            ...(options.includeSubcategoryCategory
-              ? {
-                  subcategory: {
-                    include: {
-                      category: true,
-                    },
-                  },
-                }
-              : {}),
           },
         }
       : {}),
   });
-
-  if (product && options?.includeStockCount && hasStockVariants(product)) {
-    return withStockCount(product);
-  }
-
-  return product;
 }

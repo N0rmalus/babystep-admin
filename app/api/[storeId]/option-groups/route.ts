@@ -1,7 +1,7 @@
 import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { corsHeaders } from '@/lib/cors';
-import { parseOptionGroupInput } from '@/lib/option-group';
+import { parseOptionGroupInput, pickSizeFields } from '@/lib/option-group';
 import prismadb from '@/lib/prismadb';
 import { getOptionGroups, ORDERED_OPTION_VALUES } from '@/queries/get-option-groups';
 import { getStoreByUserId } from '@/queries/get-store-by-user-id';
@@ -27,7 +27,8 @@ export async function POST(req: Request, props: { params: Promise<{ storeId: str
       return new NextResponse('Neautorizuota', { status: 403 });
     }
 
-    const input = parseOptionGroupInput(await req.json());
+    // New groups never get the size role; only the seeded Dydis group has it
+    const input = parseOptionGroupInput(await req.json(), 'NONE');
 
     if (!input.isValid) {
       return new NextResponse(input.message, { status: 400 });
@@ -46,7 +47,12 @@ export async function POST(req: Request, props: { params: Promise<{ storeId: str
         displayType: input.group.displayType,
         position: lastGroup ? lastGroup.position + 1 : 0,
         values: {
-          create: input.group.values.map(({ label, hex }, position) => ({ label, hex, position })),
+          create: input.group.values.map((value, position) => ({
+            label: value.label,
+            hex: value.hex,
+            ...pickSizeFields(value),
+            position,
+          })),
         },
       },
       include: {

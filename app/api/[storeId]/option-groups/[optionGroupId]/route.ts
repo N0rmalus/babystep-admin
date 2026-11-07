@@ -55,16 +55,17 @@ export async function PATCH(req: Request, props: RouteProps) {
       return new NextResponse('Neautorizuota', { status: 403 });
     }
 
-    const input = parseOptionGroupInput(await req.json());
-
-    if (!input.isValid) {
-      return new NextResponse(input.message, { status: 400 });
-    }
-
     const optionGroup = await getOptionGroup(params.storeId, params.optionGroupId);
 
     if (!optionGroup) {
       return new NextResponse(GROUP_NOT_FOUND_MESSAGE, { status: 404 });
+    }
+
+    // The group's role, not its name, decides whether values keep size ranges
+    const input = parseOptionGroupInput(await req.json(), optionGroup.role);
+
+    if (!input.isValid) {
+      return new NextResponse(input.message, { status: 400 });
     }
 
     const plan = planOptionValueChanges({

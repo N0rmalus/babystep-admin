@@ -50,6 +50,11 @@ const getRoutes = (storeId: string | undefined, pathname: string) => {
       active: isRouteActive(pathname, `${basePath}/products`),
     },
     {
+      href: `${basePath}/option-groups`,
+      label: 'Savybės',
+      active: isRouteActive(pathname, `${basePath}/option-groups`),
+    },
+    {
       href: `${basePath}/orders`,
       label: 'Užsakymai',
       active: isRouteActive(pathname, `${basePath}/orders`),

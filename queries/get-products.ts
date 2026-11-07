@@ -3,6 +3,38 @@ import 'server-only';
 import { Prisma, Product } from '@prisma/client';
 import prismadb from '@/lib/prismadb';
 import { getProductPricing } from '@/lib/product-pricing';
+import { hasStockVariants, withStockCount } from '@/lib/product-variant';
+
+export const STOCK_VARIANTS_SELECT = {
+  select: {
+    stockCount: true,
+    isArchived: true,
+  },
+} satisfies Prisma.Product$variantsArgs;
+
+export const ORDERED_IMAGES = {
+  orderBy: {
+    position: 'asc',
+  },
+} satisfies Prisma.Product$imagesArgs;
+
+const CHECKOUT_SELECT = {
+  id: true,
+  name: true,
+  price: true,
+  salePrice: true,
+  saleStartsAt: true,
+  saleEndsAt: true,
+  variants: {
+    select: {
+      id: true,
+      sku: true,
+      stockCount: true,
+      combinationKey: true,
+      isArchived: true,
+    },
+  },
+} satisfies Prisma.ProductSelect;
 
 export type PublicProduct = Prisma.ProductGetPayload<{
   include: {
@@ -13,12 +45,14 @@ export type PublicProduct = Prisma.ProductGetPayload<{
       };
     };
   };
-}>;
+}> & { stockCount: number };
 
 type GetProductsOptions = {
   includeImages?: boolean;
   includeSubcategory?: boolean;
   includeSubcategoryCategory?: boolean;
+  // Adds `stockCount` (available stock of active variants) and leaves raw variants out
+  includeStockCount?: boolean;
   onlyActive?: boolean;
   isFeatured?: boolean;
   isOnSale?: boolean;
@@ -32,29 +66,21 @@ type GetProductsOptions = {
 export function getProducts(
   storeId: string,
   options: GetProductsOptions & { selectCheckoutFields: true; productIds: string[] },
-): Promise<
-  Prisma.ProductGetPayload<{
-    select: {
-      id: true;
-      name: true;
-      price: true;
-      salePrice: true;
-      saleStartsAt: true;
-      saleEndsAt: true;
-      amountInStock: true;
-    };
-  }>[]
->;
+): Promise<Prisma.ProductGetPayload<{ select: typeof CHECKOUT_SELECT }>[]>;
 export function getProducts(
   storeId: string,
-  options: GetProductsOptions & { includeImages: true; includeSubcategoryCategory: true },
+  options: GetProductsOptions & { includeImages: true; includeSubcategoryCategory: true; includeStockCount: true },
 ): Promise<PublicProduct[]>;
+export function getProducts(
+  storeId: string,
+  options: GetProductsOptions & { includeSubcategory: true; includeStockCount: true },
+): Promise<(Prisma.ProductGetPayload<{ include: { subcategory: true } }> & { stockCount: number })[]>;
 export function getProducts(
   storeId: string,
   options: GetProductsOptions & { includeSubcategory: true },
 ): Promise<Prisma.ProductGetPayload<{ include: { subcategory: true } }>[]>;
 export function getProducts(storeId: string, options?: GetProductsOptions): Promise<Product[]>;
-export async function getProducts(storeId: string, options?: GetProductsOptions) {
+export async function getProducts(storeId: string, options?: GetProductsOptions): Promise<unknown[]> {
   const products = await prismadb.product.findMany({
     where: {
       storeId,
@@ -73,22 +99,18 @@ export async function getProducts(storeId: string, options?: GetProductsOptions)
     },
     ...(options?.selectCheckoutFields
       ? {
-          select: {
-            id: true,
-            name: true,
-            price: true,
-            salePrice: true,
-            saleStartsAt: true,
-            saleEndsAt: true,
-            amountInStock: true,
-          },
+          select: CHECKOUT_SELECT,
         }
       : {}),
     ...(!options?.selectCheckoutFields &&
-    (options?.includeImages || options?.includeSubcategory || options?.includeSubcategoryCategory)
+    (options?.includeImages ||
+      options?.includeSubcategory ||
+      options?.includeSubcategoryCategory ||
+      options?.includeStockCount)
       ? {
           include: {
-            ...(options.includeImages ? { images: true } : {}),
+            ...(options.includeImages ? { images: ORDERED_IMAGES } : {}),
+            ...(options.includeStockCount ? { variants: STOCK_VARIANTS_SELECT } : {}),
             ...(options.includeSubcategoryCategory
               ? {
                   subcategory: {
@@ -114,9 +136,13 @@ export async function getProducts(storeId: string, options?: GetProductsOptions)
       : {}),
   });
 
+  const productsWithStock = products.map((product) =>
+    options?.includeStockCount && hasStockVariants(product) ? withStockCount(product) : product,
+  );
+
   if (options?.isOnSale) {
-    return products.filter((product) => getProductPricing(product).isOnSale);
+    return productsWithStock.filter((product) => getProductPricing(product).isOnSale);
   }
 
-  return products;
+  return productsWithStock;
 }

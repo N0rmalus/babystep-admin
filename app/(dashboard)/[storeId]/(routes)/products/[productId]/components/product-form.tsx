@@ -43,6 +43,8 @@ type Props = {
         saleStartsAt: string | null;
         saleEndsAt: string | null;
         images: Image[];
+        sku: string;
+        stockCount: number;
       })
     | null;
   subcategories: Subcategory[];
@@ -82,7 +84,8 @@ export const ProductForm = ({ initialData, subcategories, categories }: Props) =
         salePrice: initialData.salePrice,
         saleStartsAt: formatDateTimeLocalValue(initialData.saleStartsAt),
         saleEndsAt: formatDateTimeLocalValue(initialData.saleEndsAt),
-        amountInStock: initialData.amountInStock,
+        stockCount: initialData.stockCount,
+        sku: initialData.sku,
         subcategoryId: initialData.subcategoryId,
         isFeatured: initialData.isFeatured,
         isArchived: initialData.isArchived,
@@ -95,7 +98,8 @@ export const ProductForm = ({ initialData, subcategories, categories }: Props) =
         salePrice: null,
         saleStartsAt: null,
         saleEndsAt: null,
-        amountInStock: 0,
+        stockCount: 0,
+        sku: '',
         subcategoryId: '',
         description: '',
         isFeatured: false,
@@ -299,13 +303,29 @@ export const ProductForm = ({ initialData, subcategories, categories }: Props) =
 
                   <FormField
                     control={form.control}
-                    name="amountInStock"
+                    name="stockCount"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Kiekis sandėlyje</FormLabel>
+                        <FormLabel>Laisva</FormLabel>
                         <FormControl>
                           <Input type="number" min="0" step="1" disabled={loading} placeholder="9" {...field} />
                         </FormControl>
+                        <FormDescription>Įveskite laisvą kiekį, be rezervuotų.</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="sku"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>SKU</FormLabel>
+                        <FormControl>
+                          <Input disabled={loading} placeholder="BS-0001" {...field} />
+                        </FormControl>
+                        <FormDescription>Neprivaloma. Turi būti unikalus parduotuvėje.</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}

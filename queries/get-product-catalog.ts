@@ -54,6 +54,7 @@ export const getProductCatalog = async (
     onlyActive: true,
     includeImages: true,
     includeSubcategoryCategory: true,
+    includeStockCount: true,
   });
 
   const filteredProducts = sortProducts(
@@ -89,7 +90,7 @@ const matchesCatalogFilters = (product: PublicProduct, options: ProductCatalogOp
     return false;
   }
 
-  if (options.isInStock && product.amountInStock <= 0) {
+  if (options.isInStock && product.stockCount <= 0) {
     return false;
   }
 

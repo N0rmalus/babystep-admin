@@ -17,15 +17,21 @@ const ProductPage = async (props: Props) => {
   const categories = await getCategories(params.storeId);
   const subcategories = await getSubcategories(params.storeId);
 
-  const product = await getProduct(params.storeId, params.productId, { includeImages: true });
+  const product = await getProduct(params.storeId, params.productId, {
+    includeImages: true,
+    includeDefaultVariant: true,
+  });
 
   if (params.productId !== 'new' && !product) {
     redirect(`/${params.storeId}/products`);
   }
 
+  const defaultVariant = product?.variants.at(0);
   const serializedProduct = product
     ? {
         ...product,
+        sku: defaultVariant?.sku ?? '',
+        stockCount: defaultVariant?.stockCount ?? 0,
         price: Number(product.price),
         salePrice: product.salePrice ? Number(product.salePrice) : null,
         saleStartsAt: product.saleStartsAt?.toISOString() ?? null,

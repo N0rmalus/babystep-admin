@@ -1,21 +1,15 @@
 import Stripe from 'stripe';
 import { NextResponse } from 'next/server';
 
+import { buildCheckoutItems } from '@/lib/checkout-items';
 import { corsHeaders } from '@/lib/cors';
-import { getProductEffectivePrice } from '@/lib/product-pricing';
+import { CENTS_PER_EURO } from '@/lib/product-pricing';
 import { stripe } from '@/lib/stripe';
 import prismadb from '@/lib/prismadb';
 import { getProducts } from '@/queries/get-products';
 
 type CheckoutRequest = {
   productIds?: string[];
-};
-
-const buildQuantityByProductId = (productIds: string[]) => {
-  return productIds.reduce<Record<string, number>>((accumulator, productId) => {
-    accumulator[productId] = (accumulator[productId] ?? 0) + 1;
-    return accumulator;
-  }, {});
 };
 
 const jsonResponse = (body: unknown, status: number) => {
@@ -51,77 +45,59 @@ export async function POST(req: Request, props: { params: Promise<{ storeId: str
       return jsonResponse({ message: 'Neteisingas prekių sąrašas' }, 400);
     }
 
-    const quantityByProductId = buildQuantityByProductId(sanitizedProductIds);
-    const uniqueProductIds = Object.keys(quantityByProductId);
-
     const products = await getProducts(params.storeId, {
-      productIds: uniqueProductIds,
+      productIds: [...new Set(sanitizedProductIds)],
       onlyActive: true,
       selectCheckoutFields: true,
     });
 
-    const availableProductIds = new Set(products.map((product) => product.id));
-    const invalidProductIds = uniqueProductIds.filter((productId) => !availableProductIds.has(productId));
+    const checkout = buildCheckoutItems({ productIds: sanitizedProductIds, products });
 
-    if (invalidProductIds.length > 0) {
+    if (checkout.status === 'unavailable') {
       return jsonResponse(
         {
           message: 'Kai kurios prekės nebegalimos įsigyti',
-          invalidProductIds,
+          invalidProductIds: checkout.invalidProductIds,
         },
         400,
       );
     }
 
-    const insufficientStockItems = products
-      .map((product) => ({
-        productId: product.id,
-        requested: quantityByProductId[product.id],
-        available: product.amountInStock,
-      }))
-      .filter((item) => item.requested > item.available);
-
-    if (insufficientStockItems.length > 0) {
+    if (checkout.status === 'insufficient-stock') {
       return jsonResponse(
         {
           message: 'Kai kurių prekių kiekis sandėlyje pasikeitė',
-          insufficientStockItems,
+          insufficientStockItems: checkout.insufficientStockItems,
         },
         400,
       );
     }
 
-    const effectivePriceByProductId = new Map(
-      products.map((product) => [product.id, getProductEffectivePrice(product)]),
-    );
-
-    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = products.map((product) => {
-      const effectivePrice = effectivePriceByProductId.get(product.id) ?? 0;
-
-      return {
-        quantity: quantityByProductId[product.id],
-        price_data: {
-          currency: 'EUR',
-          product_data: {
-            name: product.name,
-          },
-          unit_amount: Math.round(effectivePrice * 100),
+    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = checkout.items.map((item) => ({
+      quantity: item.quantity,
+      price_data: {
+        currency: 'EUR',
+        product_data: {
+          name: item.productName,
         },
-      };
-    });
+        unit_amount: Math.round(item.unitPrice * CENTS_PER_EURO),
+      },
+    }));
 
     const order = await prismadb.order.create({
       data: {
         storeId: params.storeId,
         isPaid: false,
         orderItems: {
-          create: sanitizedProductIds.map((productId) => ({
-            unitPrice: effectivePriceByProductId.get(productId) ?? 0,
-            product: {
-              connect: {
-                id: productId,
-              },
-            },
+          create: checkout.items.map((item) => ({
+            productId: item.productId,
+            variantId: item.variantId,
+            quantity: item.quantity,
+            productName: item.productName,
+            sku: item.sku,
+            options: [],
+            unitPrice: item.unitPrice,
+            regularUnitPrice: item.regularUnitPrice,
           })),
         },
       },

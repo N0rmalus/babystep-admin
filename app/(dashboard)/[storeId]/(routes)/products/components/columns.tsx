@@ -13,7 +13,7 @@ export type ProductColumn = {
   saleStatus: string;
   isOnSale: boolean;
   subcategory: string;
-  amountInStock: number;
+  stockCount: number;
   isFeatured: boolean;
   isArchived: boolean;
   createdAt: string;
@@ -33,21 +33,21 @@ export const columns: ColumnDef<ProductColumn>[] = [
     header: 'Rek.',
   },
   {
-    accessorKey: 'amountInStock',
-    header: 'Sandėlyje',
+    accessorKey: 'stockCount',
+    header: 'Laisva',
     cell: ({ row }) => {
       const product = row.original;
 
-      if (product.amountInStock === 0) {
+      if (product.stockCount === 0) {
         return (
           <div className="flex items-center gap-2">
-            {product.amountInStock}
+            {product.stockCount}
             <TriangleAlert size={16} className="text-red-500" />
           </div>
         );
       }
 
-      return product.amountInStock;
+      return product.stockCount;
     },
   },
   {

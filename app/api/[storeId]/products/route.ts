@@ -11,6 +11,13 @@ import {
   normalizeOptionalDate,
   normalizeOptionalPrice,
 } from '@/lib/product-pricing';
+import {
+  DEFAULT_COMBINATION_KEY,
+  INVALID_STOCK_COUNT_MESSAGE,
+  isValidStockCount,
+  normalizeOptionalSku,
+} from '@/lib/product-variant';
+import { isSkuConflictError, SKU_TAKEN_MESSAGE } from '@/lib/sku-conflict';
 import { getProductCatalog, type ProductCatalogSort } from '@/queries/get-product-catalog';
 import { getProducts } from '@/queries/get-products';
 import { getStoreByUserId } from '@/queries/get-store-by-user-id';
@@ -83,7 +90,8 @@ export async function POST(req: Request, props: { params: Promise<{ storeId: str
       salePrice,
       saleStartsAt,
       saleEndsAt,
-      amountInStock,
+      stockCount,
+      sku,
       subcategoryId,
       images,
       isFeatured,
@@ -126,8 +134,8 @@ export async function POST(req: Request, props: { params: Promise<{ storeId: str
     if (saleValidationMessage) {
       return new NextResponse(saleValidationMessage, { status: 400 });
     }
-    if (amountInStock === undefined || amountInStock === null) {
-      return new NextResponse('Reikalingas kiekis sandėlyje', { status: 400 });
+    if (!isValidStockCount(stockCount)) {
+      return new NextResponse(INVALID_STOCK_COUNT_MESSAGE, { status: 400 });
     }
     if (!subcategoryId) {
       return new NextResponse('Būtinas subkategorijos ID', { status: 400 });
@@ -155,7 +163,6 @@ export async function POST(req: Request, props: { params: Promise<{ storeId: str
         salePrice: normalizedSalePrice,
         saleStartsAt: normalizedSaleStartsAt,
         saleEndsAt: normalizedSaleEndsAt,
-        amountInStock,
         subcategoryId,
         isFeatured,
         isArchived,
@@ -163,7 +170,15 @@ export async function POST(req: Request, props: { params: Promise<{ storeId: str
         storeId: params.storeId,
         images: {
           createMany: {
-            data: [...images.map((image: { url: string }) => image)],
+            data: images.map((image: { url: string }, position: number) => ({ url: image.url, position })),
+          },
+        },
+        variants: {
+          create: {
+            storeId: params.storeId,
+            combinationKey: DEFAULT_COMBINATION_KEY,
+            sku: normalizeOptionalSku(sku),
+            stockCount,
           },
         },
       },
@@ -171,6 +186,9 @@ export async function POST(req: Request, props: { params: Promise<{ storeId: str
 
     return NextResponse.json(product);
   } catch (error) {
+    if (isSkuConflictError(error)) {
+      return new NextResponse(SKU_TAKEN_MESSAGE, { status: 409 });
+    }
     console.log('[PRODUCTS_POST]', error);
     return new NextResponse('Internal error', { status: 500 });
   }
@@ -216,6 +234,7 @@ export async function GET(req: Request, props: { params: Promise<{ storeId: stri
       onlyActive: true,
       includeImages: true,
       includeSubcategoryCategory: true,
+      includeStockCount: true,
     });
 
     return NextResponse.json(products, { headers: corsHeaders });

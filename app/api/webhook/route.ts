@@ -6,13 +6,6 @@ import { NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
 import prismadb from '@/lib/prismadb';
 
-const buildQuantityByProductId = (productIds: string[]) => {
-  return productIds.reduce<Record<string, number>>((accumulator, productId) => {
-    accumulator[productId] = (accumulator[productId] ?? 0) + 1;
-    return accumulator;
-  }, {});
-};
-
 export async function POST(req: Request) {
   const body = await req.text();
   const signature = (await headers()).get('Stripe-Signature');
@@ -84,41 +77,26 @@ export async function POST(req: Request) {
         return;
       }
 
-      const quantityByProductId = buildQuantityByProductId(order.orderItems.map((orderItem) => orderItem.productId));
-
-      for (const [productId, quantity] of Object.entries(quantityByProductId)) {
-        const stockUpdate = await tx.product.updateMany({
+      // Sold-out products stay listed; archiving is only the owner's decision.
+      for (const orderItem of order.orderItems) {
+        const stockUpdate = await tx.productVariant.updateMany({
           where: {
-            id: productId,
-            amountInStock: {
-              gte: quantity,
+            id: orderItem.variantId,
+            stockCount: {
+              gte: orderItem.quantity,
             },
           },
           data: {
-            amountInStock: {
-              decrement: quantity,
+            stockCount: {
+              decrement: orderItem.quantity,
             },
           },
         });
 
         if (stockUpdate.count === 0) {
-          throw new Error(`INSUFFICIENT_STOCK:${productId}`);
+          throw new Error(`INSUFFICIENT_STOCK:${orderItem.variantId}`);
         }
       }
-
-      await tx.product.updateMany({
-        where: {
-          id: {
-            in: Object.keys(quantityByProductId),
-          },
-          amountInStock: {
-            lte: 0,
-          },
-        },
-        data: {
-          isArchived: true,
-        },
-      });
     });
   } catch (error) {
     Sentry.captureException(error);

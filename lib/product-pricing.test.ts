@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getProductPricing } from '@/lib/product-pricing';
+import { getOrderItemTotal, getProductPricing } from '@/lib/product-pricing';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const NOW = new Date('2026-06-15T12:00:00Z');
@@ -67,5 +67,11 @@ describe('getProductPricing', () => {
 
     expect(pricing.status).toBe('none');
     expect(pricing.effectivePrice).toBe(100);
+  });
+});
+
+describe('getOrderItemTotal', () => {
+  it('multiplies the unit price paid by the quantity', () => {
+    expect(getOrderItemTotal({ unitPrice: { toNumber: () => 19.99 }, quantity: 3 })).toBe(59.97);
   });
 });

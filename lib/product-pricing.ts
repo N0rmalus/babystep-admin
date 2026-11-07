@@ -8,10 +8,12 @@ type ProductPricingInput = {
   saleEndsAt?: DateLike;
 };
 
-type OrderItemPricingInput = {
-  unitPrice?: PriceLike;
-  product: ProductPricingInput;
+type OrderItemTotalInput = {
+  unitPrice: PriceLike;
+  quantity: number;
 };
+
+export const CENTS_PER_EURO = 100;
 
 type SaleValidationInput = {
   price: number | null;
@@ -118,8 +120,10 @@ export const getProductEffectivePrice = (product: ProductPricingInput, now = new
   return getProductPricing(product, now).effectivePrice;
 };
 
-export const getOrderItemPrice = (orderItem: OrderItemPricingInput, now = new Date()) => {
-  return normalizeOptionalPrice(orderItem.unitPrice) ?? getProductEffectivePrice(orderItem.product, now);
+export const getOrderItemTotal = ({ unitPrice, quantity }: OrderItemTotalInput): number => {
+  const total = (normalizeOptionalPrice(unitPrice) ?? 0) * quantity;
+
+  return Math.round(total * CENTS_PER_EURO) / CENTS_PER_EURO;
 };
 
 export const getProductSaleStatus = (product: ProductPricingInput, now = new Date()): SaleStatus => {

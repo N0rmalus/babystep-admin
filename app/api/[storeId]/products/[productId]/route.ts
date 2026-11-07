@@ -11,6 +11,13 @@ import {
   normalizeOptionalDate,
   normalizeOptionalPrice,
 } from '@/lib/product-pricing';
+import {
+  DEFAULT_COMBINATION_KEY,
+  INVALID_STOCK_COUNT_MESSAGE,
+  isValidStockCount,
+  normalizeOptionalSku,
+} from '@/lib/product-variant';
+import { isSkuConflictError, SKU_TAKEN_MESSAGE } from '@/lib/sku-conflict';
 import { getProduct } from '@/queries/get-product';
 import { getStoreByUserId } from '@/queries/get-store-by-user-id';
 import { getSubcategory } from '@/queries/get-subcategory';
@@ -32,6 +39,7 @@ export async function GET(req: Request, props: { params: Promise<{ storeId: stri
     const product = await getProduct(params.storeId, params.productId, {
       includeImages: true,
       includeSubcategoryCategory: true,
+      includeStockCount: true,
     });
 
     if (!product) {
@@ -57,7 +65,8 @@ export async function PATCH(req: Request, props: { params: Promise<{ storeId: st
       salePrice,
       saleStartsAt,
       saleEndsAt,
-      amountInStock,
+      stockCount,
+      sku,
       subcategoryId,
       images,
       isFeatured,
@@ -100,8 +109,8 @@ export async function PATCH(req: Request, props: { params: Promise<{ storeId: st
     if (saleValidationMessage) {
       return new NextResponse(saleValidationMessage, { status: 400 });
     }
-    if (amountInStock === undefined || amountInStock === null) {
-      return new NextResponse('Reikalingas kiekis sandėlyje', { status: 400 });
+    if (!isValidStockCount(stockCount)) {
+      return new NextResponse(INVALID_STOCK_COUNT_MESSAGE, { status: 400 });
     }
     if (!subcategoryId) {
       return new NextResponse('Būtinas subkategorijos ID', { status: 400 });
@@ -128,42 +137,67 @@ export async function PATCH(req: Request, props: { params: Promise<{ storeId: st
       return new NextResponse('Subkategorija šiai parduotuvei nerasta', { status: 404 });
     }
 
-    await prismadb.product.update({
-      where: {
-        id: params.productId,
-      },
-      data: {
-        name,
-        price: normalizedPrice,
-        salePrice: normalizedSalePrice,
-        saleStartsAt: normalizedSaleStartsAt,
-        saleEndsAt: normalizedSaleEndsAt,
-        amountInStock,
-        subcategoryId,
-        images: {
-          deleteMany: {},
-        },
-        isFeatured,
-        isArchived,
-        description,
-      },
-    });
+    const normalizedSku = normalizeOptionalSku(sku);
 
-    const product = await prismadb.product.update({
-      where: {
-        id: params.productId,
-      },
-      data: {
-        images: {
-          createMany: {
-            data: [...images.map((image: { url: string }) => image)],
+    // Until the variant editor (#70) the form edits only the default variant's Laisva and SKU.
+    const [, product] = await prismadb.$transaction([
+      prismadb.product.update({
+        where: {
+          id: params.productId,
+        },
+        data: {
+          name,
+          price: normalizedPrice,
+          salePrice: normalizedSalePrice,
+          saleStartsAt: normalizedSaleStartsAt,
+          saleEndsAt: normalizedSaleEndsAt,
+          subcategoryId,
+          images: {
+            deleteMany: {},
+          },
+          isFeatured,
+          isArchived,
+          description,
+        },
+      }),
+      prismadb.product.update({
+        where: {
+          id: params.productId,
+        },
+        data: {
+          images: {
+            createMany: {
+              data: images.map((image: { url: string }, position: number) => ({ url: image.url, position })),
+            },
           },
         },
-      },
-    });
+      }),
+      prismadb.productVariant.upsert({
+        where: {
+          productId_combinationKey: {
+            productId: params.productId,
+            combinationKey: DEFAULT_COMBINATION_KEY,
+          },
+        },
+        update: {
+          sku: normalizedSku,
+          stockCount,
+        },
+        create: {
+          storeId: params.storeId,
+          productId: params.productId,
+          combinationKey: DEFAULT_COMBINATION_KEY,
+          sku: normalizedSku,
+          stockCount,
+        },
+      }),
+    ]);
 
     return NextResponse.json(product);
   } catch (error) {
+    if (isSkuConflictError(error)) {
+      return new NextResponse(SKU_TAKEN_MESSAGE, { status: 409 });
+    }
     console.log('[PRODUCT_PATCH]', error);
     return new NextResponse('Internal error', { status: 500 });
   }

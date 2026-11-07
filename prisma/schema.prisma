@@ -14,15 +14,17 @@ datasource db {
 }
 
 model Store {
-  id         String      @id @default(uuid())
-  name       String
-  userId     String
-  billboards Billboard[] @relation("StoreToBillboard")
-  categories Category[]  @relation("StoreToCategory")
-  products   Product[]   @relation("StoreToProduct")
-  orders     Order[]     @relation("StoreToOrder")
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
+  id              String           @id @default(uuid())
+  name            String
+  userId          String
+  billboards      Billboard[]      @relation("StoreToBillboard")
+  categories      Category[]       @relation("StoreToCategory")
+  products        Product[]        @relation("StoreToProduct")
+  orders          Order[]          @relation("StoreToOrder")
+  optionGroups    OptionGroup[]    @relation("StoreToOptionGroup")
+  productVariants ProductVariant[] @relation("StoreToProductVariant")
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 }
 
 model Billboard {
@@ -66,38 +68,146 @@ model Subcategory {
 }
 
 model Product {
-  id            String      @id @default(uuid())
-  storeId       String
-  store         Store       @relation("StoreToProduct", fields: [storeId], references: [id])
-  subcategoryId String
-  subcategory   Subcategory @relation(fields: [subcategoryId], references: [id])
-  name          String
-  price         Decimal
-  salePrice     Decimal?
-  saleStartsAt  DateTime?
-  saleEndsAt    DateTime?
-  amountInStock Int
-  isFeatured    Boolean     @default(false)
-  isArchived    Boolean     @default(false)
-  description   String?     @db.Text
-  images        Image[]
-  orderItems    OrderItem[]
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  id                String               @id @default(uuid())
+  storeId           String
+  store             Store                @relation("StoreToProduct", fields: [storeId], references: [id])
+  subcategoryId     String
+  subcategory       Subcategory          @relation(fields: [subcategoryId], references: [id])
+  name              String
+  price             Decimal
+  salePrice         Decimal?
+  saleStartsAt      DateTime?
+  saleEndsAt        DateTime?
+  isFeatured        Boolean              @default(false)
+  isArchived        Boolean              @default(false)
+  description       String?              @db.Text
+  images            Image[]
+  orderItems        OrderItem[]
+  variants          ProductVariant[]
+  // Ordered link to the option groups the product uses (max 3, enforced in the write path)
+  optionGroups      ProductOptionGroup[]
+  // Product groups: option groups that belong to this product only
+  ownedOptionGroups OptionGroup[]        @relation("ProductToOwnedOptionGroup")
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
 
   @@index([storeId])
   @@index([subcategoryId])
 }
 
 model Image {
-  id        String   @id @default(uuid())
-  productId String
-  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  url       String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String       @id @default(uuid())
+  productId     String
+  product       Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url           String
+  position      Int          @default(0)
+  optionValueId String?
+  optionValue   OptionValue? @relation(fields: [optionValueId], references: [id], onDelete: SetNull)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
   @@index([productId])
+  @@index([optionValueId])
+}
+
+enum OptionDisplayType {
+  CHIPS
+  SWATCH
+}
+
+enum OptionGroupRole {
+  NONE
+  SIZE
+}
+
+// productId null = store-level group (Savybės page), set = product group
+model OptionGroup {
+  id           String               @id @default(uuid())
+  storeId      String
+  store        Store                @relation("StoreToOptionGroup", fields: [storeId], references: [id])
+  productId    String?
+  product      Product?             @relation("ProductToOwnedOptionGroup", fields: [productId], references: [id], onDelete: Cascade)
+  name         String
+  displayType  OptionDisplayType    @default(CHIPS)
+  role         OptionGroupRole      @default(NONE)
+  position     Int                  @default(0)
+  values       OptionValue[]
+  productLinks ProductOptionGroup[]
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  @@index([storeId])
+  @@index([productId])
+}
+
+model OptionValue {
+  id            String                      @id @default(uuid())
+  groupId       String
+  group         OptionGroup                 @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  label         String
+  position      Int                         @default(0)
+  hex           String?
+  ageFromMonths Int?
+  ageToMonths   Int?
+  heightFromCm  Int?
+  heightToCm    Int?
+  weightFromKg  Decimal?
+  weightToKg    Decimal?
+  variants      ProductVariantOptionValue[]
+  images        Image[]
+  createdAt     DateTime                    @default(now())
+  updatedAt     DateTime                    @updatedAt
+
+  @@index([groupId])
+}
+
+model ProductOptionGroup {
+  productId String
+  product   Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  groupId   String
+  group     OptionGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  position  Int         @default(0)
+
+  @@id([productId, groupId])
+  @@index([productId])
+  @@index([groupId])
+}
+
+model ProductVariant {
+  id             String                      @id @default(uuid())
+  storeId        String
+  store          Store                       @relation("StoreToProductVariant", fields: [storeId], references: [id])
+  productId      String
+  product        Product                     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sku            String?
+  // Available stock ("Laisva")
+  stockCount     Int                         @default(0)
+  // Both null = inherit the product's price and sale price; price set = override both
+  price          Decimal?
+  salePrice      Decimal?
+  isArchived     Boolean                     @default(false)
+  // Sorted option value ids joined by ","; "" for the default variant
+  combinationKey String                      @default("")
+  optionValues   ProductVariantOptionValue[]
+  orderItems     OrderItem[]
+  createdAt      DateTime                    @default(now())
+  updatedAt      DateTime                    @updatedAt
+
+  @@unique([storeId, sku])
+  @@unique([productId, combinationKey])
+  @@index([storeId])
+  @@index([productId])
+}
+
+model ProductVariantOptionValue {
+  variantId     String
+  variant       ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  optionValueId String
+  optionValue   OptionValue    @relation(fields: [optionValueId], references: [id])
+
+  @@id([variantId, optionValueId])
+  @@index([variantId])
+  @@index([optionValueId])
 }
 
 model Order {
@@ -115,13 +225,23 @@ model Order {
 }
 
 model OrderItem {
-  id        String   @id @default(uuid())
-  orderId   String
-  order     Order    @relation(fields: [orderId], references: [id])
-  productId String
-  product   Product  @relation(fields: [productId], references: [id])
-  unitPrice Decimal?
+  id               String         @id @default(uuid())
+  orderId          String
+  order            Order          @relation(fields: [orderId], references: [id])
+  productId        String
+  product          Product        @relation(fields: [productId], references: [id])
+  variantId        String
+  variant          ProductVariant @relation(fields: [variantId], references: [id])
+  quantity         Int
+  // Snapshot at checkout; shown instead of the live product/variant
+  productName      String
+  sku              String?
+  // [{ "name": "Dydis", "value": "0–6 mėn." }]
+  options          Json           @default("[]")
+  unitPrice        Decimal
+  regularUnitPrice Decimal
 
   @@index([orderId])
   @@index([productId])
+  @@index([variantId])
 }

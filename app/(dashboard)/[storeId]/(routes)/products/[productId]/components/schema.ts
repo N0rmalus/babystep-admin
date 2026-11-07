@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+const SKU_MAX_LENGTH = 64;
+
 const getOptionalNumericInput = (value: string | number | null | undefined) => {
   if (value === null || value === undefined) {
     return null;
@@ -39,7 +41,8 @@ export const productFormSchema = z
     salePrice: optionalPositiveNumberSchema,
     saleStartsAt: optionalDateTimeSchema,
     saleEndsAt: optionalDateTimeSchema,
-    amountInStock: z.coerce.number().min(0),
+    stockCount: z.coerce.number().int('Kiekis turi būti sveikasis skaičius').min(0, 'Kiekis negali būti neigiamas'),
+    sku: z.string().trim().max(SKU_MAX_LENGTH, `SKU negali būti ilgesnis nei ${SKU_MAX_LENGTH} simbolių`),
     subcategoryId: z.string().min(1),
     isFeatured: z.boolean().default(false).optional(),
     isArchived: z.boolean().default(false).optional(),

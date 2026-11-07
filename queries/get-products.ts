@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { Prisma, Product } from '@prisma/client';
+import { isOnSale } from '@/lib/catalog-rules';
 import prismadb from '@/lib/prismadb';
 import { getProductPricing } from '@/lib/product-pricing';
 import { hasStockVariants, withStockCount } from '@/lib/product-variant';
@@ -14,6 +15,10 @@ const STOCK_VARIANTS_SELECT = {
 } satisfies Prisma.Product$variantsArgs;
 
 const BY_POSITION = { position: 'asc' } as const;
+
+const SALE_VARIANT_FILTER = {
+  some: { isArchived: false, salePrice: { not: null } },
+} satisfies Prisma.ProductVariantListRelationFilter;
 
 export const ORDERED_IMAGES = {
   orderBy: BY_POSITION,
@@ -135,7 +140,10 @@ export async function getProducts(storeId: string, options?: GetProductsOptions)
   if (options?.includeVariants) {
     const products = await prismadb.product.findMany({ where, include: PUBLIC_PRODUCT_INCLUDE, orderBy });
 
-    return filterOnSale({ products: products.map(toPublicProduct), isOnSale: options.isOnSale });
+    const publicProducts = products.map(toPublicProduct);
+
+    // Any active variant on sale counts, not just the product's own sale price
+    return options.isOnSale ? publicProducts.filter((product) => isOnSale(product)) : publicProducts;
   }
 
   const products = await prismadb.product.findMany({
@@ -169,7 +177,8 @@ const getProductsWhere = (storeId: string, options?: GetProductsOptions) => {
     ...(options?.categoryId ? { subcategory: { categoryId: options.categoryId } } : {}),
     ...(options?.subcategoryId ? { subcategoryId: options.subcategoryId } : {}),
     ...(typeof options?.isFeatured === 'boolean' ? { isFeatured: options.isFeatured } : {}),
-    ...(options?.isOnSale ? { salePrice: { not: null } } : {}),
+    // Narrows to sale candidates; the exact rule (active sale window, archived variants) runs in memory
+    ...(options?.isOnSale ? { OR: [{ salePrice: { not: null } }, { variants: SALE_VARIANT_FILTER }] } : {}),
     ...(options?.onlyActive ? { isArchived: false } : {}),
     ...(options?.productIds ? { id: { in: options.productIds } } : {}),
   } satisfies Prisma.ProductWhereInput;

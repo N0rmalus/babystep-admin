@@ -91,6 +91,7 @@ describe('buildPublicProduct', () => {
       saleStartsAt: null,
       saleEndsAt: null,
       stockCount: 7,
+      hasOptions: false,
       options: [],
       variants: [],
     });

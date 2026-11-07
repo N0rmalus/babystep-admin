@@ -54,6 +54,7 @@ export const buildPublicProduct = <
   if (hasOptions || !defaultVariant) {
     return {
       ...product,
+      hasOptions: true,
       stockCount: getAvailableStockCount(activeOptionVariants),
       options: getUsedOptions({ groups, variants: activeOptionVariants }),
       variants: activeOptionVariants.map((variant) => toPublicVariant({ product, variant, groups })),
@@ -64,6 +65,7 @@ export const buildPublicProduct = <
     ...product,
     ...resolveVariantPrices({ product, variant: defaultVariant }),
     stockCount: defaultVariant.stockCount,
+    hasOptions: false,
     options: [],
     variants: [],
   };

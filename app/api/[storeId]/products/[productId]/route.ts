@@ -179,6 +179,7 @@ export async function PATCH(req: Request, props: { params: Promise<{ storeId: st
         productId: params.productId,
         groupIds: variantChanges.groupIds,
         plan: variantChanges.plan,
+        productGroupWrites: variantChanges.productGroupWrites,
       });
 
       return updatedProduct;

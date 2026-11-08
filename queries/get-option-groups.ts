@@ -28,3 +28,11 @@ export const getStoreOptionGroupsByIds = async (storeId: string, groupIds: strin
     select: { id: true, values: { select: { id: true } } },
   });
 };
+
+// The product groups this product owns (linked or not), each with its value ids.
+export const getProductOwnedOptionGroups = async (storeId: string, productId: string) => {
+  return prismadb.optionGroup.findMany({
+    where: { storeId, productId },
+    select: { id: true, values: { select: { id: true } } },
+  });
+};

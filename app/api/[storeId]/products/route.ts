@@ -178,6 +178,7 @@ export async function POST(req: Request, props: { params: Promise<{ storeId: str
         productId: createdProduct.id,
         groupIds: variantChanges.groupIds,
         plan: variantChanges.plan,
+        productGroupWrites: variantChanges.productGroupWrites,
       });
 
       return createdProduct;

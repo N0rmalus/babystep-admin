@@ -29,16 +29,19 @@ const ProductPage = async (props: Props) => {
     redirect(`/${params.storeId}/products`);
   }
 
-  const storeGroups = optionGroups.map(({ id, name, values }) => ({
+  const storeGroups = optionGroups.map(({ id, name, role, values }) => ({
     id,
     name,
+    role,
     values: values.map((value) => ({ id: value.id, label: value.label })),
   }));
-  const chosenGroups = product ? getChosenGroups({ product, storeGroups }) : [];
+  const productGroups = product?.ownedOptionGroups ?? [];
+  const chosenGroups = product ? getChosenGroups({ product, groups: [...storeGroups, ...productGroups] }) : [];
   const serializedProduct = product
     ? {
         ...product,
         optionGroups: chosenGroups,
+        productGroups,
         variants: getVariantRows({ variants: product.variants, hasGroups: chosenGroups.length > 0 }),
         price: Number(product.price),
         salePrice: product.salePrice ? Number(product.salePrice) : null,
@@ -63,23 +66,24 @@ export default ProductPage;
 
 type ChosenGroupsOptions = {
   product: { optionGroups: { groupId: string }[]; variants: { optionValues: { optionValueId: string }[] }[] };
-  storeGroups: { id: string; values: { id: string }[] }[];
+  // Store-level and product groups, each with its values in order
+  groups: { id: string; values: { id: string }[] }[];
 };
 
 // The product's groups in order, each with the values its active variants use (in the group's value order)
-const getChosenGroups = ({ product, storeGroups }: ChosenGroupsOptions) => {
+const getChosenGroups = ({ product, groups }: ChosenGroupsOptions) => {
   const usedValueIds = new Set(
     product.variants.flatMap((variant) => variant.optionValues.map(({ optionValueId }) => optionValueId)),
   );
 
   return product.optionGroups.flatMap(({ groupId }) => {
-    const storeGroup = storeGroups.find(({ id }) => id === groupId);
+    const group = groups.find(({ id }) => id === groupId);
 
-    if (!storeGroup) {
+    if (!group) {
       return [];
     }
 
-    return [{ id: groupId, valueIds: storeGroup.values.flatMap(({ id }) => (usedValueIds.has(id) ? [id] : [])) }];
+    return [{ id: groupId, valueIds: group.values.flatMap(({ id }) => (usedValueIds.has(id) ? [id] : [])) }];
   });
 };
 

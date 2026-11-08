@@ -4,7 +4,8 @@ import { Prisma, Product } from '@prisma/client';
 import prismadb from '@/lib/prismadb';
 import { ORDERED_IMAGES, PUBLIC_PRODUCT_INCLUDE, toPublicProduct, type PublicProduct } from '@/queries/get-products';
 
-// What the variant editor in the product form needs: active variants and the product's groups in order
+// What the variant editor in the product form needs: active variants, the product's groups in order and its
+// own product groups with their values
 const VARIANT_EDITOR_INCLUDE = {
   images: ORDERED_IMAGES,
   variants: {
@@ -24,6 +25,10 @@ const VARIANT_EDITOR_INCLUDE = {
     orderBy: { position: 'asc' },
     select: { groupId: true },
   },
+  ownedOptionGroups: {
+    orderBy: { createdAt: 'asc' },
+    select: { id: true, name: true, values: { orderBy: { position: 'asc' }, select: { id: true, label: true } } },
+  },
 } satisfies Prisma.ProductInclude;
 
 // Every variant (archived too) with whether it has orders: the input for planVariantChanges
@@ -41,7 +46,7 @@ const PLAN_VARIANTS_INCLUDE = {
 type GetProductOptions = {
   // Returns the public product shape: images, subcategory with category, `options` and resolved `variants`
   includeVariants?: boolean;
-  // Adds images, active variants with their option value ids, and the product's ordered group ids
+  // Adds images, active variants with their option value ids, the product's ordered group ids and its product groups
   includeVariantEditor?: boolean;
   // Adds every variant with its combination key, archived flag and order count
   includePlanVariants?: boolean;

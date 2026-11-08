@@ -111,6 +111,8 @@ export const isValidHexColour = (value: unknown): value is string => {
   return typeof value === 'string' && HEX_COLOUR_PATTERN.test(value);
 };
 
+export const getDuplicateValueMessage = (label: string) => `Reikšmė „${label}“ kartojasi`;
+
 export const getMissingHexMessage = (label: string) =>
   `Reikšmei „${label}“ reikia spalvos HEX kodo, pvz. ${HEX_PLACEHOLDER}`;
 
@@ -126,7 +128,7 @@ export const parseOptionGroupInput = (body: unknown, role: OptionGroupRole): Par
   const duplicateValue = findDuplicateLabel(values);
 
   if (duplicateValue) {
-    return { isValid: false, message: `Reikšmė „${duplicateValue.label}“ kartojasi` };
+    return { isValid: false, message: getDuplicateValueMessage(duplicateValue.label) };
   }
 
   if (role === 'SIZE') {
@@ -164,6 +166,36 @@ export const parseOptionGroupInput = (body: unknown, role: OptionGroupRole): Par
       })),
     },
   };
+};
+
+const sizeValueInputSchema = z.object({ label: z.string().trim().min(1) });
+
+type SizeValueParseResult = { isValid: true; label: string } | { isValid: false; message: string };
+
+// "+ Naujas dydis" in the product form: a new store-level value for the size-role group, label only
+// (its age, height and weight ranges are edited on the Savybės page).
+export const parseSizeValueInput = (body: unknown, existingLabels: string[]): SizeValueParseResult => {
+  const parsed = sizeValueInputSchema.safeParse(body);
+
+  if (!parsed.success) {
+    return { isValid: false, message: VALUE_LABEL_REQUIRED_MESSAGE };
+  }
+
+  const { label } = parsed.data;
+  const message = getNewValueMessage(existingLabels, label);
+
+  return message ? { isValid: false, message } : { isValid: true, label };
+};
+
+// A value added to an existing group needs a label the group doesn't have yet (shared with the product form)
+export const getNewValueMessage = (existingLabels: string[], label: string) => {
+  if (label.length === 0) {
+    return VALUE_LABEL_REQUIRED_MESSAGE;
+  }
+
+  const duplicateValue = findDuplicateLabel([...existingLabels, label].map((value) => ({ label: value })));
+
+  return duplicateValue ? getDuplicateValueMessage(duplicateValue.label) : null;
 };
 
 type PlanOptions<TValue extends { id?: string }> = {
@@ -241,7 +273,8 @@ const getZodIssueMessage = (error: z.ZodError) => {
   return message && CUSTOM_MESSAGES.includes(message) ? message : INVALID_INPUT_MESSAGE;
 };
 
-const findDuplicateLabel = <TValue extends { label: string }>(values: TValue[]) => {
+// Labels compare case-insensitively (Lithuanian rules)
+export const findDuplicateLabel = <TValue extends { label: string }>(values: TValue[]) => {
   const seenLabels = new Set<string>();
 
   return values.find((value) => {

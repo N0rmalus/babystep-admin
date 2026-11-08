@@ -1,25 +1,35 @@
 'use client';
 
+import axios from 'axios';
 import Link from 'next/link';
-import { useState } from 'react';
+import toast from 'react-hot-toast';
+import { KeyboardEvent, ReactNode, useState } from 'react';
 import { useParams } from 'next/navigation';
+import type { OptionGroupRole } from '@prisma/client';
 import { useFieldArray, useFormContext, useWatch } from 'react-hook-form';
-import { Trash, X } from 'lucide-react';
+import { Plus, Trash, X } from 'lucide-react';
 import { AlertModal } from '@/components/modals/alert-modal';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { getFormErrorMessage } from '@/lib/get-form-error-message';
+import { getNewValueMessage } from '@/lib/option-group';
+import { GROUP_NAME_REQUIRED_MESSAGE } from '@/lib/product-groups';
 import { getVariantLabel } from '@/lib/variant-label';
 import { generateMissingCombinations, MAX_OPTION_GROUP_COUNT } from '@/lib/variant-plan';
-import { EMPTY_DEFAULT_VARIANT, ProductFormValues, VariantRow } from './schema';
+import { EMPTY_DEFAULT_VARIANT, ProductFormValues, ProductGroup, VariantRow } from './schema';
+
+type OptionValue = { id: string; label: string };
 
 export type StoreOptionGroup = {
   id: string;
   name: string;
+  role: OptionGroupRole;
   // Values in group order
-  values: { id: string; label: string }[];
+  values: OptionValue[];
 };
 
 type Props = {
@@ -29,13 +39,22 @@ type Props = {
 
 type ChosenGroup = ProductFormValues['optionGroups'][number];
 
+// A group the product can choose: a store-level group (Savybės) or one of its own product groups
+type GroupDefinition = ({ kind: 'store'; role: OptionGroupRole } | { kind: 'product' }) & {
+  id: string;
+  name: string;
+  values: OptionValue[];
+};
+
 const STOCK_HINT = 'Įveskite laisvą kiekį, be rezervuotų.';
 // Reserved stock arrives with the Montonio checkout (step 3); until then nothing is reserved
 const RESERVED_STOCK_COUNT = 0;
 const STOCK_INPUT_CLASS = 'w-24';
 const PRICE_INPUT_CLASS = 'w-28';
+const PRODUCT_GROUP_LABEL = 'Tik šiai prekei';
+const SIZE_ADDED_MESSAGE = 'Dydis pridėtas. Jis matomas ir puslapyje Savybės.';
 
-export const VariantEditor = ({ storeGroups, isDisabled }: Props) => {
+export const VariantEditor = ({ storeGroups: initialStoreGroups, isDisabled }: Props) => {
   const params = useParams();
   const form = useFormContext<ProductFormValues>();
   const { fields, append, remove, replace } = useFieldArray({
@@ -44,13 +63,23 @@ export const VariantEditor = ({ storeGroups, isDisabled }: Props) => {
     keyName: 'key',
   });
   const chosenGroups = useWatch({ control: form.control, name: 'optionGroups' });
+  const productGroups = useWatch({ control: form.control, name: 'productGroups' });
   const variants = useWatch({ control: form.control, name: 'variants' });
   const [pendingGroups, setPendingGroups] = useState<ChosenGroup[] | null>(null);
+  // Sizes added with "+ Naujas dydis" are saved at once, so they join the store-level groups here
+  const [storeGroups, setStoreGroups] = useState(initialStoreGroups);
+  const [isAddingSize, setIsAddingSize] = useState(false);
 
-  const availableGroups = storeGroups.filter((group) => !chosenGroups.some(({ id }) => id === group.id));
-  const canAddGroup = chosenGroups.length < MAX_OPTION_GROUP_COUNT && availableGroups.length > 0;
+  const groupDefinitions = [
+    ...storeGroups.map((group) => ({ ...group, kind: 'store' as const })),
+    ...productGroups.map((group) => ({ ...group, kind: 'product' as const })),
+  ] satisfies GroupDefinition[];
+  const availableGroups = groupDefinitions.filter((group) => !chosenGroups.some(({ id }) => id === group.id));
+  const canAddGroup = chosenGroups.length < MAX_OPTION_GROUP_COUNT;
   const missingCombinations = generateMissingCombinations({ groups: chosenGroups, variants });
   const hasOptionVariants = variants.some((variant) => variant.optionValueIds.length > 0);
+
+  const findGroupDefinition = (groupId: string) => groupDefinitions.find(({ id }) => id === groupId);
 
   // Changing the groups changes every combination, so the table starts over (after a confirmation if it has rows)
   const applyGroups = (groups: ChosenGroup[]) => {
@@ -68,11 +97,90 @@ export const VariantEditor = ({ storeGroups, isDisabled }: Props) => {
     applyGroups(groups);
   };
 
+  // A new product group lives only in the form until Save; the server replaces its temporary id
+  const handleProductGroupCreate = (name: string) => {
+    if (name.length === 0) {
+      toast.error(GROUP_NAME_REQUIRED_MESSAGE);
+      return false;
+    }
+
+    const productGroup = { id: crypto.randomUUID(), name, values: [] } satisfies ProductGroup;
+
+    form.setValue('productGroups', [...productGroups, productGroup], { shouldDirty: true });
+    handleGroupsChange([...chosenGroups, { id: productGroup.id, valueIds: [] }]);
+
+    return true;
+  };
+
+  const handleProductValueCreate = (groupId: string, label: string) => {
+    const productGroup = productGroups.find(({ id }) => id === groupId);
+
+    if (!productGroup) {
+      return false;
+    }
+
+    const message = getNewValueMessage(getLabels(productGroup.values), label);
+
+    if (message) {
+      toast.error(message);
+      return false;
+    }
+
+    const value = { id: crypto.randomUUID(), label };
+    const values = [...productGroup.values, value];
+
+    form.setValue(
+      'productGroups',
+      productGroups.map((group) => (group.id === groupId ? { ...group, values } : group)),
+      { shouldDirty: true },
+    );
+    pickValue({ groupId, valueId: value.id, values });
+
+    return true;
+  };
+
+  // "+ Naujas dydis": saved right away as a store-level value of the size group, then picked for this product
+  const handleSizeCreate = async (groupId: string, label: string) => {
+    const sizeGroup = storeGroups.find(({ id }) => id === groupId);
+
+    if (!sizeGroup) {
+      return false;
+    }
+
+    const message = getNewValueMessage(getLabels(sizeGroup.values), label);
+
+    if (message) {
+      toast.error(message);
+      return false;
+    }
+
+    try {
+      setIsAddingSize(true);
+      const response = await axios.post<OptionValue>(`/api/${params?.storeId}/option-groups/${groupId}/values`, {
+        label,
+      });
+      const value = { id: response.data.id, label: response.data.label };
+      const values = [...sizeGroup.values, value];
+
+      setStoreGroups((groups) => groups.map((group) => (group.id === groupId ? { ...group, values } : group)));
+      pickValue({ groupId, valueId: value.id, values });
+      toast.success(SIZE_ADDED_MESSAGE);
+
+      return true;
+    } catch (error) {
+      toast.error(getFormErrorMessage(error));
+
+      return false;
+    } finally {
+      setIsAddingSize(false);
+    }
+  };
+
   const handleValueToggle = (groupId: string, valueId: string) => {
     const group = chosenGroups.find(({ id }) => id === groupId);
-    const storeGroup = storeGroups.find(({ id }) => id === groupId);
+    const definition = findGroupDefinition(groupId);
 
-    if (!group || !storeGroup) {
+    if (!group || !definition) {
       return;
     }
 
@@ -89,16 +197,28 @@ export const VariantEditor = ({ storeGroups, isDisabled }: Props) => {
       return;
     }
 
-    // Keep the group's own value order
-    const valueIds = storeGroup.values.flatMap(({ id }) => (id === valueId || group.valueIds.includes(id) ? [id] : []));
-
-    setGroupValueIds(groupId, valueIds);
+    pickValue({ groupId, valueId, values: definition.values });
   };
 
+  // Keeps the group's own value order
+  const pickValue = ({ groupId, valueId, values }: { groupId: string; valueId: string; values: OptionValue[] }) => {
+    const group = form.getValues('optionGroups').find(({ id }) => id === groupId);
+
+    if (!group) {
+      return;
+    }
+
+    setGroupValueIds(
+      groupId,
+      values.flatMap(({ id }) => (id === valueId || group.valueIds.includes(id) ? [id] : [])),
+    );
+  };
+
+  // Reads the current groups, not the render's, so it also works right after an awaited request
   const setGroupValueIds = (groupId: string, valueIds: string[]) => {
     form.setValue(
       'optionGroups',
-      chosenGroups.map((group) => (group.id === groupId ? { ...group, valueIds } : group)),
+      form.getValues('optionGroups').map((group) => (group.id === groupId ? { ...group, valueIds } : group)),
       { shouldDirty: true },
     );
   };
@@ -109,13 +229,39 @@ export const VariantEditor = ({ storeGroups, isDisabled }: Props) => {
 
   const getRowLabel = (variant: Pick<VariantRow, 'optionValueIds'>) => {
     const options = chosenGroups.flatMap(({ id }) => {
-      const storeGroup = storeGroups.find((group) => group.id === id);
-      const value = storeGroup?.values.find((option) => variant.optionValueIds.includes(option.id));
+      const definition = findGroupDefinition(id);
+      const value = definition?.values.find((option) => variant.optionValueIds.includes(option.id));
 
-      return storeGroup && value ? [{ name: storeGroup.name, value: value.label }] : [];
+      return definition && value ? [{ name: definition.name, value: value.label }] : [];
     });
 
     return getVariantLabel(options);
+  };
+
+  const getAddValueControl = (definition: GroupDefinition) => {
+    if (definition.kind === 'product') {
+      return (
+        <AddTextInput
+          placeholder="Nauja reikšmė"
+          actionLabel="Pridėti reikšmę"
+          isDisabled={isDisabled}
+          onAdd={(label) => handleProductValueCreate(definition.id, label)}
+        />
+      );
+    }
+
+    if (definition.role === 'SIZE') {
+      return (
+        <AddTextInput
+          placeholder="Pvz. 6–9 mėn."
+          actionLabel="Naujas dydis"
+          isDisabled={isDisabled || isAddingSize}
+          onAdd={(label) => handleSizeCreate(definition.id, label)}
+        />
+      );
+    }
+
+    return null;
   };
 
   return (
@@ -130,7 +276,7 @@ export const VariantEditor = ({ storeGroups, isDisabled }: Props) => {
       <div className="space-y-4">
         {storeGroups.length === 0 && (
           <p className="text-muted-foreground text-sm">
-            Savybių dar nėra. Jas galima sukurti puslapyje
+            Bendrų savybių dar nėra. Jas galima sukurti puslapyje
             <Link href={`/${params?.storeId}/option-groups`} className="ml-1 text-blue-500 underline">
               Savybės
             </Link>
@@ -138,19 +284,29 @@ export const VariantEditor = ({ storeGroups, isDisabled }: Props) => {
           </p>
         )}
 
-        {chosenGroups.map((group) => (
-          <ChosenGroupCard
-            key={group.id}
-            group={group}
-            storeGroup={storeGroups.find(({ id }) => id === group.id)}
-            isDisabled={isDisabled}
-            onValueToggle={(valueId) => handleValueToggle(group.id, valueId)}
-            onRemove={() => handleGroupsChange(chosenGroups.filter(({ id }) => id !== group.id))}
-          />
-        ))}
+        {chosenGroups.map((group) => {
+          const definition = findGroupDefinition(group.id);
 
-        {storeGroups.length > 0 && (
-          <div className="flex flex-wrap items-center gap-3">
+          if (!definition) {
+            return null;
+          }
+
+          return (
+            <ChosenGroupCard
+              key={group.id}
+              group={group}
+              definition={definition}
+              isDisabled={isDisabled}
+              onValueToggle={(valueId) => handleValueToggle(group.id, valueId)}
+              onRemove={() => handleGroupsChange(chosenGroups.filter(({ id }) => id !== group.id))}
+            >
+              {getAddValueControl(definition)}
+            </ChosenGroupCard>
+          );
+        })}
+
+        <div className="flex flex-wrap items-center gap-3">
+          {availableGroups.length > 0 && (
             <Select
               value=""
               disabled={isDisabled || !canAddGroup}
@@ -162,26 +318,33 @@ export const VariantEditor = ({ storeGroups, isDisabled }: Props) => {
               <SelectContent>
                 {availableGroups.map((group) => (
                   <SelectItem key={group.id} value={group.id}>
-                    {group.name}
+                    {group.kind === 'product' ? `${group.name} (${PRODUCT_GROUP_LABEL.toLowerCase()})` : group.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+          )}
 
-            {chosenGroups.length > 0 && (
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={isDisabled || missingCombinations.length === 0}
-                onClick={handleGenerate}
-              >
-                Generuoti derinius
-              </Button>
-            )}
+          <AddTextInput
+            placeholder="Prekės savybė, pvz. Stilius"
+            actionLabel="Nauja prekės savybė"
+            isDisabled={isDisabled || !canAddGroup}
+            onAdd={handleProductGroupCreate}
+          />
 
-            <span className="text-muted-foreground text-sm">Daugiausia {MAX_OPTION_GROUP_COUNT} savybės prekei.</span>
-          </div>
-        )}
+          {chosenGroups.length > 0 && (
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={isDisabled || missingCombinations.length === 0}
+              onClick={handleGenerate}
+            >
+              Generuoti derinius
+            </Button>
+          )}
+
+          <span className="text-muted-foreground text-sm">Daugiausia {MAX_OPTION_GROUP_COUNT} savybės prekei.</span>
+        </div>
 
         {chosenGroups.length === 0 ? (
           <DefaultVariantFields isDisabled={isDisabled} />
@@ -233,26 +396,36 @@ export const VariantEditor = ({ storeGroups, isDisabled }: Props) => {
 
 type ChosenGroupCardProps = {
   group: ChosenGroup;
-  storeGroup: StoreOptionGroup | undefined;
+  definition: GroupDefinition;
   isDisabled: boolean;
   onValueToggle: (valueId: string) => void;
   onRemove: () => void;
+  // The group's add-value control, if it has one ("+ Naujas dydis", or a product group's new value)
+  children?: ReactNode;
 };
 
-const ChosenGroupCard = ({ group, storeGroup, isDisabled, onValueToggle, onRemove }: ChosenGroupCardProps) => (
+const ChosenGroupCard = ({
+  group,
+  definition,
+  isDisabled,
+  onValueToggle,
+  onRemove,
+  children,
+}: ChosenGroupCardProps) => (
   <div className="space-y-3 rounded-md border p-4">
     <div className="flex items-center justify-between">
-      <span className="font-medium">{storeGroup?.name}</span>
+      <div className="flex items-center gap-2">
+        <span className="font-medium">{definition.name}</span>
+        {definition.kind === 'product' && <Badge variant="secondary">{PRODUCT_GROUP_LABEL}</Badge>}
+      </div>
       <Button type="button" variant="ghost" size="icon" disabled={isDisabled} onClick={onRemove}>
         <X className="h-4 w-4" />
         <span className="sr-only">Pašalinti savybę</span>
       </Button>
     </div>
-    {storeGroup && storeGroup.values.length === 0 && (
-      <p className="text-muted-foreground text-sm">Ši savybė dar neturi reikšmių.</p>
-    )}
+    {definition.values.length === 0 && <p className="text-muted-foreground text-sm">Ši savybė dar neturi reikšmių.</p>}
     <div className="flex flex-wrap gap-2">
-      {storeGroup?.values.map((value) => (
+      {definition.values.map((value) => (
         <Button
           key={value.id}
           type="button"
@@ -265,8 +438,56 @@ const ChosenGroupCard = ({ group, storeGroup, isDisabled, onValueToggle, onRemov
         </Button>
       ))}
     </div>
+    {children}
   </div>
 );
+
+type AddTextInputProps = {
+  placeholder: string;
+  actionLabel: string;
+  isDisabled: boolean;
+  // Returns whether the text was added, so the input is cleared only then
+  onAdd: (text: string) => boolean | Promise<boolean>;
+};
+
+// A text input with a "+" button inside the product form: Enter adds instead of submitting the form
+const AddTextInput = ({ placeholder, actionLabel, isDisabled, onAdd }: AddTextInputProps) => {
+  const [text, setText] = useState('');
+
+  const handleAdd = async () => {
+    const isAdded = await onAdd(text.trim());
+
+    if (isAdded) {
+      setText('');
+    }
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== 'Enter') {
+      return;
+    }
+
+    event.preventDefault();
+    void handleAdd();
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <Input
+        className="w-56"
+        value={text}
+        placeholder={placeholder}
+        disabled={isDisabled}
+        onChange={(event) => setText(event.target.value)}
+        onKeyDown={handleKeyDown}
+      />
+      <Button type="button" variant="outline" disabled={isDisabled} onClick={handleAdd}>
+        <Plus className="h-4 w-4" />
+        {actionLabel}
+      </Button>
+    </div>
+  );
+};
 
 type VariantTableRowProps = {
   index: number;
@@ -408,3 +629,5 @@ const DefaultVariantFields = ({ isDisabled }: Pick<Props, 'isDisabled'>) => {
     </div>
   );
 };
+
+const getLabels = (values: OptionValue[]) => values.map(({ label }) => label);

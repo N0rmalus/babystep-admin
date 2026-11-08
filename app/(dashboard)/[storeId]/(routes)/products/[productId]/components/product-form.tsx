@@ -47,6 +47,7 @@ type Props = {
         saleEndsAt: string | null;
         images: Image[];
         optionGroups: ProductFormValues['optionGroups'];
+        productGroups: ProductFormValues['productGroups'];
         variants: ProductFormValues['variants'];
       })
     | null;
@@ -89,6 +90,7 @@ export const ProductForm = ({ initialData, subcategories, categories, storeGroup
         saleStartsAt: formatDateTimeLocalValue(initialData.saleStartsAt),
         saleEndsAt: formatDateTimeLocalValue(initialData.saleEndsAt),
         optionGroups: initialData.optionGroups,
+        productGroups: initialData.productGroups,
         variants: initialData.variants,
         subcategoryId: initialData.subcategoryId,
         isFeatured: initialData.isFeatured,
@@ -103,6 +105,7 @@ export const ProductForm = ({ initialData, subcategories, categories, storeGroup
         saleStartsAt: null,
         saleEndsAt: null,
         optionGroups: [],
+        productGroups: [],
         variants: [EMPTY_DEFAULT_VARIANT],
         subcategoryId: '',
         description: '',
@@ -115,10 +118,10 @@ export const ProductForm = ({ initialData, subcategories, categories, storeGroup
     defaultValues,
   });
 
-  const handleSubmit = async ({ optionGroups, variants, ...data }: ProductFormValues) => {
+  const handleSubmit = async ({ optionGroups, productGroups, variants, ...data }: ProductFormValues) => {
     const payload = {
       ...data,
-      ...toVariantPayload({ optionGroups, variants }),
+      ...toVariantPayload({ optionGroups, productGroups, variants }),
       saleStartsAt: data.saleStartsAt || null,
       saleEndsAt: data.saleEndsAt || null,
     };
@@ -361,7 +364,7 @@ export const ProductForm = ({ initialData, subcategories, categories, storeGroup
 
               <FormSection
                 title="Variantai"
-                description="Pasirinkite savybes ir jų reikšmes, tada sugeneruokite derinius. Neegzistuojančius derinius ištrinkite."
+                description="Pasirinkite savybes (arba sukurkite šios prekės savybę) ir jų reikšmes, tada sugeneruokite derinius. Neegzistuojančius derinius ištrinkite."
               >
                 <VariantEditor storeGroups={storeGroups} isDisabled={loading} />
               </FormSection>

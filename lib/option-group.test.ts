@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { getUsedValuesMessage, parseOptionGroupInput, planOptionValueChanges } from '@/lib/option-group';
+import {
+  getUsedValuesMessage,
+  parseOptionGroupInput,
+  parseSizeValueInput,
+  planOptionValueChanges,
+  VALUE_LABEL_REQUIRED_MESSAGE,
+} from '@/lib/option-group';
 
 const EMPTY_SIZES = {
   ageFromMonths: null,
@@ -254,5 +260,23 @@ describe('getUsedValuesMessage', () => {
     expect(getUsedValuesMessage(['S', 'M'])).toBe(
       'Reikšmių „S“, „M“ negalima ištrinti, nes jas naudoja prekių variantai. Jas galima pervadinti.',
     );
+  });
+});
+
+describe('parseSizeValueInput', () => {
+  it('trims the new size label', () => {
+    expect(parseSizeValueInput({ label: ' 6–9 mėn. ' }, ['0–3 mėn.'])).toEqual({ isValid: true, label: '6–9 mėn.' });
+  });
+
+  it('requires a label', () => {
+    expect(parseSizeValueInput({ label: '  ' }, [])).toEqual({ isValid: false, message: VALUE_LABEL_REQUIRED_MESSAGE });
+    expect(parseSizeValueInput({}, [])).toEqual({ isValid: false, message: VALUE_LABEL_REQUIRED_MESSAGE });
+  });
+
+  it('rejects a size the group already has, ignoring case', () => {
+    expect(parseSizeValueInput({ label: 's' }, ['S', 'M'])).toEqual({
+      isValid: false,
+      message: 'Reikšmė „s“ kartojasi',
+    });
   });
 });

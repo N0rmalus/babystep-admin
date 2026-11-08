@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { GROUP_NAME_REQUIRED_MESSAGE } from '@/lib/product-groups';
 import { getVariantPriceMessage, MAX_OPTION_GROUP_COUNT, TOO_MANY_GROUPS_MESSAGE } from '@/lib/variant-plan';
 
 const SKU_MAX_LENGTH = 64;
@@ -69,6 +70,14 @@ export const productFormSchema = z
     optionGroups: z
       .array(z.object({ id: z.string(), valueIds: z.array(z.string()) }))
       .max(MAX_OPTION_GROUP_COUNT, TOO_MANY_GROUPS_MESSAGE),
+    // Product groups this product owns, with every value (chosen or not); new ones have temporary ids
+    productGroups: z.array(
+      z.object({
+        id: z.string(),
+        name: z.string().trim().min(1, GROUP_NAME_REQUIRED_MESSAGE),
+        values: z.array(z.object({ id: z.string(), label: z.string() })),
+      }),
+    ),
     variants: z.array(variantRowSchema),
     subcategoryId: z.string().min(1),
     isFeatured: z.boolean().default(false).optional(),
@@ -114,6 +123,7 @@ export const productFormSchema = z
 
 export type ProductFormValues = z.infer<typeof productFormSchema>;
 export type VariantRow = ProductFormValues['variants'][number];
+export type ProductGroup = ProductFormValues['productGroups'][number];
 
 export const EMPTY_DEFAULT_VARIANT = {
   optionValueIds: [],
@@ -123,9 +133,19 @@ export const EMPTY_DEFAULT_VARIANT = {
   salePrice: null,
 } satisfies VariantRow;
 
-// The request body's variant part (see lib/product-variant-writes.ts)
-export const toVariantPayload = ({ optionGroups, variants }: Pick<ProductFormValues, 'optionGroups' | 'variants'>) => ({
+// The request body's variant part (see lib/product-variant-writes.ts). Only chosen product groups are sent, each
+// with the values the product uses; the server removes the rest unless a variant still uses them.
+export const toVariantPayload = ({
+  optionGroups,
+  productGroups,
+  variants,
+}: Pick<ProductFormValues, 'optionGroups' | 'productGroups' | 'variants'>) => ({
   optionGroupIds: optionGroups.map(({ id }) => id),
+  productGroups: productGroups.flatMap(({ id, name, values }) => {
+    const chosenGroup = optionGroups.find((group) => group.id === id);
+
+    return chosenGroup ? [{ id, name, values: values.filter((value) => chosenGroup.valueIds.includes(value.id)) }] : [];
+  }),
   variants: variants.map((variant) => ({
     ...variant,
     price: getOptionalNumericInput(variant.price),

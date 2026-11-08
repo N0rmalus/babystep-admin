@@ -4,40 +4,70 @@ import { getBulkChanges, getBulkTargetIndexes, getKeysWithValue } from '@/lib/va
 
 describe('getBulkChanges', () => {
   it('fills only the fields that were entered', () => {
-    expect(getBulkChanges({ stockCount: ' 5 ', price: '', salePrice: '12.5' })).toEqual({
+    expect(getBulkChanges({ ...NO_INPUTS, stockCount: ' 5 ', salePrice: '12.5' })).toEqual({
       isValid: true,
       changes: { stockCount: 5, salePrice: '12.5' },
     });
   });
 
   it('asks for a value when every input is empty', () => {
-    expect(getBulkChanges({ stockCount: '', price: ' ', salePrice: '' })).toEqual({
+    expect(getBulkChanges({ ...NO_INPUTS, price: ' ' })).toEqual({
       isValid: false,
       message: 'Įveskite bent vieną reikšmę, kurią norite pritaikyti',
     });
   });
 
   it.each(['-1', '2.5', 'abc'])('rejects Laisva "%s"', (stockCount) => {
-    expect(getBulkChanges({ stockCount, price: '', salePrice: '' })).toEqual({
+    expect(getBulkChanges({ ...NO_INPUTS, stockCount })).toEqual({
       isValid: false,
       message: 'Reikalingas laisvas kiekis (sveikasis skaičius, ne mažesnis už 0)',
     });
   });
 
   it.each(['0', '-3', 'abc'])('rejects price "%s"', (price) => {
-    expect(getBulkChanges({ stockCount: '', price, salePrice: '' })).toEqual({
+    expect(getBulkChanges({ ...NO_INPUTS, price })).toEqual({
       isValid: false,
       message: 'Reikalinga teigiama kaina',
     });
   });
 
   it('rejects a sale price that is not above 0', () => {
-    expect(getBulkChanges({ stockCount: '', price: '', salePrice: '0' })).toEqual({
+    expect(getBulkChanges({ ...NO_INPUTS, salePrice: '0' })).toEqual({
       isValid: false,
       message: 'Akcijos kaina turi būti didesnė už 0',
     });
   });
+
+  it('clears the price and the sale price, so the rows use the product prices again', () => {
+    expect(getBulkChanges({ ...NO_INPUTS, shouldClearPrice: true })).toEqual({
+      isValid: true,
+      changes: { price: null, salePrice: null },
+    });
+  });
+
+  it('clears only the sale price', () => {
+    expect(getBulkChanges({ ...NO_INPUTS, price: '20', shouldClearSalePrice: true })).toEqual({
+      isValid: true,
+      changes: { price: '20', salePrice: null },
+    });
+  });
+
+  it('lets a clear win over a typed value of the same field', () => {
+    expect(getBulkChanges({ ...NO_INPUTS, price: '20', shouldClearPrice: true })).toEqual({
+      isValid: true,
+      changes: { price: null, salePrice: null },
+    });
+  });
+
+  it('rejects a sale price together with clearing the price', () => {
+    expect(getBulkChanges({ ...NO_INPUTS, salePrice: '10', shouldClearPrice: true })).toEqual({
+      isValid: false,
+      message: 'Akcijos kainą galima nurodyti tik kartu su varianto kaina',
+    });
+  });
 });
+
+const NO_INPUTS = { stockCount: '', price: '', salePrice: '', shouldClearPrice: false, shouldClearSalePrice: false };
 
 describe('getKeysWithValue', () => {
   it('returns exactly the rows that use the value', () => {

@@ -3,7 +3,7 @@
 import axios from 'axios';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
-import { ChangeEvent, KeyboardEvent, ReactNode, useState } from 'react';
+import { ChangeEvent, KeyboardEvent, ReactNode, useId, useState } from 'react';
 import { useParams } from 'next/navigation';
 import type { OptionGroupRole } from '@prisma/client';
 import { useFieldArray, useFormContext, useWatch } from 'react-hook-form';
@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form/form';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
@@ -62,14 +63,23 @@ const ARCHIVED_BADGE_LABEL = 'Bus archyvuotas';
 const ARCHIVE_HINT =
   'Išsaugojus archyvuotas variantas nebeparduodamas ir dingsta iš lentelės; sugeneravus tą patį derinį jis grąžinamas. Ištrintas variantas su užsakymais archyvuojamas.';
 const BULK_EDIT_HINT =
-  '„Taikyti“ tik užpildo laukelius pažymėtose eilutėse (jei nepažymėta nė viena, visose). Niekas neišsaugoma, kol nepaspausite „Išsaugoti“.';
+  '„Taikyti“ tik užpildo laukelius pažymėtose eilutėse (jei nepažymėta nė viena, visose); „Išvalyti“ grąžina prekės kainas. Niekas neišsaugoma, kol nepaspausite „Išsaugoti“.';
 const QUICK_SELECT_PLACEHOLDER = 'Pažymėti pagal reikšmę';
 const TICK_ALL_LABEL = 'Pažymėti visus variantus';
 const TICK_ROW_LABEL = 'Pažymėti variantą';
 const UNTICK_ALL_LABEL = 'Atžymėti visus';
 const APPLY_TO_ALL_LABEL = 'Taikyti visiems';
 const getApplyToTickedLabel = (tickedCount: number) => `Taikyti pažymėtiems (${tickedCount})`;
-const EMPTY_BULK_INPUTS = { stockCount: '', price: '', salePrice: '' };
+const EMPTY_BULK_INPUTS = {
+  stockCount: '',
+  price: '',
+  salePrice: '',
+  shouldClearPrice: false,
+  shouldClearSalePrice: false,
+};
+const CLEAR_LABEL = 'Išvalyti';
+const CLEAR_PRICE_HINT = 'Išvalo varianto kainą ir akcijos kainą: variantas naudos prekės kainas.';
+const CLEAR_SALE_PRICE_HINT = 'Išvalo varianto akcijos kainą.';
 const REPLACE_VARIANTS_TITLE = 'Pakeisti visus variantus?';
 const REPLACE_VARIANTS_DESCRIPTION =
   'Pridėjus ar pašalinus savybę, visi esami variantai bus pakeisti naujais. Išsaugojus prekę, variantai su užsakymais bus archyvuoti, kiti ištrinti.';
@@ -736,9 +746,12 @@ type BulkEditRowProps = {
   onApply: (changes: BulkChanges) => void;
 };
 
-// "Taikyti visiems": fills Laisva, Kaina or Akcijos kaina in the ticked rows (or all rows); empty inputs are skipped
+// "Taikyti visiems": fills Laisva, Kaina or Akcijos kaina in the ticked rows (or all rows); empty inputs are skipped,
+// "Išvalyti" empties a price so the rows inherit the product's prices again
 const BulkEditRow = ({ tickedCount, isDisabled, onApply }: BulkEditRowProps) => {
   const [inputs, setInputs] = useState(EMPTY_BULK_INPUTS);
+  // Clearing the price clears the sale price too, so its input is locked
+  const isSalePriceCleared = inputs.shouldClearPrice || inputs.shouldClearSalePrice;
   const rowLabel = tickedCount > 0 ? getApplyToTickedLabel(tickedCount) : APPLY_TO_ALL_LABEL;
 
   const handleApply = () => {
@@ -763,9 +776,9 @@ const BulkEditRow = ({ tickedCount, isDisabled, onApply }: BulkEditRowProps) => 
     handleApply();
   };
 
-  const getInputProps = (name: keyof typeof EMPTY_BULK_INPUTS) => ({
-    value: inputs[name],
-    disabled: isDisabled,
+  const getInputProps = ({ name, isCleared }: { name: 'stockCount' | 'price' | 'salePrice'; isCleared: boolean }) => ({
+    value: isCleared ? '' : inputs[name],
+    disabled: isDisabled || isCleared,
     onKeyDown: handleKeyDown,
     onChange: (event: ChangeEvent<HTMLInputElement>) =>
       setInputs((current) => ({ ...current, [name]: event.target.value })),
@@ -785,7 +798,7 @@ const BulkEditRow = ({ tickedCount, isDisabled, onApply }: BulkEditRowProps) => 
           className={STOCK_INPUT_CLASS}
           placeholder="Laisva"
           aria-label={`${rowLabel}: Laisva`}
-          {...getInputProps('stockCount')}
+          {...getInputProps({ name: 'stockCount', isCleared: false })}
         />
       </TableCell>
       <TableCell />
@@ -798,7 +811,13 @@ const BulkEditRow = ({ tickedCount, isDisabled, onApply }: BulkEditRowProps) => 
           className={PRICE_INPUT_CLASS}
           placeholder="Kaina"
           aria-label={`${rowLabel}: Kaina`}
-          {...getInputProps('price')}
+          {...getInputProps({ name: 'price', isCleared: inputs.shouldClearPrice })}
+        />
+        <ClearToggle
+          title={CLEAR_PRICE_HINT}
+          isChecked={inputs.shouldClearPrice}
+          isDisabled={isDisabled}
+          onCheckedChange={(isChecked) => setInputs((current) => ({ ...current, shouldClearPrice: isChecked }))}
         />
       </TableCell>
       <TableCell>
@@ -809,7 +828,13 @@ const BulkEditRow = ({ tickedCount, isDisabled, onApply }: BulkEditRowProps) => 
           className={PRICE_INPUT_CLASS}
           placeholder="Akcijos kaina"
           aria-label={`${rowLabel}: Akcijos kaina`}
-          {...getInputProps('salePrice')}
+          {...getInputProps({ name: 'salePrice', isCleared: isSalePriceCleared })}
+        />
+        <ClearToggle
+          title={CLEAR_SALE_PRICE_HINT}
+          isChecked={isSalePriceCleared}
+          isDisabled={isDisabled || inputs.shouldClearPrice}
+          onCheckedChange={(isChecked) => setInputs((current) => ({ ...current, shouldClearSalePrice: isChecked }))}
         />
       </TableCell>
       <TableCell>
@@ -818,6 +843,31 @@ const BulkEditRow = ({ tickedCount, isDisabled, onApply }: BulkEditRowProps) => 
         </Button>
       </TableCell>
     </TableRow>
+  );
+};
+
+type ClearToggleProps = {
+  title: string;
+  isChecked: boolean;
+  isDisabled: boolean;
+  onCheckedChange: (isChecked: boolean) => void;
+};
+
+const ClearToggle = ({ title, isChecked, isDisabled, onCheckedChange }: ClearToggleProps) => {
+  const id = useId();
+
+  return (
+    <div className="mt-2 flex items-center gap-2" title={title}>
+      <Checkbox
+        id={id}
+        checked={isChecked}
+        disabled={isDisabled}
+        onCheckedChange={(checked) => onCheckedChange(checked === true)}
+      />
+      <Label htmlFor={id} className="text-muted-foreground text-xs font-normal">
+        {CLEAR_LABEL}
+      </Label>
+    </div>
   );
 };
 

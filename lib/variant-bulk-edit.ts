@@ -1,33 +1,45 @@
 import { INVALID_STOCK_COUNT_MESSAGE, isValidStockCount } from '@/lib/product-variant';
+import { SALE_PRICE_WITHOUT_PRICE_MESSAGE } from '@/lib/variant-plan';
 
 const EMPTY_BULK_EDIT_MESSAGE = 'Įveskite bent vieną reikšmę, kurią norite pritaikyti';
 // Same wording as the product price rules (lib/product-pricing.ts)
 const INVALID_PRICE_MESSAGE = 'Reikalinga teigiama kaina';
 const INVALID_SALE_PRICE_MESSAGE = 'Akcijos kaina turi būti didesnė už 0';
 
-// The "Taikyti visiems" inputs as typed; an empty input leaves that field alone
+// The "Taikyti visiems" inputs as typed; an empty input leaves that field alone, a clear empties it
 type BulkInputs = {
   stockCount: string;
   price: string;
   salePrice: string;
+  // Clearing the price also clears the sale price: a sale price needs a variant price
+  shouldClearPrice: boolean;
+  shouldClearSalePrice: boolean;
 };
 
+// null = cleared, so the rows inherit the product's price and sale price
 export type BulkChanges = {
   stockCount?: number;
-  price?: string;
-  salePrice?: string;
+  price?: string | null;
+  salePrice?: string | null;
 };
 
 type BulkChangesResult = { isValid: true; changes: BulkChanges } | { isValid: false; message: string };
 
 // Each value is checked alone; how a price pairs with a row's sale price is checked by the form on Save
 export const getBulkChanges = (inputs: BulkInputs): BulkChangesResult => {
+  const { shouldClearPrice } = inputs;
+  const shouldClearSalePrice = shouldClearPrice || inputs.shouldClearSalePrice;
   const stockCount = inputs.stockCount.trim();
-  const price = inputs.price.trim();
-  const salePrice = inputs.salePrice.trim();
+  // A clear wins over a value typed in the same field
+  const price = shouldClearPrice ? '' : inputs.price.trim();
+  const salePrice = inputs.shouldClearSalePrice ? '' : inputs.salePrice.trim();
 
-  if (!stockCount && !price && !salePrice) {
+  if (!stockCount && !price && !salePrice && !shouldClearSalePrice) {
     return { isValid: false, message: EMPTY_BULK_EDIT_MESSAGE };
+  }
+
+  if (shouldClearPrice && salePrice) {
+    return { isValid: false, message: SALE_PRICE_WITHOUT_PRICE_MESSAGE };
   }
 
   if (stockCount && !isValidStockCount(Number(stockCount))) {
@@ -47,7 +59,9 @@ export const getBulkChanges = (inputs: BulkInputs): BulkChangesResult => {
     changes: {
       ...(stockCount ? { stockCount: Number(stockCount) } : {}),
       ...(price ? { price } : {}),
+      ...(shouldClearPrice ? { price: null } : {}),
       ...(salePrice ? { salePrice } : {}),
+      ...(shouldClearSalePrice ? { salePrice: null } : {}),
     },
   };
 };

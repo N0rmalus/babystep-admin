@@ -3,7 +3,7 @@
 import axios from 'axios';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
-import { KeyboardEvent, ReactNode, useState } from 'react';
+import { ChangeEvent, KeyboardEvent, ReactNode, useState } from 'react';
 import { useParams } from 'next/navigation';
 import type { OptionGroupRole } from '@prisma/client';
 import { useFieldArray, useFormContext, useWatch } from 'react-hook-form';
@@ -11,6 +11,7 @@ import { Archive, ArchiveRestore, Plus, Trash, X } from 'lucide-react';
 import { AlertModal } from '@/components/modals/alert-modal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -19,6 +20,7 @@ import { cn } from '@/lib/utils';
 import { getFormErrorMessage } from '@/lib/get-form-error-message';
 import { getNewValueMessage } from '@/lib/option-group';
 import { GROUP_NAME_REQUIRED_MESSAGE } from '@/lib/product-groups';
+import { BulkChanges, getBulkChanges, getBulkTargetIndexes, getKeysWithValue } from '@/lib/variant-bulk-edit';
 import { getVariantLabel } from '@/lib/variant-label';
 import { generateMissingCombinations, MAX_OPTION_GROUP_COUNT } from '@/lib/variant-plan';
 import { EMPTY_DEFAULT_VARIANT, ProductFormValues, ProductGroup, VariantRow } from './schema';
@@ -59,6 +61,15 @@ const UNDO_ARCHIVE_LABEL = 'Atšaukti archyvavimą';
 const ARCHIVED_BADGE_LABEL = 'Bus archyvuotas';
 const ARCHIVE_HINT =
   'Išsaugojus archyvuotas variantas nebeparduodamas ir dingsta iš lentelės; sugeneravus tą patį derinį jis grąžinamas. Ištrintas variantas su užsakymais archyvuojamas.';
+const BULK_EDIT_HINT =
+  '„Taikyti“ tik užpildo laukelius pažymėtose eilutėse (jei nepažymėta nė viena, visose). Niekas neišsaugoma, kol nepaspausite „Išsaugoti“.';
+const QUICK_SELECT_PLACEHOLDER = 'Pažymėti pagal reikšmę';
+const TICK_ALL_LABEL = 'Pažymėti visus variantus';
+const TICK_ROW_LABEL = 'Pažymėti variantą';
+const UNTICK_ALL_LABEL = 'Atžymėti visus';
+const APPLY_TO_ALL_LABEL = 'Taikyti visiems';
+const getApplyToTickedLabel = (tickedCount: number) => `Taikyti pažymėtiems (${tickedCount})`;
+const EMPTY_BULK_INPUTS = { stockCount: '', price: '', salePrice: '' };
 const REPLACE_VARIANTS_TITLE = 'Pakeisti visus variantus?';
 const REPLACE_VARIANTS_DESCRIPTION =
   'Pridėjus ar pašalinus savybę, visi esami variantai bus pakeisti naujais. Išsaugojus prekę, variantai su užsakymais bus archyvuoti, kiti ištrinti.';
@@ -78,6 +89,8 @@ export const VariantEditor = ({ storeGroups: initialStoreGroups, isDisabled }: P
   // Sizes added with "+ Naujas dydis" are saved at once, so they join the store-level groups here
   const [storeGroups, setStoreGroups] = useState(initialStoreGroups);
   const [isAddingSize, setIsAddingSize] = useState(false);
+  // Ticked rows by field key; keys of removed rows are ignored
+  const [tickedKeys, setTickedKeys] = useState<ReadonlySet<string>>(new Set());
 
   const groupDefinitions = [
     ...storeGroups.map((group) => ({ ...group, kind: 'store' as const })),
@@ -90,8 +103,72 @@ export const VariantEditor = ({ storeGroups: initialStoreGroups, isDisabled }: P
   const hasVariantsToReplace = variants.some(
     (variant) => variant.id !== undefined || variant.optionValueIds.length > 0,
   );
+  const tableRows = fields.map(({ key, optionValueIds }, index) => ({
+    key,
+    optionValueIds,
+    isArchived: variants.at(index)?.isArchived ?? false,
+  }));
+  // Rows marked for archiving can't be ticked or bulk-edited
+  const activeRowKeys = tableRows.flatMap(({ key, isArchived }) => (isArchived ? [] : [key]));
+  const tickedCount = activeRowKeys.filter((key) => tickedKeys.has(key)).length;
+  const isEveryRowTicked = activeRowKeys.length > 0 && tickedCount === activeRowKeys.length;
 
   const findGroupDefinition = (groupId: string) => groupDefinitions.find(({ id }) => id === groupId);
+
+  // "Spalva: Šalavijų", "Dydis: 0–6 mėn.": every value the product uses, in group order
+  const quickSelectOptions = chosenGroups.flatMap((group) => {
+    const definition = findGroupDefinition(group.id);
+
+    if (!definition) {
+      return [];
+    }
+
+    return definition.values
+      .filter((value) => group.valueIds.includes(value.id))
+      .map((value) => ({ id: value.id, label: `${definition.name}: ${value.label}` }));
+  });
+
+  const handleQuickSelect = (valueId: string) => {
+    setTickedKeys(getKeysWithValue({ rows: tableRows, valueId }));
+  };
+
+  const handleTickAll = (isTicked: boolean) => {
+    setTickedKeys(new Set(isTicked ? activeRowKeys : []));
+  };
+
+  const handleRowTick = (key: string, isTicked: boolean) => {
+    setTickedKeys((keys) => {
+      const nextKeys = new Set(keys);
+
+      if (isTicked) {
+        nextKeys.add(key);
+      } else {
+        nextKeys.delete(key);
+      }
+
+      return nextKeys;
+    });
+  };
+
+  // Only fills the form fields; nothing is saved until the product is saved
+  const handleBulkApply = (changes: BulkChanges) => {
+    const options = { shouldDirty: true, shouldValidate: form.formState.isSubmitted };
+    const targetIndexes = getBulkTargetIndexes({ rows: tableRows, tickedKeys });
+
+    targetIndexes.forEach((index) => {
+      if (changes.stockCount !== undefined) {
+        form.setValue(`variants.${index}.stockCount`, changes.stockCount, options);
+      }
+
+      if (changes.price !== undefined) {
+        form.setValue(`variants.${index}.price`, changes.price, options);
+      }
+
+      if (changes.salePrice !== undefined) {
+        form.setValue(`variants.${index}.salePrice`, changes.salePrice, options);
+      }
+    });
+  };
 
   // Changing the groups changes every combination, so the table starts over (after a confirmation if it has rows)
   const applyGroups = (groups: ChosenGroup[]) => {
@@ -369,9 +446,38 @@ export const VariantEditor = ({ storeGroups: initialStoreGroups, isDisabled }: P
             render={() => (
               <FormItem>
                 {fields.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Select value="" disabled={isDisabled} onValueChange={handleQuickSelect}>
+                      <SelectTrigger className="w-64">
+                        <SelectValue placeholder={QUICK_SELECT_PLACEHOLDER} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {quickSelectOptions.map((option) => (
+                          <SelectItem key={option.id} value={option.id}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {tickedCount > 0 && (
+                      <Button type="button" variant="ghost" disabled={isDisabled} onClick={() => handleTickAll(false)}>
+                        {UNTICK_ALL_LABEL}
+                      </Button>
+                    )}
+                  </div>
+                )}
+                {fields.length > 0 && (
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead>
+                          <Checkbox
+                            checked={isEveryRowTicked}
+                            disabled={isDisabled}
+                            aria-label={TICK_ALL_LABEL}
+                            onCheckedChange={(checked) => handleTickAll(checked === true)}
+                          />
+                        </TableHead>
                         <TableHead>Variantas</TableHead>
                         <TableHead>SKU</TableHead>
                         <TableHead title={STOCK_HINT}>Laisva</TableHead>
@@ -383,6 +489,7 @@ export const VariantEditor = ({ storeGroups: initialStoreGroups, isDisabled }: P
                       </TableRow>
                     </TableHeader>
                     <TableBody>
+                      <BulkEditRow tickedCount={tickedCount} isDisabled={isDisabled} onApply={handleBulkApply} />
                       {fields.map((field, index) => (
                         <VariantTableRow
                           key={field.key}
@@ -390,6 +497,8 @@ export const VariantEditor = ({ storeGroups: initialStoreGroups, isDisabled }: P
                           label={getRowLabel(field)}
                           isDisabled={isDisabled}
                           isSaved={field.id !== undefined}
+                          isTicked={tickedKeys.has(field.key)}
+                          onTickedChange={(isTicked) => handleRowTick(field.key, isTicked)}
                           onRemove={() => remove(index)}
                         />
                       ))}
@@ -397,7 +506,8 @@ export const VariantEditor = ({ storeGroups: initialStoreGroups, isDisabled }: P
                   </Table>
                 )}
                 <FormDescription>
-                  {STOCK_HINT} Tuščia kaina reiškia, kad variantas naudoja prekės kainą ir akcijos kainą. {ARCHIVE_HINT}
+                  {STOCK_HINT} Tuščia kaina reiškia, kad variantas naudoja prekės kainą ir akcijos kainą.{' '}
+                  {BULK_EDIT_HINT} {ARCHIVE_HINT}
                 </FormDescription>
                 <FormMessage />
               </FormItem>
@@ -510,10 +620,20 @@ type VariantTableRowProps = {
   isDisabled: boolean;
   // Only a saved variant can be archived; a row that was never saved is simply deleted
   isSaved: boolean;
+  isTicked: boolean;
+  onTickedChange: (isTicked: boolean) => void;
   onRemove: () => void;
 };
 
-const VariantTableRow = ({ index, label, isDisabled, isSaved, onRemove }: VariantTableRowProps) => {
+const VariantTableRow = ({
+  index,
+  label,
+  isDisabled,
+  isSaved,
+  isTicked,
+  onTickedChange,
+  onRemove,
+}: VariantTableRowProps) => {
   const form = useFormContext<ProductFormValues>();
   const stockCount = Number(useWatch({ control: form.control, name: `variants.${index}.stockCount` })) || 0;
   const isArchived = useWatch({ control: form.control, name: `variants.${index}.isArchived` });
@@ -526,6 +646,14 @@ const VariantTableRow = ({ index, label, isDisabled, isSaved, onRemove }: Varian
 
   return (
     <TableRow className={cn(isArchived ? 'text-muted-foreground' : '')}>
+      <TableCell>
+        <Checkbox
+          checked={isTicked && !isArchived}
+          disabled={isDisabled || isArchived}
+          aria-label={`${TICK_ROW_LABEL}: ${label}`}
+          onCheckedChange={(checked) => onTickedChange(checked === true)}
+        />
+      </TableCell>
       <TableCell className="font-medium">
         <div className="flex items-center gap-2">
           {label}
@@ -596,6 +724,98 @@ const VariantTableRow = ({ index, label, isDisabled, isSaved, onRemove }: Varian
             <span className="sr-only">Ištrinti derinį</span>
           </Button>
         </div>
+      </TableCell>
+    </TableRow>
+  );
+};
+
+type BulkEditRowProps = {
+  // Ticked rows still in the table; 0 means the values go to every row
+  tickedCount: number;
+  isDisabled: boolean;
+  onApply: (changes: BulkChanges) => void;
+};
+
+// "Taikyti visiems": fills Laisva, Kaina or Akcijos kaina in the ticked rows (or all rows); empty inputs are skipped
+const BulkEditRow = ({ tickedCount, isDisabled, onApply }: BulkEditRowProps) => {
+  const [inputs, setInputs] = useState(EMPTY_BULK_INPUTS);
+  const rowLabel = tickedCount > 0 ? getApplyToTickedLabel(tickedCount) : APPLY_TO_ALL_LABEL;
+
+  const handleApply = () => {
+    const result = getBulkChanges(inputs);
+
+    if (!result.isValid) {
+      toast.error(result.message);
+      return;
+    }
+
+    onApply(result.changes);
+    setInputs(EMPTY_BULK_INPUTS);
+  };
+
+  // Enter applies instead of submitting the product form
+  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== 'Enter') {
+      return;
+    }
+
+    event.preventDefault();
+    handleApply();
+  };
+
+  const getInputProps = (name: keyof typeof EMPTY_BULK_INPUTS) => ({
+    value: inputs[name],
+    disabled: isDisabled,
+    onKeyDown: handleKeyDown,
+    onChange: (event: ChangeEvent<HTMLInputElement>) =>
+      setInputs((current) => ({ ...current, [name]: event.target.value })),
+  });
+
+  return (
+    <TableRow className="bg-muted/50 hover:bg-muted/50">
+      <TableCell />
+      <TableCell className="font-medium" colSpan={2}>
+        {rowLabel}
+      </TableCell>
+      <TableCell>
+        <Input
+          type="number"
+          min="0"
+          step="1"
+          className={STOCK_INPUT_CLASS}
+          placeholder="Laisva"
+          aria-label={`${rowLabel}: Laisva`}
+          {...getInputProps('stockCount')}
+        />
+      </TableCell>
+      <TableCell />
+      <TableCell />
+      <TableCell>
+        <Input
+          type="number"
+          min="0"
+          step="0.01"
+          className={PRICE_INPUT_CLASS}
+          placeholder="Kaina"
+          aria-label={`${rowLabel}: Kaina`}
+          {...getInputProps('price')}
+        />
+      </TableCell>
+      <TableCell>
+        <Input
+          type="number"
+          min="0"
+          step="0.01"
+          className={PRICE_INPUT_CLASS}
+          placeholder="Akcijos kaina"
+          aria-label={`${rowLabel}: Akcijos kaina`}
+          {...getInputProps('salePrice')}
+        />
+      </TableCell>
+      <TableCell>
+        <Button type="button" variant="secondary" size="sm" disabled={isDisabled} onClick={handleApply}>
+          Taikyti
+        </Button>
       </TableCell>
     </TableRow>
   );

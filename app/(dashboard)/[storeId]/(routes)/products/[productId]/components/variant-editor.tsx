@@ -7,7 +7,7 @@ import { KeyboardEvent, ReactNode, useState } from 'react';
 import { useParams } from 'next/navigation';
 import type { OptionGroupRole } from '@prisma/client';
 import { useFieldArray, useFormContext, useWatch } from 'react-hook-form';
-import { Plus, Trash, X } from 'lucide-react';
+import { Archive, ArchiveRestore, Plus, Trash, X } from 'lucide-react';
 import { AlertModal } from '@/components/modals/alert-modal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,7 @@ import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessa
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { cn } from '@/lib/utils';
 import { getFormErrorMessage } from '@/lib/get-form-error-message';
 import { getNewValueMessage } from '@/lib/option-group';
 import { GROUP_NAME_REQUIRED_MESSAGE } from '@/lib/product-groups';
@@ -53,6 +54,14 @@ const STOCK_INPUT_CLASS = 'w-24';
 const PRICE_INPUT_CLASS = 'w-28';
 const PRODUCT_GROUP_LABEL = 'Tik šiai prekei';
 const SIZE_ADDED_MESSAGE = 'Dydis pridėtas. Jis matomas ir puslapyje Savybės.';
+const ARCHIVE_LABEL = 'Archyvuoti variantą';
+const UNDO_ARCHIVE_LABEL = 'Atšaukti archyvavimą';
+const ARCHIVED_BADGE_LABEL = 'Bus archyvuotas';
+const ARCHIVE_HINT =
+  'Išsaugojus archyvuotas variantas nebeparduodamas ir dingsta iš lentelės; sugeneravus tą patį derinį jis grąžinamas. Ištrintas variantas su užsakymais archyvuojamas.';
+const REPLACE_VARIANTS_TITLE = 'Pakeisti visus variantus?';
+const REPLACE_VARIANTS_DESCRIPTION =
+  'Pridėjus ar pašalinus savybę, visi esami variantai bus pakeisti naujais. Išsaugojus prekę, variantai su užsakymais bus archyvuoti, kiti ištrinti.';
 
 export const VariantEditor = ({ storeGroups: initialStoreGroups, isDisabled }: Props) => {
   const params = useParams();
@@ -77,7 +86,10 @@ export const VariantEditor = ({ storeGroups: initialStoreGroups, isDisabled }: P
   const availableGroups = groupDefinitions.filter((group) => !chosenGroups.some(({ id }) => id === group.id));
   const canAddGroup = chosenGroups.length < MAX_OPTION_GROUP_COUNT;
   const missingCombinations = generateMissingCombinations({ groups: chosenGroups, variants });
-  const hasOptionVariants = variants.some((variant) => variant.optionValueIds.length > 0);
+  // Saved variants (the default one too) or generated rows would be lost, so a group change asks first
+  const hasVariantsToReplace = variants.some(
+    (variant) => variant.id !== undefined || variant.optionValueIds.length > 0,
+  );
 
   const findGroupDefinition = (groupId: string) => groupDefinitions.find(({ id }) => id === groupId);
 
@@ -89,7 +101,7 @@ export const VariantEditor = ({ storeGroups: initialStoreGroups, isDisabled }: P
   };
 
   const handleGroupsChange = (groups: ChosenGroup[]) => {
-    if (hasOptionVariants) {
+    if (hasVariantsToReplace) {
       setPendingGroups(groups);
       return;
     }
@@ -271,6 +283,8 @@ export const VariantEditor = ({ storeGroups: initialStoreGroups, isDisabled }: P
         onClose={() => setPendingGroups(null)}
         onConfirm={() => pendingGroups && applyGroups(pendingGroups)}
         loading={isDisabled}
+        title={REPLACE_VARIANTS_TITLE}
+        description={REPLACE_VARIANTS_DESCRIPTION}
       />
 
       <div className="space-y-4">
@@ -375,6 +389,7 @@ export const VariantEditor = ({ storeGroups: initialStoreGroups, isDisabled }: P
                           index={index}
                           label={getRowLabel(field)}
                           isDisabled={isDisabled}
+                          isSaved={field.id !== undefined}
                           onRemove={() => remove(index)}
                         />
                       ))}
@@ -382,7 +397,7 @@ export const VariantEditor = ({ storeGroups: initialStoreGroups, isDisabled }: P
                   </Table>
                 )}
                 <FormDescription>
-                  {STOCK_HINT} Tuščia kaina reiškia, kad variantas naudoja prekės kainą ir akcijos kainą.
+                  {STOCK_HINT} Tuščia kaina reiškia, kad variantas naudoja prekės kainą ir akcijos kainą. {ARCHIVE_HINT}
                 </FormDescription>
                 <FormMessage />
               </FormItem>
@@ -493,16 +508,30 @@ type VariantTableRowProps = {
   index: number;
   label: string;
   isDisabled: boolean;
+  // Only a saved variant can be archived; a row that was never saved is simply deleted
+  isSaved: boolean;
   onRemove: () => void;
 };
 
-const VariantTableRow = ({ index, label, isDisabled, onRemove }: VariantTableRowProps) => {
+const VariantTableRow = ({ index, label, isDisabled, isSaved, onRemove }: VariantTableRowProps) => {
   const form = useFormContext<ProductFormValues>();
   const stockCount = Number(useWatch({ control: form.control, name: `variants.${index}.stockCount` })) || 0;
+  const isArchived = useWatch({ control: form.control, name: `variants.${index}.isArchived` });
+  const archiveToggleLabel = isArchived ? UNDO_ARCHIVE_LABEL : ARCHIVE_LABEL;
+
+  // Archiving only marks the row; on Save the variant is archived and leaves the table
+  const handleArchiveToggle = () => {
+    form.setValue(`variants.${index}.isArchived`, !isArchived, { shouldDirty: true });
+  };
 
   return (
-    <TableRow>
-      <TableCell className="font-medium">{label}</TableCell>
+    <TableRow className={cn(isArchived ? 'text-muted-foreground' : '')}>
+      <TableCell className="font-medium">
+        <div className="flex items-center gap-2">
+          {label}
+          {isArchived && <Badge variant="secondary">{ARCHIVED_BADGE_LABEL}</Badge>}
+        </div>
+      </TableCell>
       <TableCell>
         <FormField
           control={form.control}
@@ -548,10 +577,25 @@ const VariantTableRow = ({ index, label, isDisabled, onRemove }: VariantTableRow
         <PriceField name={`variants.${index}.salePrice`} placeholder="—" isDisabled={isDisabled} />
       </TableCell>
       <TableCell>
-        <Button type="button" variant="ghost" size="icon" disabled={isDisabled} onClick={onRemove}>
-          <Trash className="h-4 w-4" />
-          <span className="sr-only">Ištrinti derinį</span>
-        </Button>
+        <div className="flex items-center">
+          {isSaved && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              disabled={isDisabled}
+              title={archiveToggleLabel}
+              onClick={handleArchiveToggle}
+            >
+              {isArchived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
+              <span className="sr-only">{archiveToggleLabel}</span>
+            </Button>
+          )}
+          <Button type="button" variant="ghost" size="icon" disabled={isDisabled} onClick={onRemove}>
+            <Trash className="h-4 w-4" />
+            <span className="sr-only">Ištrinti derinį</span>
+          </Button>
+        </div>
       </TableCell>
     </TableRow>
   );

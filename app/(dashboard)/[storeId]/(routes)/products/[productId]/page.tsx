@@ -121,4 +121,6 @@ const toVariantRow = (variant: EditorVariant) => ({
   stockCount: variant.stockCount,
   price: variant.price?.toNumber() ?? null,
   salePrice: variant.salePrice?.toNumber() ?? null,
+  // The editor loads active variants only; an archived one comes back when its combination is generated again
+  isArchived: false,
 });

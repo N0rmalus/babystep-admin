@@ -9,9 +9,21 @@ interface AlertModalProps {
   onClose: () => void;
   onConfirm: () => void;
   loading: boolean;
+  title?: string;
+  description?: string;
 }
 
-export const AlertModal: React.FC<AlertModalProps> = ({ isOpen, onClose, onConfirm, loading }) => {
+const DEFAULT_TITLE = 'Ar esate tikri?';
+const DEFAULT_DESCRIPTION = 'Šio veiksmo nebus galima grąžinti atgal.';
+
+export const AlertModal: React.FC<AlertModalProps> = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  loading,
+  title = DEFAULT_TITLE,
+  description = DEFAULT_DESCRIPTION,
+}) => {
   const isMounted = useMounted();
 
   if (!isMounted) {
@@ -19,12 +31,7 @@ export const AlertModal: React.FC<AlertModalProps> = ({ isOpen, onClose, onConfi
   }
 
   return (
-    <Modal
-      title="Ar esate tikri?"
-      description="Šio veiksmo nebus galima grąžinti atgal."
-      isOpen={isOpen}
-      onClose={onClose}
-    >
+    <Modal title={title} description={description} isOpen={isOpen} onClose={onClose}>
       <div className="flex w-full items-center justify-end space-x-2 pt-6">
         <Button type="button" disabled={loading} variant="outline" onClick={onClose}>
           Atšaukti

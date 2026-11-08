@@ -42,6 +42,7 @@ const newVariant = (optionValueIds: string[], overrides = {}) => ({
   stockCount: 0,
   price: null,
   salePrice: null,
+  isArchived: false,
   ...overrides,
 });
 
@@ -66,8 +67,17 @@ describe('planVariantChanges', () => {
           stockCount: 4,
           price: null,
           salePrice: null,
+          isArchived: false,
         },
-        { optionValueIds: ['m', 'sage'], combinationKey: 'm,sage', sku: null, stockCount: 0, price: 25, salePrice: 20 },
+        {
+          optionValueIds: ['m', 'sage'],
+          combinationKey: 'm,sage',
+          sku: null,
+          stockCount: 0,
+          price: 25,
+          salePrice: 20,
+          isArchived: false,
+        },
       ],
       updates: [],
       deleteIds: [],
@@ -232,7 +242,17 @@ describe('planVariantChanges', () => {
 
     expect(plan([newVariant([], { sku: 'MM', stockCount: 2 })])).toEqual({
       isValid: true,
-      creates: [{ optionValueIds: [], combinationKey: '', sku: 'MM', stockCount: 2, price: null, salePrice: null }],
+      creates: [
+        {
+          optionValueIds: [],
+          combinationKey: '',
+          sku: 'MM',
+          stockCount: 2,
+          price: null,
+          salePrice: null,
+          isArchived: false,
+        },
+      ],
       updates: [],
       deleteIds: [],
       archiveIds: ['v-s'],
@@ -269,6 +289,174 @@ describe('planVariantChanges', () => {
     expect(plan({ ...newVariant(['m', 'sage']), id: 'v-s-sage' })).toEqual({
       isValid: false,
       message: 'Esamo varianto reikšmių keisti negalima',
+    });
+  });
+
+  it('archives a single variant the owner archived, freeing its SKU like any archived variant', () => {
+    const plan = planVariantChanges({
+      groups: GROUPS,
+      existingVariants: [
+        { id: 'v-s-sage', combinationKey: 's,sage', isArchived: false, hasOrders: false },
+        { id: 'v-m-sage', combinationKey: 'm,sage', isArchived: false, hasOrders: false },
+      ],
+      variants: [
+        { ...newVariant(['s', 'sage'], { sku: 'MM-S', stockCount: 2, isArchived: true }), id: 'v-s-sage' },
+        { ...newVariant(['m', 'sage']), id: 'v-m-sage' },
+      ],
+    });
+
+    expect(plan).toMatchObject({
+      isValid: true,
+      creates: [],
+      updates: [
+        { id: 'v-s-sage', sku: null, stockCount: 2, isArchived: true },
+        { id: 'v-m-sage', isArchived: false },
+      ],
+      deleteIds: [],
+      archiveIds: [],
+    });
+  });
+
+  it('lets another variant take the SKU of a variant being archived', () => {
+    const plan = planVariantChanges({
+      groups: GROUPS,
+      existingVariants: [{ id: 'v-s-sage', combinationKey: 's,sage', isArchived: false, hasOrders: true }],
+      variants: [
+        { ...newVariant(['s', 'sage'], { sku: 'MM-1', isArchived: true }), id: 'v-s-sage' },
+        newVariant(['m', 'sage'], { sku: 'MM-1' }),
+      ],
+    });
+
+    expect(plan).toMatchObject({
+      isValid: true,
+      creates: [{ combinationKey: 'm,sage', sku: 'MM-1' }],
+      updates: [{ id: 'v-s-sage', sku: null, isArchived: true }],
+    });
+  });
+
+  it('rejects archiving the default variant of a product without groups', () => {
+    const plan = planVariantChanges({
+      groups: [],
+      existingVariants: [{ id: 'v-default', combinationKey: '', isArchived: false, hasOrders: false }],
+      variants: [{ ...newVariant([], { isArchived: true }), id: 'v-default' }],
+    });
+
+    expect(plan).toEqual({ isValid: false, message: 'Prekė be savybių turi turėti aktyvų variantą' });
+  });
+});
+
+describe('planVariantChanges when editing a product that already has variants', () => {
+  const sizeVariants = [
+    { id: 'v-s', combinationKey: 's', isArchived: false, hasOrders: true },
+    { id: 'v-m', combinationKey: 'm', isArchived: false, hasOrders: false },
+  ];
+  const keptSizeRows = [
+    { ...newVariant(['s'], { stockCount: 3 }), id: 'v-s' },
+    { ...newVariant(['m'], { stockCount: 1 }), id: 'v-m' },
+  ];
+
+  it('adding a value creates only its combinations on Generate and leaves existing variants alone', () => {
+    const groups = [{ id: 'size', valueIds: ['s', 'm', 'l'] }];
+    const generated = generateMissingCombinations({ groups, variants: keptSizeRows }).map((ids) => newVariant(ids));
+
+    const plan = planVariantChanges({
+      groups,
+      existingVariants: sizeVariants,
+      variants: [...keptSizeRows, ...generated],
+    });
+
+    expect(plan).toMatchObject({
+      isValid: true,
+      creates: [{ combinationKey: 'l' }],
+      updates: [
+        { id: 'v-s', stockCount: 3 },
+        { id: 'v-m', stockCount: 1 },
+      ],
+      deleteIds: [],
+      archiveIds: [],
+    });
+  });
+
+  it('removing a value archives its variants that have orders and deletes the rest', () => {
+    const existingVariants = [
+      { id: 'v-s-sage', combinationKey: 's,sage', isArchived: false, hasOrders: true },
+      { id: 'v-s-oat', combinationKey: 'oat,s', isArchived: false, hasOrders: false },
+      { id: 'v-m-sage', combinationKey: 'm,sage', isArchived: false, hasOrders: false },
+      { id: 'v-m-oat', combinationKey: 'm,oat', isArchived: false, hasOrders: false },
+    ];
+
+    const plan = planVariantChanges({
+      groups: GROUPS,
+      existingVariants,
+      variants: [
+        { ...newVariant(['s', 'oat']), id: 'v-s-oat' },
+        { ...newVariant(['m', 'oat']), id: 'v-m-oat' },
+      ],
+    });
+
+    expect(plan).toMatchObject({ isValid: true, creates: [], deleteIds: ['v-m-sage'], archiveIds: ['v-s-sage'] });
+  });
+
+  it('adding a group replaces every variant, archiving the ones with orders', () => {
+    const plan = planVariantChanges({
+      groups: GROUPS,
+      existingVariants: sizeVariants,
+      variants: [newVariant(['s', 'sage']), newVariant(['m', 'sage'])],
+    });
+
+    expect(plan).toMatchObject({
+      isValid: true,
+      creates: [{ combinationKey: 's,sage' }, { combinationKey: 'm,sage' }],
+      updates: [],
+      deleteIds: ['v-m'],
+      archiveIds: ['v-s'],
+    });
+  });
+
+  it('removing a group replaces every variant, archiving the ones with orders', () => {
+    const plan = planVariantChanges({
+      groups: [COLOUR],
+      existingVariants: [
+        { id: 'v-s-sage', combinationKey: 's,sage', isArchived: false, hasOrders: false },
+        { id: 'v-m-sage', combinationKey: 'm,sage', isArchived: false, hasOrders: true },
+      ],
+      variants: [newVariant(['sage'])],
+    });
+
+    expect(plan).toMatchObject({
+      isValid: true,
+      creates: [{ combinationKey: 'sage' }],
+      updates: [],
+      deleteIds: ['v-s-sage'],
+      archiveIds: ['v-m-sage'],
+    });
+  });
+
+  it('removing all groups leaves exactly one active default variant', () => {
+    const plan = planVariantChanges({ groups: [], existingVariants: sizeVariants, variants: [newVariant([])] });
+
+    expect(plan).toMatchObject({
+      isValid: true,
+      creates: [{ combinationKey: '', isArchived: false }],
+      updates: [],
+      deleteIds: ['v-m'],
+      archiveIds: ['v-s'],
+    });
+  });
+
+  it('removing all groups restores an archived default variant instead of adding a second one', () => {
+    const plan = planVariantChanges({
+      groups: [],
+      existingVariants: [...sizeVariants, { id: 'v-default', combinationKey: '', isArchived: true, hasOrders: true }],
+      variants: [newVariant([], { stockCount: 4 })],
+    });
+
+    expect(plan).toMatchObject({
+      isValid: true,
+      creates: [],
+      updates: [{ id: 'v-default', combinationKey: '', stockCount: 4, isArchived: false }],
+      deleteIds: ['v-m'],
+      archiveIds: ['v-s'],
     });
   });
 });

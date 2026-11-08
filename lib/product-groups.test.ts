@@ -196,7 +196,13 @@ describe('resolveProductGroups', () => {
       storeGroups: [SIZE, { id: 'colour', valueIds: ['sage'] }],
       productGroups: [STYLE, { id: 'tmp-fabric', name: 'Audinys', values: [{ id: 'tmp-linen', label: 'Linas' }] }],
       variants: [
-        { ...variant(['s', 'sage', 'tmp-classic', 'tmp-linen']), stockCount: 0, price: null, salePrice: null },
+        {
+          ...variant(['s', 'sage', 'tmp-classic', 'tmp-linen']),
+          stockCount: 0,
+          price: null,
+          salePrice: null,
+          isArchived: false,
+        },
       ],
       existingProductGroups: [],
       createId: createIdSequence(),

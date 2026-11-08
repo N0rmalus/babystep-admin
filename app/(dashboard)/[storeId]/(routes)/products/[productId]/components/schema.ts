@@ -48,6 +48,8 @@ const variantRowSchema = z
     // Empty price = inherit the product's price and sale price
     price: optionalPriceInputSchema,
     salePrice: optionalPriceInputSchema,
+    // Archived variants stay in the table, greyed out, until the owner restores them
+    isArchived: z.boolean(),
   })
   .superRefine((row, context) => {
     const price = getOptionalNumericInput(row.price);
@@ -131,6 +133,7 @@ export const EMPTY_DEFAULT_VARIANT = {
   stockCount: 0,
   price: null,
   salePrice: null,
+  isArchived: false,
 } satisfies VariantRow;
 
 // The request body's variant part (see lib/product-variant-writes.ts). Only chosen product groups are sent, each

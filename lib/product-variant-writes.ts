@@ -53,6 +53,7 @@ const variantEditorInputSchema = z.object({
       stockCount: z.number(),
       price: z.number().finite().nullable(),
       salePrice: z.number().finite().nullable(),
+      isArchived: z.boolean().default(false),
     }),
   ),
 });
@@ -122,12 +123,13 @@ export const saveProductVariants = async (
   // Clears SKUs first so two variants can swap SKUs without tripping the per-store unique index
   await tx.productVariant.updateMany({ where: { productId, id: { in: updateIds } }, data: { sku: null } });
 
-  for (const { id, sku, stockCount, price, salePrice } of plan.updates) {
-    await tx.productVariant.update({ where: { id }, data: { sku, stockCount, price, salePrice, isArchived: false } });
+  // planVariantChanges already cleared the SKU of a variant the owner archived
+  for (const { id, sku, stockCount, price, salePrice, isArchived } of plan.updates) {
+    await tx.productVariant.update({ where: { id }, data: { sku, stockCount, price, salePrice, isArchived } });
   }
 
   await tx.productVariant.createMany({
-    data: createdVariants.map(({ id, combinationKey, sku, stockCount, price, salePrice }) => ({
+    data: createdVariants.map(({ id, combinationKey, sku, stockCount, price, salePrice, isArchived }) => ({
       id,
       storeId,
       productId,
@@ -136,6 +138,7 @@ export const saveProductVariants = async (
       stockCount,
       price,
       salePrice,
+      isArchived,
     })),
   });
   await tx.productVariantOptionValue.createMany({

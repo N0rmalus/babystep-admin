@@ -13,6 +13,7 @@ const getDuplicateSkuMessage = (sku: string) => `SKU „${sku}“ kartojasi keli
 export const SALE_PRICE_WITHOUT_PRICE_MESSAGE = 'Akcijos kainą galima nurodyti tik kartu su varianto kaina';
 const DEFAULT_VARIANT_COUNT_MESSAGE = 'Prekė be savybių turi turėti vieną variantą';
 const DEFAULT_VARIANT_PRICE_MESSAGE = 'Prekė be savybių naudoja prekės kainą';
+const DEFAULT_VARIANT_ARCHIVED_MESSAGE = 'Prekė be savybių turi turėti aktyvų variantą';
 const NO_VARIANTS_MESSAGE = 'Sugeneruokite bent vieną variantą';
 const VARIANT_NOT_FOUND_MESSAGE = 'Variantas šioje prekėje nerastas';
 const COMBINATION_CHANGED_MESSAGE = 'Esamo varianto reikšmių keisti negalima';
@@ -52,6 +53,8 @@ export type VariantInput = {
   stockCount: number;
   price: number | null;
   salePrice: number | null;
+  // Set by the owner to withdraw one combination from sale without deleting it
+  isArchived: boolean;
 };
 
 type ExistingVariant = {
@@ -100,7 +103,8 @@ export const planVariantChanges = ({ groups, existingVariants, variants }: PlanO
 
     return {
       id: id ?? reusableIdByKey.get(combinationKey),
-      variant: { ...variant, sku: normalizeOptionalSku(variant.sku), combinationKey },
+      // An archived variant gives up its SKU so it can be reused, as when it is archived by removal
+      variant: { ...variant, sku: variant.isArchived ? null : normalizeOptionalSku(variant.sku), combinationKey },
     };
   });
 
@@ -158,7 +162,10 @@ const getValidationMessage = ({ groups, existingVariants, variants }: PlanOption
     return priceMessage;
   }
 
-  const duplicateSku = findDuplicate(variants.flatMap((variant) => normalizeOptionalSku(variant.sku) ?? []));
+  // Archived variants give up their SKU, so only active ones can clash
+  const duplicateSku = findDuplicate(
+    variants.flatMap((variant) => (variant.isArchived ? [] : (normalizeOptionalSku(variant.sku) ?? []))),
+  );
 
   if (duplicateSku) {
     return getDuplicateSkuMessage(duplicateSku);
@@ -195,6 +202,11 @@ const getDefaultVariantMessage = (variants: VariantInput[]) => {
 
   if (variants.some((variant) => variant.price !== null || variant.salePrice !== null)) {
     return DEFAULT_VARIANT_PRICE_MESSAGE;
+  }
+
+  // A plain product is withdrawn from sale by archiving the product, not its only variant
+  if (variants.some((variant) => variant.isArchived)) {
+    return DEFAULT_VARIANT_ARCHIVED_MESSAGE;
   }
 
   return null;

@@ -11,6 +11,7 @@ import {
   normalizeOptionalDate,
   normalizeOptionalPrice,
 } from '@/lib/product-pricing';
+import { parseSubmittedImages } from '@/lib/product-image-writes';
 import { prepareVariantChanges, saveProductVariants } from '@/lib/product-variant-writes';
 import { isSkuConflictError, SKU_TAKEN_MESSAGE } from '@/lib/sku-conflict';
 import { getProductCatalog, type ProductCatalogSort } from '@/queries/get-product-catalog';
@@ -95,6 +96,7 @@ export async function POST(req: Request, props: { params: Promise<{ storeId: str
     const normalizedSalePrice = normalizeOptionalPrice(salePrice);
     const normalizedSaleStartsAt = normalizeOptionalDate(saleStartsAt);
     const normalizedSaleEndsAt = normalizeOptionalDate(saleEndsAt);
+    const submittedImages = parseSubmittedImages(images);
 
     if (!userId) {
       return new NextResponse('Neautentifikuota', { status: 401 });
@@ -102,7 +104,7 @@ export async function POST(req: Request, props: { params: Promise<{ storeId: str
     if (!name) {
       return new NextResponse('Būtina nurodyti pavadinimą', { status: 400 });
     }
-    if (!images || !images.length) {
+    if (!submittedImages) {
       return new NextResponse('Reikalingi vaizdai', { status: 400 });
     }
     if (normalizedPrice === null || normalizedPrice <= 0) {
@@ -167,7 +169,7 @@ export async function POST(req: Request, props: { params: Promise<{ storeId: str
           storeId: params.storeId,
           images: {
             createMany: {
-              data: images.map((image: { url: string }, position: number) => ({ url: image.url, position })),
+              data: submittedImages.map(({ url }, position) => ({ url, position })),
             },
           },
         },

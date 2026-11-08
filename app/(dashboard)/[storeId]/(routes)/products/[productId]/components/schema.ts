@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { submittedImageSchema } from '@/lib/product-images';
 import { GROUP_NAME_REQUIRED_MESSAGE } from '@/lib/product-groups';
 import { getVariantPriceMessage, MAX_OPTION_GROUP_COUNT, TOO_MANY_GROUPS_MESSAGE } from '@/lib/variant-plan';
 
@@ -63,7 +64,8 @@ const variantRowSchema = z
 export const productFormSchema = z
   .object({
     name: z.string().min(1),
-    images: z.object({ url: z.string() }).array(),
+    // In display order; saved images keep their id so the server updates their rows instead of re-creating them
+    images: submittedImageSchema.array(),
     price: z.coerce.number().min(1),
     salePrice: optionalPositiveNumberSchema,
     saleStartsAt: optionalDateTimeSchema,

@@ -26,6 +26,7 @@ import { Separator } from '@/components/ui/separator';
 import { TiptapEditor } from '@/components/ui/tiptap-editor';
 import { getFormErrorMessage } from '@/lib/get-form-error-message';
 import { normalizeRichTextContent } from '@/lib/rich-text';
+import { moveItem } from '@/lib/utils';
 import { ProductStatusToggle } from './product-status-toggle';
 import { FormSection } from '@/components/ui/form/form-section';
 import {
@@ -84,7 +85,7 @@ export const ProductForm = ({ initialData, subcategories, categories, storeGroup
   const defaultValues: ProductFormValues = initialData
     ? {
         name: initialData.name,
-        images: initialData.images.map((image) => ({ url: image.url })),
+        images: initialData.images.map(({ id, url }) => ({ id, url })),
         price: initialData.price,
         salePrice: initialData.salePrice,
         saleStartsAt: formatDateTimeLocalValue(initialData.saleStartsAt),
@@ -199,6 +200,7 @@ export const ProductForm = ({ initialData, subcategories, categories, storeGroup
                             const currentImages = form.getValues('images') ?? [];
                             field.onChange(currentImages.filter((current) => current.url !== url));
                           }}
+                          onMove={(move) => field.onChange(moveItem(form.getValues('images') ?? [], move))}
                         />
                       </FormControl>
                       <FormDescription>

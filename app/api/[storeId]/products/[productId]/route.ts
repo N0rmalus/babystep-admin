@@ -11,6 +11,7 @@ import {
   normalizeOptionalDate,
   normalizeOptionalPrice,
 } from '@/lib/product-pricing';
+import { parseSubmittedImages, saveProductImages } from '@/lib/product-image-writes';
 import {
   isVariantWithOrdersError,
   prepareVariantChanges,
@@ -73,6 +74,7 @@ export async function PATCH(req: Request, props: { params: Promise<{ storeId: st
     const normalizedSalePrice = normalizeOptionalPrice(salePrice);
     const normalizedSaleStartsAt = normalizeOptionalDate(saleStartsAt);
     const normalizedSaleEndsAt = normalizeOptionalDate(saleEndsAt);
+    const submittedImages = parseSubmittedImages(images);
 
     if (!userId) {
       return new NextResponse('Neautentifikuota', { status: 401 });
@@ -80,7 +82,7 @@ export async function PATCH(req: Request, props: { params: Promise<{ storeId: st
     if (!name) {
       return new NextResponse('Būtina nurodyti pavadinimą', { status: 400 });
     }
-    if (!images || !images.length) {
+    if (!submittedImages) {
       return new NextResponse('Reikalingi vaizdai', { status: 400 });
     }
     if (normalizedPrice === null || normalizedPrice <= 0) {
@@ -141,7 +143,7 @@ export async function PATCH(req: Request, props: { params: Promise<{ storeId: st
     }
 
     const product = await prismadb.$transaction(async (tx) => {
-      await tx.product.update({
+      const updatedProduct = await tx.product.update({
         where: {
           id: params.productId,
         },
@@ -152,27 +154,13 @@ export async function PATCH(req: Request, props: { params: Promise<{ storeId: st
           saleStartsAt: normalizedSaleStartsAt,
           saleEndsAt: normalizedSaleEndsAt,
           subcategoryId,
-          images: {
-            deleteMany: {},
-          },
           isFeatured,
           isArchived,
           description,
         },
       });
 
-      const updatedProduct = await tx.product.update({
-        where: {
-          id: params.productId,
-        },
-        data: {
-          images: {
-            createMany: {
-              data: images.map((image: { url: string }, position: number) => ({ url: image.url, position })),
-            },
-          },
-        },
-      });
+      await saveProductImages(tx, { productId: params.productId, images: submittedImages });
 
       await saveProductVariants(tx, {
         storeId: params.storeId,

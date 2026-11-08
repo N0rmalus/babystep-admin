@@ -116,3 +116,22 @@ const toPublicVariant = <TPrice, TValue extends OptionValueInput>({
 const getOptionValueIds = ({ optionValues }: Pick<VariantInput<unknown>, 'optionValues'>) => {
   return optionValues.map(({ optionValueId }) => optionValueId);
 };
+
+type UsedImageTagsOptions<TImage extends { optionValueId: string | null }> = {
+  images: TImage[];
+  // The public product's `options`: only values its active variants use
+  options: OptionGroupInput<OptionValueInput>[];
+};
+
+// Image tags for the single-product response: a tag on a value the product no longer shows becomes null
+export const withUsedImageTags = <TImage extends { optionValueId: string | null }>({
+  images,
+  options,
+}: UsedImageTagsOptions<TImage>): TImage[] => {
+  const shownValueIds = new Set(options.flatMap(({ values }) => values.map(({ id }) => id)));
+
+  return images.map((image) => ({
+    ...image,
+    optionValueId: image.optionValueId !== null && shownValueIds.has(image.optionValueId) ? image.optionValueId : null,
+  }));
+};

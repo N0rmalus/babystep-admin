@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import { ReactNode } from 'react';
 import toast from 'react-hot-toast';
 import { ArrowLeft, ArrowRight, ImagePlus, Trash } from 'lucide-react';
 
@@ -22,9 +23,11 @@ type Props = {
   // When given, each image gets move buttons and the first one is marked as the card image
   onMove?: (move: { from: number; to: number }) => void;
   value: string[];
+  // Extra controls shown under each image, e.g. the product image tag
+  renderImageFooter?: (index: number) => ReactNode;
 };
 
-const ImageUpload = ({ disabled, onChange, onRemove, onMove, value }: Props) => {
+const ImageUpload = ({ disabled, onChange, onRemove, onMove, value, renderImageFooter }: Props) => {
   const isMounted = useMounted();
   const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? 'pjowkmpm';
 
@@ -65,38 +68,41 @@ const ImageUpload = ({ disabled, onChange, onRemove, onMove, value }: Props) => 
     <div>
       <div className={cn('flex flex-wrap items-center gap-4', value.length > 0 && 'mb-4')}>
         {value.map((url, index) => (
-          <div key={url} className="relative size-50 shrink-0 overflow-hidden rounded-md">
-            {onMove && index === 0 && <Badge className="absolute top-2 left-2 z-10">Miniatiūra</Badge>}
-            <div className="absolute top-2 right-2 z-10">
-              <Button type="button" onClick={() => onRemove(url)} variant="destructive" size="icon">
-                <Trash className="h-4 w-4" />
-              </Button>
-            </div>
-            {onMove && (
-              <div className="absolute bottom-2 left-2 z-10 flex gap-2">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="icon"
-                  disabled={disabled || index === 0}
-                  onClick={() => onMove({ from: index, to: index - 1 })}
-                  aria-label="Perkelti kairėn"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="icon"
-                  disabled={disabled || index === value.length - 1}
-                  onClick={() => onMove({ from: index, to: index + 1 })}
-                  aria-label="Perkelti dešinėn"
-                >
-                  <ArrowRight className="h-4 w-4" />
+          <div key={url} className="flex w-50 shrink-0 flex-col gap-2">
+            <div className="relative size-50 overflow-hidden rounded-md">
+              {onMove && index === 0 && <Badge className="absolute top-2 left-2 z-10">Miniatiūra</Badge>}
+              <div className="absolute top-2 right-2 z-10">
+                <Button type="button" onClick={() => onRemove(url)} variant="destructive" size="icon">
+                  <Trash className="h-4 w-4" />
                 </Button>
               </div>
-            )}
-            <Image fill className="object-cover" alt="Image" src={url} sizes="200px" />
+              {onMove && (
+                <div className="absolute bottom-2 left-2 z-10 flex gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="icon"
+                    disabled={disabled || index === 0}
+                    onClick={() => onMove({ from: index, to: index - 1 })}
+                    aria-label="Perkelti kairėn"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="icon"
+                    disabled={disabled || index === value.length - 1}
+                    onClick={() => onMove({ from: index, to: index + 1 })}
+                    aria-label="Perkelti dešinėn"
+                  >
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+              <Image fill className="object-cover" alt="Image" src={url} sizes="200px" />
+            </div>
+            {renderImageFooter?.(index)}
           </div>
         ))}
       </div>

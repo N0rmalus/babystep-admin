@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import { useState } from 'react';
 import { Category, Image, Product, Subcategory } from '@prisma/client';
 import { Trash } from 'lucide-react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useParams, useRouter } from 'next/navigation';
 import { AlertModal } from '@/components/modals/alert-modal';
@@ -25,6 +25,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { TiptapEditor } from '@/components/ui/tiptap-editor';
 import { getFormErrorMessage } from '@/lib/get-form-error-message';
+import { getImageTagOptions } from '@/lib/product-images';
 import { normalizeRichTextContent } from '@/lib/rich-text';
 import { moveItem } from '@/lib/utils';
 import { ProductStatusToggle } from './product-status-toggle';
@@ -35,6 +36,7 @@ import {
   ProductFormValues,
   toVariantPayload,
 } from '@/app/(dashboard)/[storeId]/(routes)/products/[productId]/components/schema';
+import { ImageTagSelect } from './image-tag-select';
 import { StoreOptionGroup, VariantEditor } from './variant-editor';
 import Link from 'next/link';
 import axios from 'axios';
@@ -73,11 +75,13 @@ const formatDateTimeLocalValue = (value?: string | null) => {
   return localDate.toISOString().slice(0, 16);
 };
 
-export const ProductForm = ({ initialData, subcategories, categories, storeGroups }: Props) => {
+export const ProductForm = ({ initialData, subcategories, categories, storeGroups: initialStoreGroups }: Props) => {
   const params = useParams();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  // Lifted from the variant editor so image tags can label sizes added with "+ Naujas dydis"
+  const [storeGroups, setStoreGroups] = useState(initialStoreGroups);
   const title = initialData ? 'Redaguoti prekę' : 'Sukurti naują prekę';
   const toastMessage = initialData ? 'Prekė atnaujinta.' : 'Prekė sukurta.';
   const action = initialData ? 'Išsaugoti pakeitimus' : 'Sukurti prekę';
@@ -85,7 +89,7 @@ export const ProductForm = ({ initialData, subcategories, categories, storeGroup
   const defaultValues: ProductFormValues = initialData
     ? {
         name: initialData.name,
-        images: initialData.images.map(({ id, url }) => ({ id, url })),
+        images: initialData.images.map(({ id, url, optionValueId }) => ({ id, url, optionValueId })),
         price: initialData.price,
         salePrice: initialData.salePrice,
         saleStartsAt: formatDateTimeLocalValue(initialData.saleStartsAt),
@@ -119,9 +123,26 @@ export const ProductForm = ({ initialData, subcategories, categories, storeGroup
     defaultValues,
   });
 
-  const handleSubmit = async ({ optionGroups, productGroups, variants, ...data }: ProductFormValues) => {
+  const getTagOptions = ({
+    optionGroups,
+    productGroups,
+    variants,
+  }: Pick<ProductFormValues, 'optionGroups' | 'productGroups' | 'variants'>) => {
+    const groupDefinitions = [...storeGroups, ...productGroups];
+    const groups = optionGroups.flatMap(({ id }) => groupDefinitions.filter((group) => group.id === id));
+
+    return getImageTagOptions({ groups, variants });
+  };
+
+  const handleSubmit = async ({ optionGroups, productGroups, variants, images, ...data }: ProductFormValues) => {
+    // A tag on a value the variants no longer use (removed in the variant editor) is dropped, not rejected
+    const tagIds = new Set(getTagOptions({ optionGroups, productGroups, variants }).map(({ id }) => id));
     const payload = {
       ...data,
+      images: images.map((image) => ({
+        ...image,
+        optionValueId: image.optionValueId && tagIds.has(image.optionValueId) ? image.optionValueId : null,
+      })),
       ...toVariantPayload({ optionGroups, productGroups, variants }),
       saleStartsAt: data.saleStartsAt || null,
       saleEndsAt: data.saleEndsAt || null,
@@ -160,6 +181,14 @@ export const ProductForm = ({ initialData, subcategories, categories, storeGroup
   };
 
   const watchedImages = form.watch('images') ?? [];
+  const watchedOptionGroups = useWatch({ control: form.control, name: 'optionGroups' });
+  const watchedProductGroups = useWatch({ control: form.control, name: 'productGroups' });
+  const watchedVariants = useWatch({ control: form.control, name: 'variants' });
+  const tagOptions = getTagOptions({
+    optionGroups: watchedOptionGroups,
+    productGroups: watchedProductGroups,
+    variants: watchedVariants,
+  });
   const hasSubcategories = subcategories.length > 0;
   const submitDisabled = loading || !hasSubcategories;
 
@@ -182,7 +211,10 @@ export const ProductForm = ({ initialData, subcategories, categories, storeGroup
         <form onSubmit={form.handleSubmit(handleSubmit)} className="w-full space-y-8">
           <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_320px]">
             <div className="space-y-6">
-              <FormSection title="Nuotraukos" description="Pirmoji nuotrauka bus produkto miniatiūra.">
+              <FormSection
+                title="Nuotraukos"
+                description="Pirmoji nuotrauka bus produkto miniatiūra. Nuotrauką galite pažymėti viena variantų reikšme (pvz. Spalva: Avižų)."
+              >
                 <FormField
                   control={form.control}
                   name="images"
@@ -201,6 +233,22 @@ export const ProductForm = ({ initialData, subcategories, categories, storeGroup
                             field.onChange(currentImages.filter((current) => current.url !== url));
                           }}
                           onMove={(move) => field.onChange(moveItem(form.getValues('images') ?? [], move))}
+                          renderImageFooter={(index) =>
+                            tagOptions.length > 0 && (
+                              <ImageTagSelect
+                                options={tagOptions}
+                                value={field.value.at(index)?.optionValueId ?? null}
+                                isDisabled={loading}
+                                onChange={(optionValueId) =>
+                                  field.onChange(
+                                    field.value.map((image, imageIndex) =>
+                                      imageIndex === index ? { ...image, optionValueId } : image,
+                                    ),
+                                  )
+                                }
+                              />
+                            )
+                          }
                         />
                       </FormControl>
                       <FormDescription>
@@ -368,7 +416,7 @@ export const ProductForm = ({ initialData, subcategories, categories, storeGroup
                 title="Variantai"
                 description="Pasirinkite savybes (arba sukurkite šios prekės savybę) ir jų reikšmes, tada sugeneruokite derinius. Neegzistuojančius derinius ištrinkite."
               >
-                <VariantEditor storeGroups={storeGroups} isDisabled={loading} />
+                <VariantEditor storeGroups={storeGroups} onStoreGroupsChange={setStoreGroups} isDisabled={loading} />
               </FormSection>
             </div>
 

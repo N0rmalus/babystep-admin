@@ -24,6 +24,16 @@ export const ORDERED_IMAGES = {
   orderBy: BY_POSITION,
 } satisfies Prisma.Product$imagesArgs;
 
+// Image fields in list responses: image tags (`optionValueId`) are only in the single-product response
+export const PUBLIC_IMAGE_SELECT = {
+  id: true,
+  productId: true,
+  url: true,
+  position: true,
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.ImageSelect;
+
 const CHECKOUT_SELECT = {
   id: true,
   name: true,
@@ -44,7 +54,7 @@ const CHECKOUT_SELECT = {
 
 // Everything the public product shape is built from (see lib/public-product.ts)
 export const PUBLIC_PRODUCT_INCLUDE = {
-  images: ORDERED_IMAGES,
+  images: { ...ORDERED_IMAGES, select: PUBLIC_IMAGE_SELECT },
   subcategory: {
     include: {
       category: true,

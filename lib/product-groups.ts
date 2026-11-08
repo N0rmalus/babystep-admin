@@ -45,6 +45,8 @@ type ResolveResult<TVariant> =
       groupIds: string[];
       groups: PickedGroup[];
       variants: TVariant[];
+      // Every submitted product group and value id mapped to its server id (the same id for saved ones)
+      serverIdBySubmittedId: ReadonlyMap<string, string>;
       writes: ProductGroupWrites;
     }
   | { isValid: false; message: string };
@@ -128,6 +130,7 @@ export const resolveProductGroups = <TVariant extends { optionValueIds: string[]
     groupIds: groups.map(({ id }) => id),
     groups,
     variants: variants.map((variant) => ({ ...variant, optionValueIds: variant.optionValueIds.map(toServerId) })),
+    serverIdBySubmittedId,
     writes: {
       groupCreates,
       groupUpdates,

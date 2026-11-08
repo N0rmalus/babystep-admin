@@ -11,6 +11,7 @@ import {
   normalizeOptionalDate,
   normalizeOptionalPrice,
 } from '@/lib/product-pricing';
+import { resolveImageTags } from '@/lib/product-images';
 import { parseSubmittedImages, saveProductImages } from '@/lib/product-image-writes';
 import {
   isVariantWithOrdersError,
@@ -142,6 +143,16 @@ export async function PATCH(req: Request, props: { params: Promise<{ storeId: st
       return new NextResponse(variantChanges.message, { status: 400 });
     }
 
+    const imageTags = resolveImageTags({
+      images: submittedImages,
+      usedValueIds: variantChanges.usedValueIds,
+      serverIdBySubmittedId: variantChanges.serverIdBySubmittedId,
+    });
+
+    if (!imageTags.isValid) {
+      return new NextResponse(imageTags.message, { status: 400 });
+    }
+
     const product = await prismadb.$transaction(async (tx) => {
       const updatedProduct = await tx.product.update({
         where: {
@@ -160,8 +171,6 @@ export async function PATCH(req: Request, props: { params: Promise<{ storeId: st
         },
       });
 
-      await saveProductImages(tx, { productId: params.productId, images: submittedImages });
-
       await saveProductVariants(tx, {
         storeId: params.storeId,
         productId: params.productId,
@@ -169,6 +178,8 @@ export async function PATCH(req: Request, props: { params: Promise<{ storeId: st
         plan: variantChanges.plan,
         productGroupWrites: variantChanges.productGroupWrites,
       });
+
+      await saveProductImages(tx, { productId: params.productId, images: imageTags.images });
 
       return updatedProduct;
     });

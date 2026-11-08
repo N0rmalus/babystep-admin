@@ -43,6 +43,11 @@ describe('resolveProductGroups', () => {
       groupIds: ['size', 'id-1'],
       groups: [SIZE, { id: 'id-1', valueIds: ['id-2', 'id-3'] }],
       variants: [variant(['s', 'id-2']), variant(['m', 'id-3'])],
+      serverIdBySubmittedId: new Map([
+        ['tmp-style', 'id-1'],
+        ['tmp-classic', 'id-2'],
+        ['tmp-frill', 'id-3'],
+      ]),
       writes: {
         groupCreates: [
           {
@@ -88,6 +93,11 @@ describe('resolveProductGroups', () => {
       groupIds: ['style'],
       groups: [{ id: 'style', valueIds: ['id-1', 'classic'] }],
       variants: [variant(['classic']), variant(['id-1'])],
+      serverIdBySubmittedId: new Map([
+        ['style', 'style'],
+        ['tmp-wrap', 'id-1'],
+        ['classic', 'classic'],
+      ]),
       writes: {
         groupCreates: [],
         groupUpdates: [

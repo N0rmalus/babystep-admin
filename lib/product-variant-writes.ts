@@ -3,6 +3,7 @@ import 'server-only';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { ProductGroupWrites, resolveProductGroups } from '@/lib/product-groups';
+import { getUsedOptionValueIds } from '@/lib/product-images';
 import { planVariantChanges } from '@/lib/variant-plan';
 import { getProductOwnedOptionGroups, getStoreOptionGroupsByIds } from '@/queries/get-option-groups';
 import { getProduct } from '@/queries/get-product';
@@ -17,7 +18,15 @@ type PrepareOptions = {
 };
 
 type PrepareResult =
-  | { isValid: true; groupIds: string[]; plan: VariantPlan; productGroupWrites: ProductGroupWrites }
+  | {
+      isValid: true;
+      groupIds: string[];
+      plan: VariantPlan;
+      productGroupWrites: ProductGroupWrites;
+      // Option value ids (server ids) the product's active variants use after the save: what images can be tagged with
+      usedValueIds: string[];
+      serverIdBySubmittedId: ReadonlyMap<string, string>;
+    }
   | { isValid: false; message: string };
 
 type SaveOptions = {
@@ -95,7 +104,14 @@ export const prepareVariantChanges = async ({ storeId, productId, body }: Prepar
     return plan;
   }
 
-  return { isValid: true, groupIds: resolved.groupIds, plan, productGroupWrites: resolved.writes };
+  return {
+    isValid: true,
+    groupIds: resolved.groupIds,
+    plan,
+    productGroupWrites: resolved.writes,
+    usedValueIds: getUsedOptionValueIds(resolved.variants),
+    serverIdBySubmittedId: resolved.serverIdBySubmittedId,
+  };
 };
 
 const toPickedGroup = (group: { id: string; values: { id: string }[] }) => ({

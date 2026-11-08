@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildPublicProduct } from '@/lib/public-product';
+import { buildPublicProduct, withUsedImageTags } from '@/lib/public-product';
 
 const NO_SIZES = {
   ageFromMonths: null,
@@ -236,5 +236,27 @@ describe('buildPublicProduct', () => {
     );
 
     expect(product).toMatchObject({ price: 30, salePrice: null, variants: [] });
+  });
+});
+
+describe('withUsedImageTags', () => {
+  const OAT = { id: 'value-oat', label: 'Avižų' };
+  const SAGE = { id: 'value-sage', label: 'Šalavijų' };
+
+  it('keeps tags on values the product shows and clears the rest', () => {
+    const images = withUsedImageTags({
+      images: [
+        { id: 'img-front', url: 'https://cdn/front.jpg', optionValueId: 'value-oat' },
+        { id: 'img-back', url: 'https://cdn/back.jpg', optionValueId: 'value-unused' },
+        { id: 'img-side', url: 'https://cdn/side.jpg', optionValueId: null },
+      ],
+      options: [{ id: 'color', name: 'Spalva', values: [OAT, SAGE] }],
+    });
+
+    expect(images).toEqual([
+      { id: 'img-front', url: 'https://cdn/front.jpg', optionValueId: 'value-oat' },
+      { id: 'img-back', url: 'https://cdn/back.jpg', optionValueId: null },
+      { id: 'img-side', url: 'https://cdn/side.jpg', optionValueId: null },
+    ]);
   });
 });

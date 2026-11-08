@@ -3,7 +3,7 @@
 import axios from 'axios';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
-import { ChangeEvent, KeyboardEvent, ReactNode, useId, useState } from 'react';
+import { ChangeEvent, Dispatch, KeyboardEvent, ReactNode, SetStateAction, useId, useState } from 'react';
 import { useParams } from 'next/navigation';
 import type { OptionGroupRole } from '@prisma/client';
 import { useFieldArray, useFormContext, useWatch } from 'react-hook-form';
@@ -37,7 +37,9 @@ export type StoreOptionGroup = {
 };
 
 type Props = {
+  // Sizes added with "+ Naujas dydis" are saved at once and join the store-level groups through onStoreGroupsChange
   storeGroups: StoreOptionGroup[];
+  onStoreGroupsChange: Dispatch<SetStateAction<StoreOptionGroup[]>>;
   isDisabled: boolean;
 };
 
@@ -84,7 +86,7 @@ const REPLACE_VARIANTS_TITLE = 'Pakeisti visus variantus?';
 const REPLACE_VARIANTS_DESCRIPTION =
   'Pridėjus ar pašalinus savybę, visi esami variantai bus pakeisti naujais. Išsaugojus prekę, variantai su užsakymais bus archyvuoti, kiti ištrinti.';
 
-export const VariantEditor = ({ storeGroups: initialStoreGroups, isDisabled }: Props) => {
+export const VariantEditor = ({ storeGroups, onStoreGroupsChange, isDisabled }: Props) => {
   const params = useParams();
   const form = useFormContext<ProductFormValues>();
   const { fields, append, remove, replace } = useFieldArray({
@@ -96,8 +98,6 @@ export const VariantEditor = ({ storeGroups: initialStoreGroups, isDisabled }: P
   const productGroups = useWatch({ control: form.control, name: 'productGroups' });
   const variants = useWatch({ control: form.control, name: 'variants' });
   const [pendingGroups, setPendingGroups] = useState<ChosenGroup[] | null>(null);
-  // Sizes added with "+ Naujas dydis" are saved at once, so they join the store-level groups here
-  const [storeGroups, setStoreGroups] = useState(initialStoreGroups);
   const [isAddingSize, setIsAddingSize] = useState(false);
   // Ticked rows by field key; keys of removed rows are ignored
   const [tickedKeys, setTickedKeys] = useState<ReadonlySet<string>>(new Set());
@@ -261,7 +261,7 @@ export const VariantEditor = ({ storeGroups: initialStoreGroups, isDisabled }: P
       const value = { id: response.data.id, label: response.data.label };
       const values = [...sizeGroup.values, value];
 
-      setStoreGroups((groups) => groups.map((group) => (group.id === groupId ? { ...group, values } : group)));
+      onStoreGroupsChange((groups) => groups.map((group) => (group.id === groupId ? { ...group, values } : group)));
       pickValue({ groupId, valueId: value.id, values });
       toast.success(SIZE_ADDED_MESSAGE);
 

@@ -11,7 +11,8 @@ import {
   normalizeOptionalDate,
   normalizeOptionalPrice,
 } from '@/lib/product-pricing';
-import { parseSubmittedImages } from '@/lib/product-image-writes';
+import { resolveImageTags } from '@/lib/product-images';
+import { parseSubmittedImages, saveProductImages } from '@/lib/product-image-writes';
 import { prepareVariantChanges, saveProductVariants } from '@/lib/product-variant-writes';
 import { isSkuConflictError, SKU_TAKEN_MESSAGE } from '@/lib/sku-conflict';
 import { getProductCatalog, type ProductCatalogSort } from '@/queries/get-product-catalog';
@@ -154,6 +155,16 @@ export async function POST(req: Request, props: { params: Promise<{ storeId: str
       return new NextResponse(variantChanges.message, { status: 400 });
     }
 
+    const imageTags = resolveImageTags({
+      images: submittedImages,
+      usedValueIds: variantChanges.usedValueIds,
+      serverIdBySubmittedId: variantChanges.serverIdBySubmittedId,
+    });
+
+    if (!imageTags.isValid) {
+      return new NextResponse(imageTags.message, { status: 400 });
+    }
+
     const product = await prismadb.$transaction(async (tx) => {
       const createdProduct = await tx.product.create({
         data: {
@@ -167,11 +178,6 @@ export async function POST(req: Request, props: { params: Promise<{ storeId: str
           isArchived,
           description,
           storeId: params.storeId,
-          images: {
-            createMany: {
-              data: submittedImages.map(({ url }, position) => ({ url, position })),
-            },
-          },
         },
       });
 
@@ -182,6 +188,8 @@ export async function POST(req: Request, props: { params: Promise<{ storeId: str
         plan: variantChanges.plan,
         productGroupWrites: variantChanges.productGroupWrites,
       });
+
+      await saveProductImages(tx, { productId: createdProduct.id, images: imageTags.images });
 
       return createdProduct;
     });

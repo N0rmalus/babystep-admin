@@ -2,7 +2,24 @@ import 'server-only';
 
 import { Prisma, Product } from '@prisma/client';
 import prismadb from '@/lib/prismadb';
-import { ORDERED_IMAGES, PUBLIC_PRODUCT_INCLUDE, toPublicProduct, type PublicProduct } from '@/queries/get-products';
+import { buildPublicProduct, withUsedImageTags } from '@/lib/public-product';
+import { ORDERED_IMAGES, PUBLIC_IMAGE_SELECT, PUBLIC_PRODUCT_INCLUDE } from '@/queries/get-products';
+
+// The public product shape plus image tags, which only the single-product response has
+const SINGLE_PUBLIC_PRODUCT_INCLUDE = {
+  ...PUBLIC_PRODUCT_INCLUDE,
+  images: { ...ORDERED_IMAGES, select: { ...PUBLIC_IMAGE_SELECT, optionValueId: true } },
+} satisfies Prisma.ProductInclude;
+
+const toSinglePublicProduct = (
+  product: Prisma.ProductGetPayload<{ include: typeof SINGLE_PUBLIC_PRODUCT_INCLUDE }>,
+) => {
+  const publicProduct = buildPublicProduct(product);
+
+  return { ...publicProduct, images: withUsedImageTags(publicProduct) };
+};
+
+export type SinglePublicProduct = ReturnType<typeof toSinglePublicProduct>;
 
 // What the variant editor in the product form needs: active variants, the product's groups in order and its
 // own product groups with their values
@@ -44,7 +61,8 @@ const PLAN_VARIANTS_INCLUDE = {
 } satisfies Prisma.ProductInclude;
 
 type GetProductOptions = {
-  // Returns the public product shape: images, subcategory with category, `options` and resolved `variants`
+  // Returns the public product shape (images with their tags, subcategory with category, `options` and resolved
+  // `variants`)
   includeVariants?: boolean;
   // Adds images, active variants with their option value ids, the product's ordered group ids and its product groups
   includeVariantEditor?: boolean;
@@ -56,7 +74,7 @@ export function getProduct(
   storeId: string,
   productId: string,
   options: GetProductOptions & { includeVariants: true },
-): Promise<PublicProduct | null>;
+): Promise<SinglePublicProduct | null>;
 export function getProduct(
   storeId: string,
   productId: string,
@@ -75,9 +93,9 @@ export async function getProduct(storeId: string, productId: string, options?: G
   };
 
   if (options?.includeVariants) {
-    const product = await prismadb.product.findFirst({ where, include: PUBLIC_PRODUCT_INCLUDE });
+    const product = await prismadb.product.findFirst({ where, include: SINGLE_PUBLIC_PRODUCT_INCLUDE });
 
-    return product ? toPublicProduct(product) : null;
+    return product ? toSinglePublicProduct(product) : null;
   }
 
   if (options?.includeVariantEditor) {

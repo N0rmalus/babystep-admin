@@ -483,6 +483,10 @@ describe('getPickupPoints', () => {
     ['another grammatical case of the word', 'akropolis', ['omniva-1']],
     ['a city in the genitive', 'kauno', ['omniva-2']],
     ['a genitive -aus city', 'vilniaus', ['omniva-1']],
+    ['a city typed without Lithuanian letters', 'siauliai', ['unisend-1']],
+    ['an address typed without Lithuanian letters', 'TILZES', ['unisend-1']],
+    ['a genitive typed without Lithuanian letters', 'siauliu saules', ['unisend-1']],
+    ['a query with Lithuanian letters against a plain field', 'omnivą', ['omniva-1', 'omniva-2']],
     ['every word, not any word', 'kaunas akropolis', []],
   ])('filters by %s', async (_label, query, ids) => {
     const { fakeFetch } = pickupPointsFetch();

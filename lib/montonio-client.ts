@@ -106,23 +106,33 @@ const WORD_ENDINGS = [
   'iaus',
   'iai',
   'ius',
-  'ių',
+  'iu',
   'ys',
   'is',
   'as',
   'us',
   'ai',
-  'ės',
+  'es',
   'os',
   'io',
   'a',
-  'ė',
-  'ų',
   'e',
   'o',
   'i',
   'u',
 ];
+const PLAIN_LETTERS: Record<string, string> = {
+  ą: 'a',
+  č: 'c',
+  ę: 'e',
+  ė: 'e',
+  į: 'i',
+  š: 's',
+  ų: 'u',
+  ū: 'u',
+  ž: 'z',
+};
+const LITHUANIAN_LETTER_PATTERN = /[ąčęėįšųūž]/g;
 const MIN_STEM_LENGTH = 4;
 const BANK_COUNTRY = 'LT';
 const CURRENCY = 'EUR';
@@ -335,14 +345,14 @@ const createCache = <T>(now: () => Date) => {
 };
 
 const filterPickupPoints = ({ pickupPoints, query }: { pickupPoints: PickupPoint[]; query: string }) => {
-  const stems = query.toLocaleLowerCase(SEARCH_LOCALE).split(/\s+/).filter(Boolean).map(toStem);
+  const stems = toSearchText(query).split(/\s+/).filter(Boolean).map(toStem);
 
   if (stems.length === 0) {
     return pickupPoints;
   }
 
   return pickupPoints.filter(({ city, name, address, carrier }) => {
-    const searchableText = [city, name, address, carrier].join(' ').toLocaleLowerCase(SEARCH_LOCALE);
+    const searchableText = toSearchText([city, name, address, carrier].join(' '));
 
     return stems.every((stem) => searchableText.includes(stem));
   });
@@ -355,3 +365,6 @@ const toStem = (word: string) => {
 
   return ending ? word.slice(0, -ending.length) : word;
 };
+
+const toSearchText = (text: string) =>
+  text.toLocaleLowerCase(SEARCH_LOCALE).replace(LITHUANIAN_LETTER_PATTERN, (letter) => PLAIN_LETTERS[letter] ?? letter);

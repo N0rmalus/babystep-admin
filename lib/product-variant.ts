@@ -29,6 +29,33 @@ export const getDefaultVariant = <TVariant extends VariantLike>(variants: TVaria
   return variants.find((variant) => !variant.isArchived && variant.combinationKey === DEFAULT_COMBINATION_KEY);
 };
 
+type SellableVariantsOptions<TVariant extends VariantLike> = {
+  hasOptionGroups: boolean;
+  variants: TVariant[];
+};
+
+export type SellableVariants<TVariant> =
+  | { hasOptions: true; optionVariants: TVariant[] }
+  | { hasOptions: false; defaultVariant: TVariant };
+
+// A product with options never falls back to its default variant, and archived option variants left after all groups
+// were removed don't count (ADR 0001).
+export const getSellableVariants = <TVariant extends VariantLike>({
+  hasOptionGroups,
+  variants,
+}: SellableVariantsOptions<TVariant>): SellableVariants<TVariant> => {
+  const optionVariants = variants.filter(
+    (variant) => !variant.isArchived && variant.combinationKey !== DEFAULT_COMBINATION_KEY,
+  );
+  const defaultVariant = getDefaultVariant(variants);
+
+  if (hasOptionGroups || optionVariants.length > 0 || !defaultVariant) {
+    return { hasOptions: true, optionVariants };
+  }
+
+  return { hasOptions: false, defaultVariant };
+};
+
 export const getAvailableStockCount = (variants: Omit<StockVariant, 'combinationKey'>[]): number => {
   return variants.reduce((total, variant) => (variant.isArchived ? total : total + variant.stockCount), 0);
 };

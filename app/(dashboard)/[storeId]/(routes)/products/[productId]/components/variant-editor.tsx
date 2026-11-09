@@ -17,14 +17,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { cn } from '@/lib/utils';
+import { cn, formatter } from '@/lib/utils';
 import { getFormErrorMessage } from '@/lib/get-form-error-message';
 import { getNewValueMessage } from '@/lib/option-group';
 import { GROUP_NAME_REQUIRED_MESSAGE } from '@/lib/product-groups';
 import { BulkChanges, getBulkChanges, getBulkTargetIndexes, getKeysWithValue } from '@/lib/variant-bulk-edit';
-import { getVariantLabel } from '@/lib/variant-label';
 import { generateMissingCombinations, MAX_OPTION_GROUP_COUNT } from '@/lib/variant-plan';
-import { EMPTY_DEFAULT_VARIANT, ProductFormValues, ProductGroup, VariantRow } from './schema';
+import { EMPTY_DEFAULT_VARIANT, getOptionalNumericInput, ProductFormValues, ProductGroup, VariantRow } from './schema';
 
 type OptionValue = { id: string; label: string };
 
@@ -60,19 +59,22 @@ type GroupDefinition = ({ kind: 'store'; role: OptionGroupRole } | { kind: 'prod
 };
 
 const STOCK_HINT = 'Įveskite laisvą kiekį, be rezervuotų.';
-// Reserved stock arrives with the Montonio checkout (step 3); until then nothing is reserved
-const RESERVED_STOCK_COUNT = 0;
 const STOCK_INPUT_CLASS = 'w-24';
 const PRICE_INPUT_CLASS = 'w-28';
+const SKU_INPUT_CLASS = 'w-32';
+const VALUE_SEPARATOR = ' · ';
+const INHERITED_PRICE_FALLBACK = 'Prekės';
+const NO_SALE_PRICE_PLACEHOLDER = '—';
+const TABLE_HINT = 'Tuščia kaina reiškia, kad variantas naudoja prekės kainą ir akcijos kainą.';
+const REMOVE_ROW_LABEL = 'Ištrinti derinį';
 const PRODUCT_GROUP_LABEL = 'Tik šiai prekei';
 const SIZE_ADDED_MESSAGE = 'Dydis pridėtas. Jis matomas ir puslapyje Savybės.';
 const ARCHIVE_LABEL = 'Archyvuoti variantą';
 const UNDO_ARCHIVE_LABEL = 'Atšaukti archyvavimą';
 const ARCHIVED_BADGE_LABEL = 'Bus archyvuotas';
 const ARCHIVE_HINT =
-  'Išsaugojus archyvuotas variantas nebeparduodamas ir dingsta iš lentelės; sugeneravus tą patį derinį jis grąžinamas. Ištrintas variantas su užsakymais archyvuojamas.';
-const BULK_EDIT_HINT =
-  '„Taikyti“ tik užpildo laukelius pažymėtose eilutėse (jei nepažymėta nė viena, visose); „Išvalyti“ grąžina prekės kainas. Niekas neišsaugoma, kol nepaspausite „Išsaugoti“.';
+  'Išsaugojus archyvuotas variantas nebeparduodamas ir dingsta iš lentelės; sugeneravus tą patį derinį jis grąžinamas.';
+const BULK_EDIT_HINT = 'Tik užpildo laukelius. Išsaugoma kartu su preke.';
 const QUICK_SELECT_PLACEHOLDER = 'Pažymėti pagal reikšmę';
 const TICK_ALL_LABEL = 'Pažymėti visus variantus';
 const TICK_ROW_LABEL = 'Pažymėti variantą';
@@ -107,6 +109,7 @@ export const VariantEditor = ({ storeGroups, onStoreGroupsChange, isDisabled }: 
   const chosenGroups = useWatch({ control: form.control, name: 'optionGroups' });
   const productGroups = useWatch({ control: form.control, name: 'productGroups' });
   const variants = useWatch({ control: form.control, name: 'variants' });
+  const [productPrice, productSalePrice] = useWatch({ control: form.control, name: ['price', 'salePrice'] });
   const [pendingGroups, setPendingGroups] = useState<ChosenGroup[] | null>(null);
   const [pendingValueRemoval, setPendingValueRemoval] = useState<PendingValueRemoval | null>(null);
   const [isAddingSize, setIsAddingSize] = useState(false);
@@ -362,16 +365,27 @@ export const VariantEditor = ({ storeGroups, onStoreGroupsChange, isDisabled }: 
     append(missingCombinations.map((optionValueIds) => ({ ...EMPTY_DEFAULT_VARIANT, optionValueIds })));
   };
 
-  const getRowLabel = (variant: Pick<VariantRow, 'optionValueIds'>) => {
-    const options = chosenGroups.flatMap(({ id }) => {
+  const getRowLabel = (variant: Pick<VariantRow, 'optionValueIds'>) =>
+    chosenGroups
+      .flatMap(({ id }) => {
+        const value = findGroupDefinition(id)?.values.find((option) => variant.optionValueIds.includes(option.id));
+
+        return value ? [value.label] : [];
+      })
+      .join(VALUE_SEPARATOR);
+
+  const variantColumnLabel = chosenGroups
+    .flatMap(({ id }) => {
       const definition = findGroupDefinition(id);
-      const value = definition?.values.find((option) => variant.optionValueIds.includes(option.id));
 
-      return definition && value ? [{ name: definition.name, value: value.label }] : [];
-    });
-
-    return getVariantLabel(options);
+      return definition ? [definition.name] : [];
+    })
+    .join(VALUE_SEPARATOR);
+  const inheritedPrices = {
+    price: formatInheritedPrice(productPrice) ?? INHERITED_PRICE_FALLBACK,
+    salePrice: formatInheritedPrice(productSalePrice) ?? NO_SALE_PRICE_PLACEHOLDER,
   };
+  const hasArchivedRows = tableRows.some(({ isArchived }) => isArchived);
 
   const getAddValueControl = (definition: GroupDefinition) => {
     if (definition.kind === 'product') {
@@ -533,11 +547,9 @@ export const VariantEditor = ({ storeGroups, onStoreGroupsChange, isDisabled }: 
                             onCheckedChange={(checked) => handleTickAll(checked === true)}
                           />
                         </TableHead>
-                        <TableHead>Variantas</TableHead>
+                        <TableHead>{variantColumnLabel}</TableHead>
                         <TableHead>SKU</TableHead>
-                        <TableHead title={STOCK_HINT}>Laisva</TableHead>
-                        <TableHead>Rezervuota</TableHead>
-                        <TableHead>Viso</TableHead>
+                        <TableHead>Laisva</TableHead>
                         <TableHead>Kaina</TableHead>
                         <TableHead>Akcijos kaina</TableHead>
                         <TableHead />
@@ -550,6 +562,7 @@ export const VariantEditor = ({ storeGroups, onStoreGroupsChange, isDisabled }: 
                           key={field.key}
                           index={index}
                           label={getRowLabel(field)}
+                          inheritedPrices={inheritedPrices}
                           isDisabled={isDisabled}
                           isSaved={field.id !== undefined}
                           isTicked={tickedKeys.has(field.key)}
@@ -560,10 +573,8 @@ export const VariantEditor = ({ storeGroups, onStoreGroupsChange, isDisabled }: 
                     </TableBody>
                   </Table>
                 )}
-                <FormDescription>
-                  {STOCK_HINT} Tuščia kaina reiškia, kad variantas naudoja prekės kainą ir akcijos kainą.{' '}
-                  {BULK_EDIT_HINT} {ARCHIVE_HINT}
-                </FormDescription>
+                {fields.length > 0 && <FormDescription>{TABLE_HINT}</FormDescription>}
+                {hasArchivedRows && <FormDescription>{ARCHIVE_HINT}</FormDescription>}
                 <FormMessage />
               </FormItem>
             )}
@@ -672,6 +683,7 @@ const AddTextInput = ({ placeholder, actionLabel, isDisabled, onAdd }: AddTextIn
 type VariantTableRowProps = {
   index: number;
   label: string;
+  inheritedPrices: { price: string; salePrice: string };
   isDisabled: boolean;
   // Only a saved variant can be archived; a row that was never saved is simply deleted
   isSaved: boolean;
@@ -683,6 +695,7 @@ type VariantTableRowProps = {
 const VariantTableRow = ({
   index,
   label,
+  inheritedPrices,
   isDisabled,
   isSaved,
   isTicked,
@@ -690,7 +703,9 @@ const VariantTableRow = ({
   onRemove,
 }: VariantTableRowProps) => {
   const form = useFormContext<ProductFormValues>();
-  const stockCount = Number(useWatch({ control: form.control, name: `variants.${index}.stockCount` })) || 0;
+  const price = useWatch({ control: form.control, name: `variants.${index}.price` });
+  const hasOwnPrice = getOptionalNumericInput(price) !== null;
+  const salePricePlaceholder = hasOwnPrice ? NO_SALE_PRICE_PLACEHOLDER : inheritedPrices.salePrice;
   const isArchived = useWatch({ control: form.control, name: `variants.${index}.isArchived` });
   const archiveToggleLabel = isArchived ? UNDO_ARCHIVE_LABEL : ARCHIVE_LABEL;
 
@@ -722,7 +737,7 @@ const VariantTableRow = ({
           render={({ field }) => (
             <FormItem>
               <FormControl>
-                <Input disabled={isDisabled} placeholder="BS-0001" {...field} />
+                <Input className={SKU_INPUT_CLASS} disabled={isDisabled} aria-label={`SKU: ${label}`} {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -736,49 +751,45 @@ const VariantTableRow = ({
           render={({ field }) => (
             <FormItem>
               <FormControl>
-                <Input
-                  type="number"
-                  min="0"
-                  step="1"
-                  className={STOCK_INPUT_CLASS}
-                  title={STOCK_HINT}
-                  disabled={isDisabled}
-                  {...field}
-                />
+                <Input type="number" min="0" step="1" className={STOCK_INPUT_CLASS} disabled={isDisabled} {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
       </TableCell>
-      <TableCell className="text-muted-foreground">{RESERVED_STOCK_COUNT}</TableCell>
-      <TableCell className="text-muted-foreground">{stockCount + RESERVED_STOCK_COUNT}</TableCell>
       <TableCell>
-        <PriceField name={`variants.${index}.price`} placeholder="Prekės" isDisabled={isDisabled} />
+        <PriceField name={`variants.${index}.price`} placeholder={inheritedPrices.price} isDisabled={isDisabled} />
       </TableCell>
       <TableCell>
-        <PriceField name={`variants.${index}.salePrice`} placeholder="—" isDisabled={isDisabled} />
+        <PriceField name={`variants.${index}.salePrice`} placeholder={salePricePlaceholder} isDisabled={isDisabled} />
       </TableCell>
       <TableCell>
-        <div className="flex items-center">
-          {isSaved && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              disabled={isDisabled}
-              title={archiveToggleLabel}
-              onClick={handleArchiveToggle}
-            >
-              {isArchived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
-              <span className="sr-only">{archiveToggleLabel}</span>
-            </Button>
-          )}
-          <Button type="button" variant="ghost" size="icon" disabled={isDisabled} onClick={onRemove}>
-            <Trash className="h-4 w-4" />
-            <span className="sr-only">Ištrinti derinį</span>
+        {isSaved ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            disabled={isDisabled}
+            title={archiveToggleLabel}
+            onClick={handleArchiveToggle}
+          >
+            {isArchived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
+            <span className="sr-only">{archiveToggleLabel}</span>
           </Button>
-        </div>
+        ) : (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            disabled={isDisabled}
+            title={REMOVE_ROW_LABEL}
+            onClick={onRemove}
+          >
+            <Trash className="h-4 w-4" />
+            <span className="sr-only">{REMOVE_ROW_LABEL}</span>
+          </Button>
+        )}
       </TableCell>
     </TableRow>
   );
@@ -832,8 +843,9 @@ const BulkEditRow = ({ tickedCount, isDisabled, onApply }: BulkEditRowProps) => 
   return (
     <TableRow className="bg-muted/50 hover:bg-muted/50">
       <TableCell />
-      <TableCell className="font-medium" colSpan={2}>
-        {rowLabel}
+      <TableCell colSpan={2}>
+        <p className="font-medium">{rowLabel}</p>
+        <p className="text-muted-foreground text-xs">{BULK_EDIT_HINT}</p>
       </TableCell>
       <TableCell>
         <Input
@@ -846,8 +858,6 @@ const BulkEditRow = ({ tickedCount, isDisabled, onApply }: BulkEditRowProps) => 
           {...getInputProps({ name: 'stockCount', isCleared: false })}
         />
       </TableCell>
-      <TableCell />
-      <TableCell />
       <TableCell>
         <Input
           type="number"
@@ -990,3 +1000,9 @@ const DefaultVariantFields = ({ isDisabled }: Pick<Props, 'isDisabled'>) => {
 };
 
 const getLabels = (values: OptionValue[]) => values.map(({ label }) => label);
+
+const formatInheritedPrice = (value: string | number | null | undefined) => {
+  const price = getOptionalNumericInput(value);
+
+  return price === null || price <= 0 ? null : formatter.format(price);
+};

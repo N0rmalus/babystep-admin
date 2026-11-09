@@ -5,6 +5,11 @@ import { getVariantPriceMessage, MAX_OPTION_GROUP_COUNT, TOO_MANY_GROUPS_MESSAGE
 
 const SKU_MAX_LENGTH = 64;
 const GENERATE_VARIANTS_PROMPT = 'Pasirinkite reikšmes ir sugeneruokite derinius';
+const MIN_PRICE = 1;
+const NAME_REQUIRED_MESSAGE = 'Įveskite pavadinimą';
+const SUBCATEGORY_REQUIRED_MESSAGE = 'Pasirinkite subkategoriją';
+const PRICE_MIN_MESSAGE = `Kaina turi būti ne mažesnė nei ${MIN_PRICE} €`;
+const SALE_DATES_WITHOUT_PRICE_MESSAGE = 'Datos galioja tik su akcijos kaina. Įveskite ją arba išvalykite datas.';
 
 export const getOptionalNumericInput = (value: string | number | null | undefined) => {
   if (value === null || value === undefined) {
@@ -63,10 +68,10 @@ const variantRowSchema = z
 
 export const productFormSchema = z
   .object({
-    name: z.string().min(1),
+    name: z.string().trim().min(1, NAME_REQUIRED_MESSAGE),
     // In display order; saved images keep their id so the server updates their rows instead of re-creating them
     images: submittedImageSchema.array(),
-    price: z.coerce.number().min(1),
+    price: z.coerce.number({ invalid_type_error: PRICE_MIN_MESSAGE }).min(MIN_PRICE, PRICE_MIN_MESSAGE),
     salePrice: optionalPositiveNumberSchema,
     saleStartsAt: optionalDateTimeSchema,
     saleEndsAt: optionalDateTimeSchema,
@@ -83,7 +88,7 @@ export const productFormSchema = z
       }),
     ),
     variants: z.array(variantRowSchema),
-    subcategoryId: z.string().min(1),
+    subcategoryId: z.string().min(1, SUBCATEGORY_REQUIRED_MESSAGE),
     isFeatured: z.boolean().default(false).optional(),
     isArchived: z.boolean().default(false).optional(),
     description: z.string(),
@@ -109,17 +114,17 @@ export const productFormSchema = z
       message: 'Akcijos pabaiga turi būti po pradžios',
     },
   )
-  .refine(
-    (data) => {
-      const salePrice = getOptionalNumericInput(data.salePrice);
+  .superRefine((data, context) => {
+    if (getOptionalNumericInput(data.salePrice) !== null) {
+      return;
+    }
 
-      return salePrice !== null || (!data.saleStartsAt && !data.saleEndsAt);
-    },
-    {
-      path: ['salePrice'],
-      message: 'Akcijos datas galima nurodyti tik kartu su akcijos kaina',
-    },
-  )
+    const datePaths = (['saleStartsAt', 'saleEndsAt'] as const).filter((path) => Boolean(data[path]));
+
+    datePaths.forEach((path) => {
+      context.addIssue({ code: 'custom', path: [path], message: SALE_DATES_WITHOUT_PRICE_MESSAGE });
+    });
+  })
   .refine((data) => data.optionGroups.length === 0 || data.variants.length > 0, {
     path: ['variants'],
     message: GENERATE_VARIANTS_PROMPT,

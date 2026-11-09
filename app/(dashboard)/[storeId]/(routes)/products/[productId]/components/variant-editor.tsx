@@ -45,6 +45,13 @@ type Props = {
 
 type ChosenGroup = ProductFormValues['optionGroups'][number];
 
+type PendingValueRemoval = {
+  groupId: string;
+  valueId: string;
+  label: string;
+  rowCount: number;
+};
+
 // A group the product can choose: a store-level group (Savybės) or one of its own product groups
 type GroupDefinition = ({ kind: 'store'; role: OptionGroupRole } | { kind: 'product' }) & {
   id: string;
@@ -85,6 +92,9 @@ const CLEAR_SALE_PRICE_HINT = 'Išvalo varianto akcijos kainą.';
 const REPLACE_VARIANTS_TITLE = 'Pakeisti visus variantus?';
 const REPLACE_VARIANTS_DESCRIPTION =
   'Pridėjus ar pašalinus savybę, visi esami variantai bus pakeisti naujais. Išsaugojus prekę, variantai su užsakymais bus archyvuoti, kiti ištrinti.';
+const getRemoveValueTitle = (label: string) => `Pašalinti reikšmę „${label}“?`;
+const getRemoveValueDescription = (rowCount: number) =>
+  `Iš lentelės bus pašalinti visi jos variantai (${rowCount}). Išsaugojus prekę, variantai su užsakymais bus archyvuoti, kiti ištrinti.`;
 
 export const VariantEditor = ({ storeGroups, onStoreGroupsChange, isDisabled }: Props) => {
   const params = useParams();
@@ -98,6 +108,7 @@ export const VariantEditor = ({ storeGroups, onStoreGroupsChange, isDisabled }: 
   const productGroups = useWatch({ control: form.control, name: 'productGroups' });
   const variants = useWatch({ control: form.control, name: 'variants' });
   const [pendingGroups, setPendingGroups] = useState<ChosenGroup[] | null>(null);
+  const [pendingValueRemoval, setPendingValueRemoval] = useState<PendingValueRemoval | null>(null);
   const [isAddingSize, setIsAddingSize] = useState(false);
   // Ticked rows by field key; keys of removed rows are ignored
   const [tickedKeys, setTickedKeys] = useState<ReadonlySet<string>>(new Set());
@@ -283,20 +294,45 @@ export const VariantEditor = ({ storeGroups, onStoreGroupsChange, isDisabled }: 
       return;
     }
 
-    if (group.valueIds.includes(valueId)) {
-      const rowIndexes = variants.flatMap((variant, index) =>
-        variant.optionValueIds.includes(valueId) ? [index] : [],
-      );
+    if (!group.valueIds.includes(valueId)) {
+      pickValue({ groupId, valueId, values: definition.values });
+      return;
+    }
 
-      remove(rowIndexes);
+    const rows = variants.filter((variant) => variant.optionValueIds.includes(valueId));
+    const hasRowsWorthKeeping = rows.some((variant) => variant.id !== undefined || Number(variant.stockCount) > 0);
+
+    if (!hasRowsWorthKeeping) {
+      removeValue({ groupId, valueId });
+      return;
+    }
+
+    const label = definition.values.find(({ id }) => id === valueId)?.label ?? '';
+
+    setPendingValueRemoval({ groupId, valueId, label, rowCount: rows.length });
+  };
+
+  const removeValue = ({ groupId, valueId }: Pick<PendingValueRemoval, 'groupId' | 'valueId'>) => {
+    const rowIndexes = form
+      .getValues('variants')
+      .flatMap((variant, index) => (variant.optionValueIds.includes(valueId) ? [index] : []));
+    const group = form.getValues('optionGroups').find(({ id }) => id === groupId);
+
+    remove(rowIndexes);
+    setPendingValueRemoval(null);
+
+    if (group) {
       setGroupValueIds(
         groupId,
         group.valueIds.filter((id) => id !== valueId),
       );
-      return;
     }
+  };
 
-    pickValue({ groupId, valueId, values: definition.values });
+  const handleEnterKey = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Enter' && event.target instanceof HTMLInputElement) {
+      event.preventDefault();
+    }
   };
 
   // Keeps the group's own value order
@@ -374,7 +410,16 @@ export const VariantEditor = ({ storeGroups, onStoreGroupsChange, isDisabled }: 
         description={REPLACE_VARIANTS_DESCRIPTION}
       />
 
-      <div className="space-y-4">
+      <AlertModal
+        isOpen={pendingValueRemoval !== null}
+        onClose={() => setPendingValueRemoval(null)}
+        onConfirm={() => pendingValueRemoval && removeValue(pendingValueRemoval)}
+        loading={isDisabled}
+        title={pendingValueRemoval ? getRemoveValueTitle(pendingValueRemoval.label) : undefined}
+        description={pendingValueRemoval ? getRemoveValueDescription(pendingValueRemoval.rowCount) : undefined}
+      />
+
+      <div className="space-y-4" onKeyDown={handleEnterKey}>
         {storeGroups.length === 0 && (
           <p className="text-muted-foreground text-sm">
             Bendrų savybių dar nėra. Jas galima sukurti puslapyje

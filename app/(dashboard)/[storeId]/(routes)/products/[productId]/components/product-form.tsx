@@ -36,7 +36,9 @@ import {
   ProductFormValues,
   toVariantPayload,
 } from '@/app/(dashboard)/[storeId]/(routes)/products/[productId]/components/schema';
+import { formatDateTimeLocalValue } from '@/lib/sale-form';
 import { ImageTagSelect } from './image-tag-select';
+import { PricingSection } from './pricing-section';
 import { StoreOptionGroup, VariantEditor } from './variant-editor';
 import Link from 'next/link';
 import axios from 'axios';
@@ -59,26 +61,14 @@ type Props = {
   storeGroups: StoreOptionGroup[];
 };
 
-const formatDateTimeLocalValue = (value?: string | null) => {
-  if (!value) {
-    return null;
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-
-  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
-
-  return localDate.toISOString().slice(0, 16);
-};
+const DISCARD_CHANGES_TITLE = 'Atmesti pakeitimus?';
+const DISCARD_CHANGES_DESCRIPTION = 'Neišsaugoti šios prekės pakeitimai bus prarasti.';
 
 export const ProductForm = ({ initialData, subcategories, categories, storeGroups: initialStoreGroups }: Props) => {
   const params = useParams();
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [isDiscardOpen, setIsDiscardOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   // Lifted from the variant editor so image tags can label sizes added with "+ Naujas dydis"
   const [storeGroups, setStoreGroups] = useState(initialStoreGroups);
@@ -191,10 +181,29 @@ export const ProductForm = ({ initialData, subcategories, categories, storeGroup
   });
   const hasSubcategories = subcategories.length > 0;
   const submitDisabled = loading || !hasSubcategories;
+  const productsPath = `/${params?.storeId}/products`;
+  const { isDirty } = form.formState;
+
+  const handleCancel = () => {
+    if (isDirty) {
+      setIsDiscardOpen(true);
+      return;
+    }
+
+    router.push(productsPath);
+  };
 
   return (
     <>
       <AlertModal isOpen={open} onClose={() => setOpen(false)} onConfirm={onDelete} loading={loading} />
+      <AlertModal
+        isOpen={isDiscardOpen}
+        onClose={() => setIsDiscardOpen(false)}
+        onConfirm={() => router.push(productsPath)}
+        loading={loading}
+        title={DISCARD_CHANGES_TITLE}
+        description={DISCARD_CHANGES_DESCRIPTION}
+      />
 
       <div className="flex items-center justify-between">
         <Heading title={title} />
@@ -321,73 +330,6 @@ export const ProductForm = ({ initialData, subcategories, categories, storeGroup
                       </FormItem>
                     )}
                   />
-
-                  <FormField
-                    control={form.control}
-                    name="price"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Kaina</FormLabel>
-                        <FormControl>
-                          <Input type="number" min="0" step="0.01" disabled={loading} placeholder="9.99" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="salePrice"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Akcijos kaina</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            disabled={loading}
-                            placeholder="7.99"
-                            {...field}
-                            value={field.value ?? ''}
-                          />
-                        </FormControl>
-                        <FormDescription>Palik tuščią, jei prekė neturi akcijos.</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="saleStartsAt"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Akcijos pradžia</FormLabel>
-                        <FormControl>
-                          <Input type="datetime-local" disabled={loading} {...field} value={field.value ?? ''} />
-                        </FormControl>
-                        <FormDescription>Neprivaloma. Jei tuščia, akcija prasideda iš karto.</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="saleEndsAt"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Akcijos pabaiga</FormLabel>
-                        <FormControl>
-                          <Input type="datetime-local" disabled={loading} {...field} value={field.value ?? ''} />
-                        </FormControl>
-                        <FormDescription>Neprivaloma. Jei tuščia, akcija veikia be pabaigos datos.</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
                 </div>
 
                 <Separator />
@@ -411,6 +353,8 @@ export const ProductForm = ({ initialData, subcategories, categories, storeGroup
                   )}
                 />
               </FormSection>
+
+              <PricingSection isDisabled={loading} />
 
               <FormSection
                 title="Variantai"
@@ -461,13 +405,7 @@ export const ProductForm = ({ initialData, subcategories, categories, storeGroup
                 <Button disabled={submitDisabled} className="w-full" type="submit">
                   {loading ? 'Saugoma...' : action}
                 </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={loading}
-                  className="w-full"
-                  onClick={() => router.push(`/${params?.storeId}/products`)}
-                >
+                <Button type="button" variant="outline" disabled={loading} className="w-full" onClick={handleCancel}>
                   Atšaukti
                 </Button>
               </FormSection>

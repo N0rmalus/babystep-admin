@@ -294,6 +294,11 @@ export type CheckoutFieldsResult<TPickupPoint, TBank> =
     }
   | { status: 'rejected'; error: { code: 'INVALID_FIELDS'; fields: FieldError[] } };
 
+export type ValidCheckoutFields<TPickupPoint, TBank> = Extract<
+  CheckoutFieldsResult<TPickupPoint, TBank>,
+  { status: 'ok' }
+>;
+
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_DIGITS_PATTERN = /^\d{8}$/;
 const POSTAL_CODE_PATTERN = /^(LT-?)?(\d{5})$/i;

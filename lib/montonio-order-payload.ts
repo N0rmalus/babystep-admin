@@ -165,3 +165,27 @@ const getPayment = ({ payment, amount }: { payment: PayloadPayment; amount: numb
     methodOptions: { preferredProvider: payment.bank.code, preferredCountry: COUNTRY },
   };
 };
+
+type CheckoutUrlsOptions = {
+  orderId: string;
+  storeUrl: string;
+  adminUrl: string;
+  bypassSecret?: string;
+};
+
+export const MONTONIO_WEBHOOK_PATH = '/api/webhook/montonio';
+
+const ORDER_CONFIRMATION_PATH = '/uzsakymas';
+const PROTECTION_BYPASS_PARAM = 'x-vercel-protection-bypass';
+
+export const getCheckoutUrls = ({ orderId, storeUrl, adminUrl, bypassSecret }: CheckoutUrlsOptions) => {
+  const notificationUrl = `${withoutTrailingSlash(adminUrl)}${MONTONIO_WEBHOOK_PATH}`;
+  const bypassQuery = bypassSecret ? `?${new URLSearchParams({ [PROTECTION_BYPASS_PARAM]: bypassSecret })}` : '';
+
+  return {
+    returnUrl: `${withoutTrailingSlash(storeUrl)}${ORDER_CONFIRMATION_PATH}/${orderId}`,
+    notificationUrl: `${notificationUrl}${bypassQuery}`,
+  };
+};
+
+const withoutTrailingSlash = (url: string) => url.replace(/\/+$/, '');

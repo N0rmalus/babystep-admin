@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildMontonioOrderPayload } from '@/lib/montonio-order-payload';
+import { buildMontonioOrderPayload, getCheckoutUrls } from '@/lib/montonio-order-payload';
 
 type PayloadOptions = Parameters<typeof buildMontonioOrderPayload>[0];
 
@@ -154,5 +154,57 @@ describe('buildMontonioOrderPayload', () => {
 
     expect(payload.billingAddress).toEqual(address);
     expect(payload.shippingAddress).toEqual(address);
+  });
+});
+
+describe('getCheckoutUrls', () => {
+  it('returns to the order confirmation page and notifies the Montonio webhook', () => {
+    const urls = getCheckoutUrls({
+      orderId: 'order-uuid-1',
+      storeUrl: 'https://babystep.lt',
+      adminUrl: 'https://admin.babystep.lt',
+    });
+
+    expect(urls).toEqual({
+      returnUrl: 'https://babystep.lt/uzsakymas/order-uuid-1',
+      notificationUrl: 'https://admin.babystep.lt/api/webhook/montonio',
+    });
+  });
+
+  it('adds the deployment protection bypass to the notification URL when a bypass secret is set', () => {
+    const { notificationUrl } = getCheckoutUrls({
+      orderId: 'order-uuid-1',
+      storeUrl: 'https://babystep.lt',
+      adminUrl: 'https://babystep-admin-git-feat.vercel.app',
+      bypassSecret: 'preview secret/1',
+    });
+
+    expect(notificationUrl).toBe(
+      'https://babystep-admin-git-feat.vercel.app/api/webhook/montonio?x-vercel-protection-bypass=preview+secret%2F1',
+    );
+  });
+
+  it('leaves the notification URL plain when the bypass secret is empty', () => {
+    const { notificationUrl } = getCheckoutUrls({
+      orderId: 'order-uuid-1',
+      storeUrl: 'https://babystep.lt',
+      adminUrl: 'https://admin.babystep.lt',
+      bypassSecret: '',
+    });
+
+    expect(notificationUrl).toBe('https://admin.babystep.lt/api/webhook/montonio');
+  });
+
+  it('ignores a trailing slash on the base URLs', () => {
+    const urls = getCheckoutUrls({
+      orderId: 'order-uuid-1',
+      storeUrl: 'https://babystep.lt/',
+      adminUrl: 'https://admin.babystep.lt/',
+    });
+
+    expect(urls).toEqual({
+      returnUrl: 'https://babystep.lt/uzsakymas/order-uuid-1',
+      notificationUrl: 'https://admin.babystep.lt/api/webhook/montonio',
+    });
   });
 });

@@ -11,7 +11,7 @@ Related plans: `babystep-admin/TODO.md` ("Product variants", "Montonio migration
 - Results come by webhook to the per-order `notificationUrl` as `{ "orderToken": "<JWT>" }`, plus an `order-token` query param on the `returnUrl` redirect. Verify the HS256 signature with the Secret Key, then check `paymentStatus === 'PAID'`, `uuid` and `accessKey`. Montonio retries non-2xx responses for 48 hours. [Webhooks guide](https://docs.montonio.com/api/stargate/guides/webhooks)
 - Statuses: `PENDING`, `PAID`, `VOIDED`, `PARTIALLY_REFUNDED`, `REFUNDED`, `ABANDONED` (after 30 min by default), `AUTHORIZED` (opt-in, enterprise only). [Overview](https://docs.montonio.com/api/stargate/overview)
 - **Montonio's Orders API is not documented to collect address or phone.** Unlike Stripe Checkout, we have to collect name, email, phone and address (or pickup point) in our own checkout and send them as `billingAddress`/`shippingAddress`. So the `{ productIds }` → `{ url }` contract cannot stay unchanged: delivery method and customer details must be added.
-- Montonio Shipping is a separate API (same key style). Lithuanian carriers under a **Montonio contract**: Omniva, SmartPosti, Unisend (parcel machines), Omniva and SmartPosti (courier). Under **direct contracts** DPD and Venipak are also available. [Available methods](https://help.montonio.com/en/articles/174881-available-shipping-methods-and-countries-in-montonio)
+- Montonio Shipping is a separate API that takes the same access and secret keys as Payments (checked in the sandbox). Lithuanian carriers under a **Montonio contract**: Omniva, SmartPosti, Unisend (parcel machines), Omniva and SmartPosti (courier). Under **direct contracts** DPD and Venipak are also available. [Available methods](https://help.montonio.com/en/articles/174881-available-shipping-methods-and-countries-in-montonio)
 - **No embeddable pickup-point picker widget is documented** for custom integrations. We fetch pickup points from the API and build our own selector. [Shipping methods guide](https://docs.montonio.com/api/shipping-v2/guides/shipping-methods)
 - **We set the price the customer pays for shipping.** Montonio's `rates` endpoint returns our contract cost, not a customer price. Montonio only adds shipping to the payment for Payment Links (`showShippingOptions`), not the Orders API. [Shipping reference](https://docs.montonio.com/api/shipping-v2/reference), [Payment links](https://docs.montonio.com/api/stargate/guides/payment-links)
 - Sandbox: separate keys from the Partner System, base URL `https://sandbox-stargate.montonio.com/api`, and published test cards. No test bank credentials are published. [Embedded cards](https://docs.montonio.com/api/stargate/guides/embedded-cards), [Sandbox keys](https://help.montonio.com/en/articles/27851-where-to-find-sandbox-api-keys)
@@ -83,7 +83,7 @@ Things only the owner can do in Montonio's Partner System. Development needs onl
 1. **Store:** make sure a store exists for Babystep (Business settings → Stores).
 2. **Sandbox API keys:** Stores → API Keys → Sandbox. Copy the Access Key and Secret Key into `babystep-admin/.env` as `MONTONIO_ACCESS_KEY` / `MONTONIO_SECRET_KEY`, with `MONTONIO_API_URL=https://sandbox-stargate.montonio.com/api`. Never paste them into chat or commit them.
 3. **Payment methods:** enable bank payments and cards (Apple Pay and Google Pay come with cards) for the store. Leave Pay Later off.
-4. **Shipping:** activate Omniva and Unisend parcel machines and SmartPosti courier on Montonio contracts (sandbox uses dummy carrier credentials). Find out whether the shipping API uses the same keys.
+4. **Shipping:** activate Omniva and Unisend parcel machines and SmartPosti courier on Montonio contracts (sandbox uses dummy carrier credentials). The Shipping API uses the same keys as Payments. No carriers are active in the sandbox store yet, so pickup points come back empty until this step is done.
 5. **Branded tracking:** upload the logo and colors for the tracking page and emails (Core plan).
 6. **Before launch only:** production keys go into the host's environment variables, never into the local `.env`.
 
@@ -247,7 +247,7 @@ Implications for us:
 ## Montonio Shipping (API v2)
 
 - **Separate API:** production `https://shipping.montonio.com/api/v2`, sandbox `https://sandbox-shipping.montonio.com/api/v2`. Same JWT scheme (Bearer, HS256, `accessKey` + `exp`). [Overview](https://docs.montonio.com/api/shipping-v2/overview), [Reference](https://docs.montonio.com/api/shipping-v2/reference)
-  - **Unconfirmed:** whether the shipping keys are the same key pair as the payments keys. The docs link to the general API keys section without saying.
+  - **Same key pair as Payments (sandbox, 2026-11-09):** a token signed with our Stargate access and secret keys gets 200 from the sandbox Shipping API. A wrong secret gets 401, so the key is really checked. See "Checked in the sandbox".
 - **Flow:** create a webhook → fetch shipping methods → create a shipment → create a label file. [Overview](https://docs.montonio.com/api/shipping-v2/overview)
 - **Methods:** types `courier` (subtypes `standard`, `standardB2B`) and `pickupPoint` (`parcelMachine`, `parcelShop`, `postOffice`). [Shipping methods guide](https://docs.montonio.com/api/shipping-v2/guides/shipping-methods)
   - `GET /shipping-methods` lists methods per country and carrier.
@@ -263,7 +263,7 @@ Implications for us:
   | Post office | none | Omniva (EE only), SmartPosti (FI only) |
 
   - **LP Express:** our delivery page names LP Express. Montonio's pages list **Unisend**, not LP Express. Montonio's Unisend page doesn't say whether Unisend is the same service as LP Express, so this is **Unconfirmed** in Montonio's docs. [Unisend](https://help.montonio.com/en/articles/185095-unisend-by-montonio)
-  - **Carrier codes:** the API reference shows `smartpost`, `omniva`, `dpd`, `venipak` as examples. The Unisend code and the full list are **Unconfirmed** (`GET /carriers` returns them). [Reference](https://docs.montonio.com/api/shipping-v2/reference)
+  - **Carrier codes (sandbox `GET /carriers`, 2026-11-09):** `omniva`, `unisend`, `dpd`, `venipak`, `smartpost`, `novaPost`. Unisend's code is `unisend`. See "Checked in the sandbox". [Reference](https://docs.montonio.com/api/shipping-v2/reference)
   - The [Montonio-contracts page](https://help.montonio.com/en/articles/219852-shipping-with-montonio-special-prices) lists DPD with Montonio pricing in general. The Lithuania table above does not include DPD under Montonio contracts. Treat DPD from LT as **direct contract only** until Montonio confirms otherwise.
 - **Pricing and contracts** [Montonio contracts](https://help.montonio.com/en/articles/219852-shipping-with-montonio-special-prices), [Reference](https://docs.montonio.com/api/shipping-v2/reference):
   - With a Montonio contract, Montonio replaces the carrier contract. It uses flat pricing per parcel size and sends one invoice.
@@ -400,7 +400,29 @@ Re-checked against the docs for the Montonio client (`lib/montonio-client.ts`, `
 - **Request token expiry:** the orders guide says to set `exp` 10 minutes after the token is issued. The client uses 10 minutes for every request token. [Orders guide](https://docs.montonio.com/api/stargate/guides/orders)
 - **Payment methods:** the payment methods guide's example response confirms `uiPosition` on each bank under `paymentMethods.paymentInitiation.setup.<COUNTRY>.paymentMethods[]`. `cardPayments` has no `uiPosition`. The guide doesn't show how a disabled method looks, so the client treats a missing `cardPayments` key as cards disabled. [Payment methods guide](https://docs.montonio.com/api/stargate/guides/payment-methods)
 - **Pickup points:** `GET /shipping-methods/pickup-points?carrierCode=&countryCode=&type=` returns `{ pickupPoints: [{ id, name, type, streetAddress, locality, postalCode, carrierCode, additionalServices }], countryCode }`. The guide's example sends a lowercase `countryCode` (`ee`) and gets back uppercase `EE`. The client sends `LT`. [Shipping methods guide](https://docs.montonio.com/api/shipping-v2/guides/shipping-methods)
-- **Unisend carrier code:** still **Unconfirmed**. The shipping reference only shows `smartpost`, `omniva`, `dpd` and `venipak` as codes and names Unisend only in prose. The client assumes `unisend` (one constant, `CARRIER_CODES`). Check it with `GET /carriers` in the sandbox. [Shipping reference](https://docs.montonio.com/api/shipping-v2/reference)
+- **Unisend carrier code:** the shipping reference only shows `smartpost`, `omniva`, `dpd` and `venipak` as codes and names Unisend only in prose. The client assumes `unisend` (one constant, `CARRIER_CODES`). Confirmed in the sandbox, see below. [Shipping reference](https://docs.montonio.com/api/shipping-v2/reference)
+
+## Checked in the sandbox (2026-11-09)
+
+Called with the sandbox keys from `.env` (`sandbox-stargate.montonio.com/api` and `sandbox-shipping.montonio.com/api/v2`), with request tokens signed the same way as `lib/montonio-client.ts`.
+
+- **Shipping API keys:** the same access key and secret key as Payments. `GET /carriers` on the Shipping API returns 200 with the Stargate key pair. The same request with a wrong secret returns 401 `unauthorized`, so the signature is really checked. `MONTONIO_ACCESS_KEY` and `MONTONIO_SECRET_KEY` cover both APIs.
+- **Carrier codes:** `GET /carriers` returns:
+
+  | Code | Name | `hasMontonioContract` | `supportedContractTypes` |
+  |---|---|---|---|
+  | `omniva` | Omniva | true | montonio, direct |
+  | `unisend` | Unisend | true | montonio, direct |
+  | `dpd` | DPD | false | direct |
+  | `venipak` | Venipak | false | direct |
+  | `smartpost` | SmartPosti | true | montonio |
+  | `novaPost` | Nova Post | false | montonio |
+
+  Unisend's code is `unisend`, which matches `CARRIER_CODES`. Each carrier also has an `id` (UUID), `logoUrl` and `contracts` (`null` here). DPD has no Montonio contract, which matches the LT table above.
+- **No carriers active in the sandbox store yet:** `GET /shipping-methods` returns 404 `carrier_not_found_for_store` ("No active carriers found for the store"). `GET /shipping-methods/pickup-points?carrierCode=unisend&countryCode=LT&type=parcelMachine` returns 200 with `{ "countryCode": "LT", "pickupPoints": [] }`, and the same for `omniva`. To get real pickup points, activate Omniva and Unisend in the sandbox Partner System first (setup step 4).
+- **Payment methods (`GET /stores/payment-methods`):** returns the store's `uuid`, `name`, `country` and `businessCountry` (`LT`), and `paymentMethods` with these keys: `paymentInitiation` (processor `montonio`, setup for EE, FI, LV, LT and PL), `cardPayments`, `applePay`, `googlePay`, `mobilePay` (processor `adyen`, each with `logoUrl` and `requiredToBeEnabled: true`), `blik` (`blik`), and `bnpl` and `hirePurchase` (`inbank`). `cardPayments` holds only `processor`, `logoUrl` and `requiredToBeEnabled`: no enabled flag and no `uiPosition`.
+- **Disabled card method:** not visible. All methods are present in the sandbox, including Pay Later and financing, which our checkout doesn't use, so the response gives no example of a disabled method. What `requiredToBeEnabled` means isn't documented. The client's rule (a missing `cardPayments` key means cards are disabled) is still an assumption. Checking it needs cards switched off in the sandbox Partner System, if that's possible.
+- **LT banks in the sandbox:** Swedbank `HABALT22`, SEB `CBVILT2X`, Luminor `AGBLLT2X`, Šiaulių bankas `CBSBLT26`, Citadele `INDULT2X`, Revolut `RVUALT2V`, N26 `NTSBDEB1XXX`, with `uiPosition` 1–6 and 10. The docs' example calls `CBSBLT26` Artea. The sandbox calls it Šiaulių bankas. The sandbox has no Wise and no Medicinos bankas. Whether the live list is the same is unconfirmed.
 
 ## Unconfirmed (could not verify in official docs)
 
@@ -410,8 +432,7 @@ Re-checked against the docs for the Montonio client (`lib/montonio-client.ts`, `
 - Whether the example LT bank list is complete. Šiaulių bankas and Medicinos bankas are not in the example.
 - Whether MobilePay is usable by Lithuanian customers.
 - Sandbox test bank names and credentials for bank payments.
-- Whether Shipping API keys are the same key pair as Payments keys.
-- Full carrier code list, including Unisend's code.
+- How a disabled method looks in `GET /stores/payment-methods`, and what `requiredToBeEnabled` means. Every method is present in the sandbox.
 - Whether Montonio's "Unisend" is the same service as LP Express. Montonio's pages don't mention LP Express.
 - Whether DPD is available from LT under a Montonio contract. The general contracts page lists DPD; the LT table does not.
 - Shipping webhook retry policy, and how to simulate shipment status changes in sandbox.

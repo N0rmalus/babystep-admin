@@ -391,6 +391,17 @@ Resolved: see "Decisions" near the top.
 8. **Refunds:** handle refunds via the API and webhook in the admin, or only in the Partner System?
 9. **Rollout:** keep accepting `{ productIds }` during the transition, or switch both repos together? Product variants are planned first, which changes the line-item contract anyway.
 
+## Checked while building the client (2026-11-09)
+
+Re-checked against the docs for the Montonio client (`lib/montonio-client.ts`, `lib/montonio-order-payload.ts`). The sandbox was not called: that needs the sandbox keys, so the owner checks the open items there.
+
+- **`merchantReferenceDisplay` on create:** the orders guide's request field table doesn't list it, and the reference doesn't describe the `POST /orders` body. The decoded-token section says that if you don't pass it in the Order JWT, it will be the same as `merchantReference`. That implies create accepts it, so the client sends `U-<number>`. **Still to confirm in the sandbox:** the decoded webhook token carries `U-<number>` and not the order ID. [Orders guide](https://docs.montonio.com/api/stargate/guides/orders)
+- **`lineItems[].finalPrice`, per unit or per line:** the orders guide calls it "The product's sale price (tax included)", without saying which. Its reconciliation note sums `finalPrice x quantity` to `grandTotal`, which means per unit. The client sends the unit price with the quantity, and shipping as one line with quantity 1. **Still to confirm in the sandbox:** an order with quantity 2 is accepted and the Partner System shows the right line total. [Orders guide](https://docs.montonio.com/api/stargate/guides/orders)
+- **Request token expiry:** the orders guide says to set `exp` 10 minutes after the token is issued. The client uses 10 minutes for every request token. [Orders guide](https://docs.montonio.com/api/stargate/guides/orders)
+- **Payment methods:** the payment methods guide's example response confirms `uiPosition` on each bank under `paymentMethods.paymentInitiation.setup.<COUNTRY>.paymentMethods[]`. `cardPayments` has no `uiPosition`. The guide doesn't show how a disabled method looks, so the client treats a missing `cardPayments` key as cards disabled. [Payment methods guide](https://docs.montonio.com/api/stargate/guides/payment-methods)
+- **Pickup points:** `GET /shipping-methods/pickup-points?carrierCode=&countryCode=&type=` returns `{ pickupPoints: [{ id, name, type, streetAddress, locality, postalCode, carrierCode, additionalServices }], countryCode }`. The guide's example sends a lowercase `countryCode` (`ee`) and gets back uppercase `EE`. The client sends `LT`. [Shipping methods guide](https://docs.montonio.com/api/shipping-v2/guides/shipping-methods)
+- **Unisend carrier code:** still **Unconfirmed**. The shipping reference only shows `smartpost`, `omniva`, `dpd` and `venipak` as codes and names Unisend only in prose. The client assumes `unisend` (one constant, `CARRIER_CODES`). Check it with `GET /carriers` in the sandbox. [Shipping reference](https://docs.montonio.com/api/shipping-v2/reference)
+
 ## Unconfirmed (could not verify in official docs)
 
 - Whether the hosted `paymentUrl` page lets customers switch payment method types, and whether it collects name, email, phone or address for Orders API payments.

@@ -1,0 +1,1 @@
+export const RESERVATION_MINUTES = 30;

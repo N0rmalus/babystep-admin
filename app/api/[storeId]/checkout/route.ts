@@ -1,7 +1,7 @@
 import Stripe from 'stripe';
 import { NextResponse } from 'next/server';
 
-import { buildCheckoutItems } from '@/lib/checkout-items';
+import { buildCheckoutItems, getCheckoutItemsTotal } from '@/lib/checkout-items';
 import { corsHeaders } from '@/lib/cors';
 import { CENTS_PER_EURO } from '@/lib/product-pricing';
 import { stripe } from '@/lib/stripe';
@@ -11,6 +11,8 @@ import { getProducts } from '@/queries/get-products';
 type CheckoutRequest = {
   productIds?: string[];
 };
+
+const STRIPE_SHIPPING_PRICE = 0;
 
 const jsonResponse = (body: unknown, status: number) => {
   return NextResponse.json(body, {
@@ -84,23 +86,40 @@ export async function POST(req: Request, props: { params: Promise<{ storeId: str
       },
     }));
 
-    const order = await prismadb.order.create({
-      data: {
-        storeId: params.storeId,
-        isPaid: false,
-        orderItems: {
-          create: checkout.items.map((item) => ({
-            productId: item.productId,
-            variantId: item.variantId,
-            quantity: item.quantity,
-            productName: item.productName,
-            sku: item.sku,
-            options: [],
-            unitPrice: item.unitPrice,
-            regularUnitPrice: item.regularUnitPrice,
-          })),
+    const itemsTotal = getCheckoutItemsTotal(checkout.items);
+    const stockNeverReservedAt = new Date();
+
+    const order = await prismadb.$transaction(async (tx) => {
+      const { nextOrderNumber } = await tx.store.update({
+        where: { id: params.storeId },
+        data: { nextOrderNumber: { increment: 1 } },
+        select: { nextOrderNumber: true },
+      });
+
+      return tx.order.create({
+        data: {
+          storeId: params.storeId,
+          number: nextOrderNumber - 1,
+          isPaid: false,
+          itemsTotal,
+          shippingPrice: STRIPE_SHIPPING_PRICE,
+          total: itemsTotal,
+          expiresAt: stockNeverReservedAt,
+          stockReleasedAt: stockNeverReservedAt,
+          orderItems: {
+            create: checkout.items.map((item) => ({
+              productId: item.productId,
+              variantId: item.variantId,
+              quantity: item.quantity,
+              productName: item.productName,
+              sku: item.sku,
+              options: [],
+              unitPrice: item.unitPrice,
+              regularUnitPrice: item.regularUnitPrice,
+            })),
+          },
         },
-      },
+      });
     });
 
     const session = await stripe.checkout.sessions.create({

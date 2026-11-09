@@ -1,4 +1,4 @@
-import { getProductPricing } from '@/lib/product-pricing';
+import { CENTS_PER_EURO, getOrderItemTotal, getProductPricing } from '@/lib/product-pricing';
 import { getDefaultVariant } from '@/lib/product-variant';
 
 type PriceLike = Parameters<typeof getProductPricing>[0]['price'];
@@ -46,6 +46,12 @@ type InsufficientStockItem = {
   productId: string;
   requested: number;
   available: number;
+};
+
+export const getCheckoutItemsTotal = (items: CheckoutItem[]): number => {
+  const totalCents = items.reduce((sum, item) => sum + Math.round(getOrderItemTotal(item) * CENTS_PER_EURO), 0);
+
+  return totalCents / CENTS_PER_EURO;
 };
 
 // Interim until the Montonio checkout (step 3): each product id resolves to the product's default variant.

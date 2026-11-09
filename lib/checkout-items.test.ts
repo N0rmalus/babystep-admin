@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildCheckoutItems } from '@/lib/checkout-items';
+import { buildCheckoutItems, getCheckoutItemsTotal } from '@/lib/checkout-items';
 
 const NOW = new Date('2026-06-15T12:00:00Z');
 
@@ -55,5 +55,28 @@ describe('buildCheckoutItems', () => {
       status: 'insufficient-stock',
       insufficientStockItems: [{ productId: 'muslin', requested: 6, available: 5 }],
     });
+  });
+});
+
+describe('getCheckoutItemsTotal', () => {
+  const item = {
+    productId: 'muslin',
+    variantId: 'muslin-default',
+    productName: 'Muslino merliukas',
+    sku: null,
+    regularUnitPrice: 20,
+  };
+
+  it('sums unit price times quantity, rounded to cents', () => {
+    const items = [
+      { ...item, quantity: 3, unitPrice: 0.1 },
+      { ...item, quantity: 1, unitPrice: 19.99 },
+    ];
+
+    expect(getCheckoutItemsTotal(items)).toBe(20.29);
+  });
+
+  it('is zero for no items', () => {
+    expect(getCheckoutItemsTotal([])).toBe(0);
   });
 });

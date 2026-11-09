@@ -23,6 +23,7 @@ model Store {
   orders          Order[]          @relation("StoreToOrder")
   optionGroups    OptionGroup[]    @relation("StoreToOptionGroup")
   productVariants ProductVariant[] @relation("StoreToProductVariant")
+  nextOrderNumber Int              @default(10001)
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 }
@@ -210,18 +211,80 @@ model ProductVariantOptionValue {
   @@index([optionValueId])
 }
 
-model Order {
-  id         String      @id @default(uuid())
-  storeId    String
-  store      Store       @relation("StoreToOrder", fields: [storeId], references: [id])
-  orderItems OrderItem[]
-  isPaid     Boolean     @default(false)
-  phone      String      @default("")
-  address    String      @default("")
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
+enum PaymentStatus {
+  PENDING
+  PAID
+  VOIDED
+  PARTIALLY_REFUNDED
+  REFUNDED
+  ABANDONED
+  AUTHORIZED
+}
 
+enum PaymentMethod {
+  BANK
+  CARD
+}
+
+enum DeliveryMethod {
+  LOCKER
+  COURIER
+}
+
+enum Carrier {
+  OMNIVA
+  UNISEND
+  SMARTPOSTI
+}
+
+enum ReviewReason {
+  LATE_PAYMENT_OUT_OF_STOCK
+  VOIDED_AFTER_PAID
+}
+
+model Order {
+  id                 String          @id @default(uuid())
+  storeId            String
+  store              Store           @relation("StoreToOrder", fields: [storeId], references: [id])
+  number             Int
+  orderItems         OrderItem[]
+  // A payment was received; stays true through VOIDED and refunds
+  isPaid             Boolean         @default(false)
+  paymentStatus      PaymentStatus   @default(PENDING)
+  montonioOrderUuid  String?
+  paymentMethod      PaymentMethod?
+  bankCode           String?
+  bankName           String?
+  firstName          String          @default("")
+  lastName           String          @default("")
+  email              String          @default("")
+  phoneNumber        String          @default("")
+  deliveryMethod     DeliveryMethod?
+  carrier            Carrier?
+  pickupPointId      String?
+  pickupPointName    String?
+  pickupPointAddress String?
+  pickupPointCity    String?
+  street             String?
+  apartment          String?
+  city               String?
+  postalCode         String?
+  itemsTotal         Decimal
+  shippingPrice      Decimal
+  total              Decimal
+  expiresAt          DateTime?
+  stockReleasedAt    DateTime?
+  paidAt             DateTime?
+  needsReview        Boolean         @default(false)
+  reviewReason       ReviewReason?
+  phone              String          @default("")
+  address            String          @default("")
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  @@unique([storeId, number])
   @@index([storeId])
+  @@index([stockReleasedAt, expiresAt])
 }
 
 model OrderItem {

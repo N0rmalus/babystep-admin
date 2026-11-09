@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/nextjs';
+import { PaymentStatus } from '@prisma/client';
 import Stripe from 'stripe';
 import { headers } from 'next/headers';
 import { NextResponse } from 'next/server';
@@ -68,6 +69,10 @@ export async function POST(req: Request) {
         },
         data: {
           isPaid: true,
+          paymentStatus: PaymentStatus.PAID,
+          paidAt: new Date(),
+          expiresAt: null,
+          stockReleasedAt: null,
           address: addressString,
           phone,
         },

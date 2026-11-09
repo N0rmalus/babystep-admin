@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 
 import { corsHeaders } from '@/lib/cors';
 import { DELIVERY_CONFIG } from '@/lib/delivery-config';
-import type { MontonioClient } from '@/lib/montonio-client';
+import type { CheckoutRequest } from '@/lib/checkout-rules';
+import type { Bank, MontonioClient, PickupPoint } from '@/lib/montonio-client';
 
 const BAD_GATEWAY_STATUS = 502;
 
@@ -43,5 +44,32 @@ const respondWithMontonio = async ({ load, logTag, failureMessage }: RespondWith
     console.log(logTag, error);
 
     return NextResponse.json({ message: failureMessage }, { status: BAD_GATEWAY_STATUS, headers: corsHeaders });
+  }
+};
+
+type LoadCheckoutListsOptions = {
+  client: Pick<MontonioClient, 'getPickupPoints' | 'getPaymentMethods'>;
+  delivery: CheckoutRequest['delivery'];
+  payment: CheckoutRequest['payment'];
+};
+
+export type CheckoutListsResult =
+  | { status: 'ok'; pickupPoints: PickupPoint[]; banks: Bank[] }
+  | { status: 'unavailable'; error: unknown };
+
+export const loadCheckoutLists = async ({
+  client,
+  delivery,
+  payment,
+}: LoadCheckoutListsOptions): Promise<CheckoutListsResult> => {
+  try {
+    const [pickupPoints, banks] = await Promise.all([
+      delivery.method === 'locker' ? client.getPickupPoints() : [],
+      payment.method === 'bank' ? client.getPaymentMethods().then((methods) => methods.banks) : [],
+    ]);
+
+    return { status: 'ok', pickupPoints, banks };
+  } catch (error) {
+    return { status: 'unavailable', error };
   }
 };

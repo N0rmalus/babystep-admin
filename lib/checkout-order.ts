@@ -6,6 +6,7 @@ import {
   type CheckoutItem,
   type CheckoutTotals,
   getStockChangedItems,
+  type StockChangedItem,
   type ValidCheckoutFields,
 } from '@/lib/checkout-rules';
 import type { CourierCarrier, LockerCarrier } from '@/lib/delivery-config';
@@ -13,9 +14,12 @@ import type { Bank, PickupPoint } from '@/lib/montonio-client';
 import prismadb from '@/lib/prismadb';
 import { reserveStock, StockChangedError } from '@/lib/reservation';
 import { getReservationExpiresAt } from '@/lib/reservation-config';
+import { reserveWithRetry } from '@/lib/reservation-retry';
 import { getVariantStockCounts } from '@/queries/get-variant-stock-counts';
 
 type Fields = ValidCheckoutFields<PickupPoint, Bank>;
+
+type ReservedOrder = { id: string; number: number };
 
 type CreateReservedOrderOptions = {
   storeId: string;
@@ -33,13 +37,17 @@ const CARRIERS = {
 
 const COURIER_CARRIER = 'smartposti' satisfies CourierCarrier;
 
-export const createReservedOrder = async ({
-  storeId,
-  items,
-  totals,
-  fields,
-  now = new Date(),
-}: CreateReservedOrderOptions) => {
+export const createReservedOrder = ({ storeId, items, totals, fields, now = new Date() }: CreateReservedOrderOptions) =>
+  reserveWithRetry<ReservedOrder, StockChangedItem>({
+    reserve: () => reserveAndCreateOrder({ storeId, items, totals, fields, now }),
+    getShortages: async () => {
+      const stockCounts = await getVariantStockCounts(items.map(({ variantId }) => variantId));
+
+      return getStockChangedItems({ items, stockCounts });
+    },
+  });
+
+const reserveAndCreateOrder = async ({ storeId, items, totals, fields, now }: Required<CreateReservedOrderOptions>) => {
   try {
     const order = await prismadb.$transaction(async (tx) => {
       const { nextOrderNumber } = await tx.store.update({
@@ -71,9 +79,7 @@ export const createReservedOrder = async ({
       throw error;
     }
 
-    const stockCounts = await getVariantStockCounts(items.map(({ variantId }) => variantId));
-
-    return { status: 'stock-changed', items: getStockChangedItems({ items, stockCounts }) } as const;
+    return { status: 'short' } as const;
   }
 };
 

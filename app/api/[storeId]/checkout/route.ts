@@ -5,7 +5,6 @@ import { z } from 'zod';
 import { createReservedOrder } from '@/lib/checkout-order';
 import { checkoutCreatedResponse, checkoutErrorResponse } from '@/lib/checkout-response';
 import {
-  type CheckoutRequest,
   getCheckoutTotals,
   parseCheckoutRequest,
   resolveCheckoutItems,
@@ -16,6 +15,7 @@ import { getMontonioClient, type MontonioClient } from '@/lib/montonio-client';
 import { buildMontonioOrderPayload, getCheckoutUrls, type MontonioOrderPayload } from '@/lib/montonio-order-payload';
 import prismadb from '@/lib/prismadb';
 import { releaseReservation } from '@/lib/reservation';
+import { loadCheckoutLists } from '@/lib/storefront-checkout';
 import { getProducts } from '@/queries/get-products';
 
 const checkoutEnvSchema = z.object({
@@ -50,7 +50,15 @@ export async function POST(req: Request, props: { params: Promise<{ storeId: str
     }
 
     const client = getMontonioClient();
-    const fields = validateCheckoutFields({ ...request, ...(await loadMontonioLists({ client, request })) });
+    const lists = await loadCheckoutLists({ client, delivery: request.delivery, payment: request.payment });
+
+    if (lists.status === 'unavailable') {
+      reportCheckoutError({ tag: '[CHECKOUT_POST_MONTONIO_LISTS]', error: lists.error });
+
+      return checkoutErrorResponse({ code: 'PAYMENT_UNAVAILABLE' });
+    }
+
+    const fields = validateCheckoutFields({ ...request, ...lists });
 
     if (fields.status === 'rejected') {
       return checkoutErrorResponse(fields.error);
@@ -101,15 +109,6 @@ export async function POST(req: Request, props: { params: Promise<{ storeId: str
     return checkoutErrorResponse({ code: 'INTERNAL' });
   }
 }
-
-const loadMontonioLists = async ({ client, request }: { client: MontonioClient; request: CheckoutRequest }) => {
-  const [pickupPoints, banks] = await Promise.all([
-    request.delivery.method === 'locker' ? client.getPickupPoints() : [],
-    request.payment.method === 'bank' ? client.getPaymentMethods().then(({ banks }) => banks) : [],
-  ]);
-
-  return { pickupPoints, banks };
-};
 
 const createMontonioOrder = async ({ client, payload }: { client: MontonioClient; payload: MontonioOrderPayload }) => {
   try {

@@ -5,6 +5,7 @@ import {
   getDeliveryOptionsResponse,
   getPaymentMethodsResponse,
   getPickupPointsResponse,
+  loadCheckoutLists,
 } from '@/lib/storefront-checkout';
 
 const NOW = new Date('2026-06-15T12:00:00Z');
@@ -147,5 +148,87 @@ describe('getPickupPointsResponse', () => {
 
     expect(response.status).toBe(502);
     expect(await response.json()).toEqual({ message: 'Nepavyko gauti paštomatų. Bandyk dar kartą vėliau.' });
+  });
+});
+
+describe('loadCheckoutLists', () => {
+  it('reports the lists as unavailable when Montonio pickup points fail to load', async () => {
+    const { client } = createClient(() => jsonResponse({ message: 'down' }, 503));
+
+    const lists = await loadCheckoutLists({
+      client,
+      delivery: { method: 'locker', pickupPointId: 'pickup-1' },
+      payment: { method: 'card' },
+    });
+
+    expect(lists.status).toBe('unavailable');
+  });
+
+  it('reports the lists as unavailable when Montonio payment methods fail to load', async () => {
+    const { client } = createClient(() => jsonResponse({ message: 'down' }, 500));
+
+    const lists = await loadCheckoutLists({
+      client,
+      delivery: { method: 'courier', address: { street: 'Gedimino pr. 1', city: 'Vilnius', postalCode: 'LT-01103' } },
+      payment: { method: 'bank', bankCode: 'HABALT22' },
+    });
+
+    expect(lists.status).toBe('unavailable');
+  });
+
+  it('loads nothing from Montonio for a courier order paid by card', async () => {
+    const { client, urls } = createClient(() => jsonResponse({ message: 'down' }, 500));
+
+    const lists = await loadCheckoutLists({
+      client,
+      delivery: { method: 'courier', address: { street: 'Gedimino pr. 1', city: 'Vilnius', postalCode: 'LT-01103' } },
+      payment: { method: 'card' },
+    });
+
+    expect(lists).toEqual({ status: 'ok', pickupPoints: [], banks: [] });
+    expect(urls).toEqual([]);
+  });
+
+  it('returns the pickup points and banks a locker order paid by bank needs', async () => {
+    const { client } = createClient((url) =>
+      url.includes('pickup-points')
+        ? jsonResponse({
+            pickupPoints: url.includes('carrierCode=omniva')
+              ? [
+                  {
+                    id: 'omniva-1',
+                    name: 'Vilniaus Akropolis paštomatas',
+                    streetAddress: 'Ozo g. 25',
+                    locality: 'Vilnius',
+                  },
+                ]
+              : [],
+          })
+        : jsonResponse({
+            paymentMethods: {
+              paymentInitiation: { setup: { LT: { paymentMethods: [{ code: 'HABALT22', name: 'Swedbank' }] } } },
+            },
+          }),
+    );
+
+    const lists = await loadCheckoutLists({
+      client,
+      delivery: { method: 'locker', pickupPointId: 'omniva-1' },
+      payment: { method: 'bank', bankCode: 'HABALT22' },
+    });
+
+    expect(lists).toEqual({
+      status: 'ok',
+      pickupPoints: [
+        {
+          id: 'omniva-1',
+          carrier: 'omniva',
+          name: 'Vilniaus Akropolis paštomatas',
+          address: 'Ozo g. 25',
+          city: 'Vilnius',
+        },
+      ],
+      banks: [{ code: 'HABALT22', name: 'Swedbank' }],
+    });
   });
 });

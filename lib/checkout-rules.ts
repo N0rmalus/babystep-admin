@@ -512,3 +512,87 @@ export const getStorefrontOrderStatus = ({
       return stockReleasedAt ? 'failed' : 'pending';
   }
 };
+
+type WebhookOrderState = {
+  isPaid: boolean;
+  paymentStatus: PaymentStatus;
+  stockReleasedAt: Date | null;
+};
+
+type WebhookActionOptions = {
+  order: WebhookOrderState;
+  status: PaymentStatus;
+};
+
+export type WebhookAction =
+  | { type: 'none' }
+  | { type: 'mark-paid' }
+  | { type: 'late-payment' }
+  | { type: 'abandon' }
+  | { type: 'flag-voided' }
+  | { type: 'mirror'; paymentStatus: PaymentStatus };
+
+const NO_ACTION = { type: 'none' } as const;
+
+export const getWebhookAction = ({ order, status }: WebhookActionOptions): WebhookAction => {
+  if (status === order.paymentStatus) {
+    return NO_ACTION;
+  }
+
+  switch (status) {
+    case 'PAID':
+      return getPaidAction(order);
+    case 'ABANDONED':
+      return order.isPaid ? NO_ACTION : { type: 'abandon' };
+    case 'VOIDED':
+      return order.isPaid ? { type: 'flag-voided' } : { type: 'mirror', paymentStatus: status };
+    case 'PARTIALLY_REFUNDED':
+    case 'REFUNDED':
+      return { type: 'mirror', paymentStatus: status };
+    case 'AUTHORIZED':
+      return order.isPaid ? NO_ACTION : { type: 'mirror', paymentStatus: status };
+    case 'PENDING':
+      return NO_ACTION;
+  }
+};
+
+const getPaidAction = (order: WebhookOrderState) => {
+  if (order.isPaid) {
+    return NO_ACTION;
+  }
+
+  if (order.stockReleasedAt) {
+    return { type: 'late-payment' } as const;
+  }
+
+  return { type: 'mark-paid' } as const;
+};
+
+type WebhookOrderMismatchOptions = {
+  token: { uuid: string; grandTotal: number; currency: string };
+  order: { montonioOrderUuid: string | null; total: number };
+};
+
+export type WebhookOrderMismatch = 'UUID_MISSING' | 'UUID' | 'AMOUNT' | 'CURRENCY';
+
+const ORDER_CURRENCY = 'EUR';
+
+export const getWebhookOrderMismatch = ({ token, order }: WebhookOrderMismatchOptions): WebhookOrderMismatch | null => {
+  if (order.montonioOrderUuid === null) {
+    return 'UUID_MISSING';
+  }
+
+  if (token.uuid !== order.montonioOrderUuid) {
+    return 'UUID';
+  }
+
+  if (toCents(token.grandTotal) !== toCents(order.total)) {
+    return 'AMOUNT';
+  }
+
+  if (token.currency !== ORDER_CURRENCY) {
+    return 'CURRENCY';
+  }
+
+  return null;
+};

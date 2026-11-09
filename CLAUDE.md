@@ -40,6 +40,7 @@ Prettier: single quotes, 120 cols, trailing commas, tailwind plugin (`.prettierr
 **API**: `app/api/[storeId]/<resource>` serves both the admin (mutations) and the storefront (public GETs).
 - `checkout` validates the storefront's `CreateOrderInput`, reserves stock and creates the `PENDING` order in one transaction (ADR 0002, `lib/reservation.ts`), then creates the Montonio order and returns `201 { orderId, paymentUrl }`. Errors are `{ code, message, ...details }` (`lib/checkout-response.ts`). If Montonio fails, the reservation is released and it returns `502 PAYMENT_UNAVAILABLE`.
 - `api/webhook` handles `checkout.session.completed`: in a single transaction it marks the order paid, decrements stock and archives products that hit zero stock.
+- `api/webhook/montonio` verifies Montonio's `{ orderToken }` / `{ refundToken }`, checks the token against the order, then applies the transition from `getWebhookAction` (`lib/checkout-rules.ts`) via `lib/montonio-webhook.ts`. Bad signature 401, mismatch 400, unexpected errors 500 so Montonio retries.
 - Handlers return plain-text `NextResponse` errors and log with `console.log('[RESOURCE_METHOD]', error)`. Checkout returns JSON `{ code, message }` instead.
 
 **Data**: `prisma/schema.prisma`.

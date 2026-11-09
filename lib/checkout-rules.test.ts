@@ -5,6 +5,8 @@ import {
   getCheckoutTotals,
   getStockChangedItems,
   getStorefrontOrderStatus,
+  getWebhookAction,
+  getWebhookOrderMismatch,
   parseCheckoutRequest,
   resolveCheckoutItems,
   validateCheckoutFields,
@@ -660,5 +662,127 @@ describe('getStorefrontOrderStatus', () => {
     ['AUTHORIZED', RELEASED_AT, 'failed'],
   ] as const)('maps %s with stockReleasedAt %s to %s', (paymentStatus, stockReleasedAt, status) => {
     expect(getStorefrontOrderStatus({ paymentStatus, stockReleasedAt })).toBe(status);
+  });
+});
+
+describe('getWebhookAction', () => {
+  const RELEASED_AT = new Date('2026-06-15T12:40:00Z');
+  const openOrder = { isPaid: false, paymentStatus: 'PENDING', stockReleasedAt: null } as const;
+
+  it('marks an open order paid on PAID', () => {
+    expect(getWebhookAction({ order: openOrder, status: 'PAID' })).toEqual({ type: 'mark-paid' });
+  });
+
+  const paidOrder = { isPaid: true, paymentStatus: 'PAID', stockReleasedAt: null } as const;
+
+  it('ignores a duplicate PAID', () => {
+    expect(getWebhookAction({ order: paidOrder, status: 'PAID' })).toEqual({ type: 'none' });
+  });
+
+  const releasedOrder = { ...openOrder, stockReleasedAt: RELEASED_AT };
+
+  it('treats PAID on a released order as a late payment', () => {
+    expect(getWebhookAction({ order: releasedOrder, status: 'PAID' })).toEqual({ type: 'late-payment' });
+  });
+
+  it('abandons and releases an unpaid order on ABANDONED', () => {
+    expect(getWebhookAction({ order: openOrder, status: 'ABANDONED' })).toEqual({ type: 'abandon' });
+  });
+
+  it('abandons an order the cleanup already released, leaving the release to the guarded function', () => {
+    expect(getWebhookAction({ order: releasedOrder, status: 'ABANDONED' })).toEqual({ type: 'abandon' });
+  });
+
+  it('ignores ABANDONED on a paid order', () => {
+    expect(getWebhookAction({ order: paidOrder, status: 'ABANDONED' })).toEqual({ type: 'none' });
+  });
+
+  const abandonedOrder = { isPaid: false, paymentStatus: 'ABANDONED', stockReleasedAt: RELEASED_AT } as const;
+
+  it('ignores a duplicate ABANDONED', () => {
+    expect(getWebhookAction({ order: abandonedOrder, status: 'ABANDONED' })).toEqual({ type: 'none' });
+  });
+
+  it('flags a paid order for review on VOIDED', () => {
+    expect(getWebhookAction({ order: paidOrder, status: 'VOIDED' })).toEqual({ type: 'flag-voided' });
+  });
+
+  it('only mirrors VOIDED on an unpaid order', () => {
+    expect(getWebhookAction({ order: openOrder, status: 'VOIDED' })).toEqual({
+      type: 'mirror',
+      paymentStatus: 'VOIDED',
+    });
+  });
+
+  it.each(['PARTIALLY_REFUNDED', 'REFUNDED'] as const)('mirrors %s on a paid order', (status) => {
+    expect(getWebhookAction({ order: paidOrder, status })).toEqual({ type: 'mirror', paymentStatus: status });
+  });
+
+  it('mirrors AUTHORIZED on an unpaid order', () => {
+    expect(getWebhookAction({ order: openOrder, status: 'AUTHORIZED' })).toEqual({
+      type: 'mirror',
+      paymentStatus: 'AUTHORIZED',
+    });
+  });
+
+  it('ignores PENDING', () => {
+    const authorizedOrder = { ...openOrder, paymentStatus: 'AUTHORIZED' } as const;
+
+    expect(getWebhookAction({ order: authorizedOrder, status: 'PENDING' })).toEqual({ type: 'none' });
+  });
+
+  it.each(['PENDING', 'AUTHORIZED', 'ABANDONED'] as const)('never moves a paid order back to %s', (status) => {
+    expect(getWebhookAction({ order: paidOrder, status })).toEqual({ type: 'none' });
+  });
+
+  it.each(['VOIDED', 'REFUNDED'] as const)('ignores a PAID that arrives after %s on a paid order', (paymentStatus) => {
+    expect(getWebhookAction({ order: { ...paidOrder, paymentStatus }, status: 'PAID' })).toEqual({ type: 'none' });
+  });
+
+  it.each([
+    ['REFUNDED', openOrder, { type: 'mirror', paymentStatus: 'REFUNDED' }],
+    ['PARTIALLY_REFUNDED', openOrder, { type: 'mirror', paymentStatus: 'PARTIALLY_REFUNDED' }],
+    ['AUTHORIZED', releasedOrder, { type: 'mirror', paymentStatus: 'AUTHORIZED' }],
+    ['VOIDED', releasedOrder, { type: 'mirror', paymentStatus: 'VOIDED' }],
+    ['PENDING', releasedOrder, { type: 'none' }],
+  ] as const)('handles %s on an unpaid order %#', (status, order, action) => {
+    expect(getWebhookAction({ order, status })).toEqual(action);
+  });
+
+  it('marks an authorized order paid on PAID', () => {
+    const authorizedOrder = { ...openOrder, paymentStatus: 'AUTHORIZED' } as const;
+
+    expect(getWebhookAction({ order: authorizedOrder, status: 'PAID' })).toEqual({ type: 'mark-paid' });
+  });
+
+  it('treats PAID after ABANDONED as a late payment', () => {
+    expect(getWebhookAction({ order: abandonedOrder, status: 'PAID' })).toEqual({ type: 'late-payment' });
+  });
+});
+
+describe('getWebhookOrderMismatch', () => {
+  const order = { montonioOrderUuid: 'montonio-uuid', total: 83.49 };
+  const token = { uuid: 'montonio-uuid', grandTotal: 83.49, currency: 'EUR' };
+
+  it('accepts a token that matches the order', () => {
+    expect(getWebhookOrderMismatch({ token, order })).toBeNull();
+  });
+
+  it.each([
+    ['UUID', { ...token, uuid: 'other-uuid' }],
+    ['AMOUNT', { ...token, grandTotal: 1 }],
+    ['CURRENCY', { ...token, currency: 'USD' }],
+  ] as const)('reports a %s mismatch', (reason, mismatchedToken) => {
+    expect(getWebhookOrderMismatch({ token: mismatchedToken, order })).toBe(reason);
+  });
+
+  it('reports a missing UUID while checkout has not stored the Montonio order yet', () => {
+    expect(getWebhookOrderMismatch({ token, order: { ...order, montonioOrderUuid: null } })).toBe('UUID_MISSING');
+  });
+
+  it('compares amounts in cents', () => {
+    expect(
+      getWebhookOrderMismatch({ token: { ...token, grandTotal: 0.3 }, order: { ...order, total: 0.1 + 0.2 } }),
+    ).toBeNull();
   });
 });

@@ -443,10 +443,14 @@ describe('getPickupPoints', () => {
       `${SHIPPING_API_URL}/shipping-methods/pickup-points`,
       `${SHIPPING_API_URL}/shipping-methods/pickup-points`,
     ]);
-    expect(urls.map((url) => Object.fromEntries(url.searchParams))).toEqual([
-      { carrierCode: 'omniva', countryCode: 'LT', type: 'parcelMachine' },
-      { carrierCode: 'unisend', countryCode: 'LT', type: 'parcelMachine' },
-    ]);
+    const searchParams = urls.map((url) => Object.fromEntries(url.searchParams));
+    expect(searchParams).toHaveLength(2);
+    expect(searchParams).toEqual(
+      expect.arrayContaining([
+        { carrierCode: 'omniva', countryCode: 'LT', type: 'parcelMachine' },
+        { carrierCode: 'unisend', countryCode: 'LT', type: 'parcelMachine' },
+      ]),
+    );
 
     const { payload } = await verifyAtNow(getBearerToken(calls.at(0)));
     expect(payload.accessKey).toBe(TEST_ACCESS_KEY);
@@ -474,6 +478,12 @@ describe('getPickupPoints', () => {
     ['address', 'tilžės', ['unisend-1']],
     ['carrier', 'Unisend', ['unisend-1']],
     ['Lithuanian letters case-insensitively', 'ŠIAULIAI', ['unisend-1']],
+    ['words spread across fields', 'kaunas mega', ['omniva-2']],
+    ['words in any order', 'paštomatas omniva vilnius', ['omniva-1']],
+    ['another grammatical case of the word', 'akropolis', ['omniva-1']],
+    ['a city in the genitive', 'kauno', ['omniva-2']],
+    ['a genitive -aus city', 'vilniaus', ['omniva-1']],
+    ['every word, not any word', 'kaunas akropolis', []],
   ])('filters by %s', async (_label, query, ids) => {
     const { fakeFetch } = pickupPointsFetch();
 

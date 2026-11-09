@@ -102,6 +102,28 @@ const CARRIER_CODES = {
 const PICKUP_POINT_COUNTRY = 'LT';
 const PICKUP_POINT_TYPE = 'parcelMachine';
 const SEARCH_LOCALE = 'lt';
+const WORD_ENDINGS = [
+  'iaus',
+  'iai',
+  'ius',
+  'ių',
+  'ys',
+  'is',
+  'as',
+  'us',
+  'ai',
+  'ės',
+  'os',
+  'io',
+  'a',
+  'ė',
+  'ų',
+  'e',
+  'o',
+  'i',
+  'u',
+];
+const MIN_STEM_LENGTH = 4;
 const BANK_COUNTRY = 'LT';
 const CURRENCY = 'EUR';
 const CACHE_TTL_MILLISECONDS = 5 * 60 * 1000;
@@ -313,13 +335,23 @@ const createCache = <T>(now: () => Date) => {
 };
 
 const filterPickupPoints = ({ pickupPoints, query }: { pickupPoints: PickupPoint[]; query: string }) => {
-  const normalizedQuery = query.trim().toLocaleLowerCase(SEARCH_LOCALE);
+  const stems = query.toLocaleLowerCase(SEARCH_LOCALE).split(/\s+/).filter(Boolean).map(toStem);
 
-  if (!normalizedQuery) {
+  if (stems.length === 0) {
     return pickupPoints;
   }
 
-  return pickupPoints.filter(({ city, name, address, carrier }) =>
-    [city, name, address, carrier].some((value) => value.toLocaleLowerCase(SEARCH_LOCALE).includes(normalizedQuery)),
+  return pickupPoints.filter(({ city, name, address, carrier }) => {
+    const searchableText = [city, name, address, carrier].join(' ').toLocaleLowerCase(SEARCH_LOCALE);
+
+    return stems.every((stem) => searchableText.includes(stem));
+  });
+};
+
+const toStem = (word: string) => {
+  const ending = WORD_ENDINGS.find(
+    (wordEnding) => word.endsWith(wordEnding) && word.length - wordEnding.length >= MIN_STEM_LENGTH,
   );
+
+  return ending ? word.slice(0, -ending.length) : word;
 };

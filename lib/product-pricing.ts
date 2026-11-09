@@ -8,10 +8,12 @@ type ProductPricingInput = {
   saleEndsAt?: DateLike;
 };
 
-type OrderItemPricingInput = {
-  unitPrice?: PriceLike;
-  product: ProductPricingInput;
+type OrderItemTotalInput = {
+  unitPrice: PriceLike;
+  quantity: number;
 };
+
+export const CENTS_PER_EURO = 100;
 
 type SaleValidationInput = {
   price: number | null;
@@ -118,8 +120,28 @@ export const getProductEffectivePrice = (product: ProductPricingInput, now = new
   return getProductPricing(product, now).effectivePrice;
 };
 
-export const getOrderItemPrice = (orderItem: OrderItemPricingInput, now = new Date()) => {
-  return normalizeOptionalPrice(orderItem.unitPrice) ?? getProductEffectivePrice(orderItem.product, now);
+type ResolveVariantPricesInput<TPrice> = {
+  product: { price: TPrice; salePrice: TPrice | null };
+  variant: { price: TPrice | null; salePrice: TPrice | null };
+};
+
+// A variant inherits both the product's price and sale price, or overrides both (its own sale price may be null).
+// Values pass through unchanged; getProductPricing judges whether the sale is active using the product's window.
+export const resolveVariantPrices = <TPrice>({
+  product,
+  variant,
+}: ResolveVariantPricesInput<TPrice>): { price: TPrice; salePrice: TPrice | null } => {
+  if (variant.price === null) {
+    return { price: product.price, salePrice: product.salePrice };
+  }
+
+  return { price: variant.price, salePrice: variant.salePrice };
+};
+
+export const getOrderItemTotal = ({ unitPrice, quantity }: OrderItemTotalInput): number => {
+  const total = (normalizeOptionalPrice(unitPrice) ?? 0) * quantity;
+
+  return Math.round(total * CENTS_PER_EURO) / CENTS_PER_EURO;
 };
 
 export const getProductSaleStatus = (product: ProductPricingInput, now = new Date()): SaleStatus => {

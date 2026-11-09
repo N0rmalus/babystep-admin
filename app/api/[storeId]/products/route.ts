@@ -11,6 +11,10 @@ import {
   normalizeOptionalDate,
   normalizeOptionalPrice,
 } from '@/lib/product-pricing';
+import { resolveImageTags } from '@/lib/product-images';
+import { parseSubmittedImages, saveProductImages } from '@/lib/product-image-writes';
+import { prepareVariantChanges, saveProductVariants } from '@/lib/product-variant-writes';
+import { isSkuConflictError, SKU_TAKEN_MESSAGE } from '@/lib/sku-conflict';
 import { getProductCatalog, type ProductCatalogSort } from '@/queries/get-product-catalog';
 import { getProducts } from '@/queries/get-products';
 import { getStoreByUserId } from '@/queries/get-store-by-user-id';
@@ -83,7 +87,6 @@ export async function POST(req: Request, props: { params: Promise<{ storeId: str
       salePrice,
       saleStartsAt,
       saleEndsAt,
-      amountInStock,
       subcategoryId,
       images,
       isFeatured,
@@ -94,6 +97,7 @@ export async function POST(req: Request, props: { params: Promise<{ storeId: str
     const normalizedSalePrice = normalizeOptionalPrice(salePrice);
     const normalizedSaleStartsAt = normalizeOptionalDate(saleStartsAt);
     const normalizedSaleEndsAt = normalizeOptionalDate(saleEndsAt);
+    const submittedImages = parseSubmittedImages(images);
 
     if (!userId) {
       return new NextResponse('Neautentifikuota', { status: 401 });
@@ -101,7 +105,7 @@ export async function POST(req: Request, props: { params: Promise<{ storeId: str
     if (!name) {
       return new NextResponse('Būtina nurodyti pavadinimą', { status: 400 });
     }
-    if (!images || !images.length) {
+    if (!submittedImages) {
       return new NextResponse('Reikalingi vaizdai', { status: 400 });
     }
     if (normalizedPrice === null || normalizedPrice <= 0) {
@@ -126,9 +130,6 @@ export async function POST(req: Request, props: { params: Promise<{ storeId: str
     if (saleValidationMessage) {
       return new NextResponse(saleValidationMessage, { status: 400 });
     }
-    if (amountInStock === undefined || amountInStock === null) {
-      return new NextResponse('Reikalingas kiekis sandėlyje', { status: 400 });
-    }
     if (!subcategoryId) {
       return new NextResponse('Būtinas subkategorijos ID', { status: 400 });
     }
@@ -148,29 +149,56 @@ export async function POST(req: Request, props: { params: Promise<{ storeId: str
       return new NextResponse('Subkategorija šiai parduotuvei nerasta', { status: 404 });
     }
 
-    const product = await prismadb.product.create({
-      data: {
-        name,
-        price: normalizedPrice,
-        salePrice: normalizedSalePrice,
-        saleStartsAt: normalizedSaleStartsAt,
-        saleEndsAt: normalizedSaleEndsAt,
-        amountInStock,
-        subcategoryId,
-        isFeatured,
-        isArchived,
-        description,
-        storeId: params.storeId,
-        images: {
-          createMany: {
-            data: [...images.map((image: { url: string }) => image)],
-          },
+    const variantChanges = await prepareVariantChanges({ storeId: params.storeId, body });
+
+    if (!variantChanges.isValid) {
+      return new NextResponse(variantChanges.message, { status: 400 });
+    }
+
+    const imageTags = resolveImageTags({
+      images: submittedImages,
+      usedValueIds: variantChanges.usedValueIds,
+      serverIdBySubmittedId: variantChanges.serverIdBySubmittedId,
+    });
+
+    if (!imageTags.isValid) {
+      return new NextResponse(imageTags.message, { status: 400 });
+    }
+
+    const product = await prismadb.$transaction(async (tx) => {
+      const createdProduct = await tx.product.create({
+        data: {
+          name,
+          price: normalizedPrice,
+          salePrice: normalizedSalePrice,
+          saleStartsAt: normalizedSaleStartsAt,
+          saleEndsAt: normalizedSaleEndsAt,
+          subcategoryId,
+          isFeatured,
+          isArchived,
+          description,
+          storeId: params.storeId,
         },
-      },
+      });
+
+      await saveProductVariants(tx, {
+        storeId: params.storeId,
+        productId: createdProduct.id,
+        groupIds: variantChanges.groupIds,
+        plan: variantChanges.plan,
+        productGroupWrites: variantChanges.productGroupWrites,
+      });
+
+      await saveProductImages(tx, { productId: createdProduct.id, images: imageTags.images });
+
+      return createdProduct;
     });
 
     return NextResponse.json(product);
   } catch (error) {
+    if (isSkuConflictError(error)) {
+      return new NextResponse(SKU_TAKEN_MESSAGE, { status: 409 });
+    }
     console.log('[PRODUCTS_POST]', error);
     return new NextResponse('Internal error', { status: 500 });
   }
@@ -214,8 +242,7 @@ export async function GET(req: Request, props: { params: Promise<{ storeId: stri
       isFeatured: isFeatured ? true : undefined,
       isOnSale: isOnSale ? true : undefined,
       onlyActive: true,
-      includeImages: true,
-      includeSubcategoryCategory: true,
+      includeVariants: true,
     });
 
     return NextResponse.json(products, { headers: corsHeaders });

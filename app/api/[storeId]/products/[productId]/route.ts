@@ -11,6 +11,15 @@ import {
   normalizeOptionalDate,
   normalizeOptionalPrice,
 } from '@/lib/product-pricing';
+import { resolveImageTags } from '@/lib/product-images';
+import { parseSubmittedImages, saveProductImages } from '@/lib/product-image-writes';
+import {
+  isVariantWithOrdersError,
+  prepareVariantChanges,
+  saveProductVariants,
+  VARIANT_HAS_ORDERS_MESSAGE,
+} from '@/lib/product-variant-writes';
+import { isSkuConflictError, SKU_TAKEN_MESSAGE } from '@/lib/sku-conflict';
 import { getProduct } from '@/queries/get-product';
 import { getStoreByUserId } from '@/queries/get-store-by-user-id';
 import { getSubcategory } from '@/queries/get-subcategory';
@@ -30,8 +39,7 @@ export async function GET(req: Request, props: { params: Promise<{ storeId: stri
     }
 
     const product = await getProduct(params.storeId, params.productId, {
-      includeImages: true,
-      includeSubcategoryCategory: true,
+      includeVariants: true,
     });
 
     if (!product) {
@@ -57,7 +65,6 @@ export async function PATCH(req: Request, props: { params: Promise<{ storeId: st
       salePrice,
       saleStartsAt,
       saleEndsAt,
-      amountInStock,
       subcategoryId,
       images,
       isFeatured,
@@ -68,6 +75,7 @@ export async function PATCH(req: Request, props: { params: Promise<{ storeId: st
     const normalizedSalePrice = normalizeOptionalPrice(salePrice);
     const normalizedSaleStartsAt = normalizeOptionalDate(saleStartsAt);
     const normalizedSaleEndsAt = normalizeOptionalDate(saleEndsAt);
+    const submittedImages = parseSubmittedImages(images);
 
     if (!userId) {
       return new NextResponse('Neautentifikuota', { status: 401 });
@@ -75,7 +83,7 @@ export async function PATCH(req: Request, props: { params: Promise<{ storeId: st
     if (!name) {
       return new NextResponse('Būtina nurodyti pavadinimą', { status: 400 });
     }
-    if (!images || !images.length) {
+    if (!submittedImages) {
       return new NextResponse('Reikalingi vaizdai', { status: 400 });
     }
     if (normalizedPrice === null || normalizedPrice <= 0) {
@@ -99,9 +107,6 @@ export async function PATCH(req: Request, props: { params: Promise<{ storeId: st
 
     if (saleValidationMessage) {
       return new NextResponse(saleValidationMessage, { status: 400 });
-    }
-    if (amountInStock === undefined || amountInStock === null) {
-      return new NextResponse('Reikalingas kiekis sandėlyje', { status: 400 });
     }
     if (!subcategoryId) {
       return new NextResponse('Būtinas subkategorijos ID', { status: 400 });
@@ -128,42 +133,65 @@ export async function PATCH(req: Request, props: { params: Promise<{ storeId: st
       return new NextResponse('Subkategorija šiai parduotuvei nerasta', { status: 404 });
     }
 
-    await prismadb.product.update({
-      where: {
-        id: params.productId,
-      },
-      data: {
-        name,
-        price: normalizedPrice,
-        salePrice: normalizedSalePrice,
-        saleStartsAt: normalizedSaleStartsAt,
-        saleEndsAt: normalizedSaleEndsAt,
-        amountInStock,
-        subcategoryId,
-        images: {
-          deleteMany: {},
-        },
-        isFeatured,
-        isArchived,
-        description,
-      },
+    const variantChanges = await prepareVariantChanges({
+      storeId: params.storeId,
+      productId: params.productId,
+      body,
     });
 
-    const product = await prismadb.product.update({
-      where: {
-        id: params.productId,
-      },
-      data: {
-        images: {
-          createMany: {
-            data: [...images.map((image: { url: string }) => image)],
-          },
+    if (!variantChanges.isValid) {
+      return new NextResponse(variantChanges.message, { status: 400 });
+    }
+
+    const imageTags = resolveImageTags({
+      images: submittedImages,
+      usedValueIds: variantChanges.usedValueIds,
+      serverIdBySubmittedId: variantChanges.serverIdBySubmittedId,
+    });
+
+    if (!imageTags.isValid) {
+      return new NextResponse(imageTags.message, { status: 400 });
+    }
+
+    const product = await prismadb.$transaction(async (tx) => {
+      const updatedProduct = await tx.product.update({
+        where: {
+          id: params.productId,
         },
-      },
+        data: {
+          name,
+          price: normalizedPrice,
+          salePrice: normalizedSalePrice,
+          saleStartsAt: normalizedSaleStartsAt,
+          saleEndsAt: normalizedSaleEndsAt,
+          subcategoryId,
+          isFeatured,
+          isArchived,
+          description,
+        },
+      });
+
+      await saveProductVariants(tx, {
+        storeId: params.storeId,
+        productId: params.productId,
+        groupIds: variantChanges.groupIds,
+        plan: variantChanges.plan,
+        productGroupWrites: variantChanges.productGroupWrites,
+      });
+
+      await saveProductImages(tx, { productId: params.productId, images: imageTags.images });
+
+      return updatedProduct;
     });
 
     return NextResponse.json(product);
   } catch (error) {
+    if (isSkuConflictError(error)) {
+      return new NextResponse(SKU_TAKEN_MESSAGE, { status: 409 });
+    }
+    if (isVariantWithOrdersError(error)) {
+      return new NextResponse(VARIANT_HAS_ORDERS_MESSAGE, { status: 409 });
+    }
     console.log('[PRODUCT_PATCH]', error);
     return new NextResponse('Internal error', { status: 500 });
   }

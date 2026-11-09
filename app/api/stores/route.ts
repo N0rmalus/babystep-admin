@@ -3,6 +3,7 @@ import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 
 // Personal imports
+import { DEFAULT_OPTION_GROUPS } from '@/lib/default-option-groups';
 import prismadb from '@/lib/prismadb';
 
 export async function POST(req: Request) {
@@ -23,6 +24,11 @@ export async function POST(req: Request) {
       data: {
         name,
         userId,
+        optionGroups: {
+          createMany: {
+            data: [...DEFAULT_OPTION_GROUPS],
+          },
+        },
       },
     });
 

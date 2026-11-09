@@ -4,6 +4,7 @@ import { ColumnDef } from '@tanstack/react-table';
 import { Badge } from '@/components/ui/badge';
 import { CellAction } from './cell-action';
 import { TriangleAlert } from 'lucide-react';
+import { formatVariantCount } from '@/lib/product-variant';
 
 export type ProductColumn = {
   id: string;
@@ -13,7 +14,9 @@ export type ProductColumn = {
   saleStatus: string;
   isOnSale: boolean;
   subcategory: string;
-  amountInStock: number;
+  stockCount: number;
+  // Active variants with option values; 0 for a product without options
+  variantCount: number;
   isFeatured: boolean;
   isArchived: boolean;
   createdAt: string;
@@ -33,21 +36,26 @@ export const columns: ColumnDef<ProductColumn>[] = [
     header: 'Rek.',
   },
   {
-    accessorKey: 'amountInStock',
-    header: 'Sandėlyje',
+    accessorKey: 'stockCount',
+    header: 'Laisva',
     cell: ({ row }) => {
       const product = row.original;
+      // e.g. "12 (4 variantai)" for a product with variants
+      const stockText =
+        product.variantCount > 0
+          ? `${product.stockCount} (${formatVariantCount(product.variantCount)})`
+          : `${product.stockCount}`;
 
-      if (product.amountInStock === 0) {
+      if (product.stockCount === 0) {
         return (
           <div className="flex items-center gap-2">
-            {product.amountInStock}
+            {stockText}
             <TriangleAlert size={16} className="text-red-500" />
           </div>
         );
       }
 
-      return product.amountInStock;
+      return stockText;
     },
   },
   {

@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { getOrderItemPrice } from '@/lib/product-pricing';
+import { getOrderItemTotal } from '@/lib/product-pricing';
 import prismadb from '@/lib/prismadb';
 
 interface GraphData {
@@ -15,11 +15,7 @@ export const getGraphRevenue = async (storeId: string): Promise<GraphData[]> => 
       isPaid: true,
     },
     include: {
-      orderItems: {
-        include: {
-          product: true,
-        },
-      },
+      orderItems: true,
     },
   });
 
@@ -31,7 +27,7 @@ export const getGraphRevenue = async (storeId: string): Promise<GraphData[]> => 
     let revenueForOrder = 0;
 
     for (const item of order.orderItems) {
-      revenueForOrder += getOrderItemPrice(item);
+      revenueForOrder += getOrderItemTotal(item);
     }
 
     // Adding the revenue for this order to the respective month

@@ -12,9 +12,10 @@ Stack: Next.js 16 (App Router), React 19, TypeScript, Tailwind v4, shadcn/ui, Pr
 
 - `npm run dev` / `build` / `lint`
 - `npm run typescript`: type check. Run it before saying a task is done.
+- `npm run test`: Vitest (`vitest.config.mts`, Node env, `@/` alias). Tests live next to the module as `*.test.ts`; `lib/product-pricing.test.ts` is the reference pattern.
 - `npx prisma generate` (also runs on postinstall)
 
-There is no test suite. CI runs `prisma generate`, `lint` and `build` on every push/PR.
+CI (Node 22) runs `prisma generate`, `lint`, `test` and `build` on every push/PR.
 Prettier: single quotes, 120 cols, trailing commas, tailwind plugin (`.prettierrc`).
 
 ## Rules

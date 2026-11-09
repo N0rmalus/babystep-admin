@@ -1,14 +1,16 @@
 import 'server-only';
 
-import { getProductEffectivePrice, getProductPricing } from '@/lib/product-pricing';
+import {
+  compareByLowestPrice,
+  getCatalogPriceRange,
+  hasEffectivePriceInRange,
+  isInStock,
+  isOnSale,
+  type PriceRange,
+} from '@/lib/catalog-rules';
 import { getProducts, type PublicProduct } from '@/queries/get-products';
 
 export type ProductCatalogSort = 'recommended' | 'price-asc' | 'price-desc' | 'name-asc';
-
-type ProductPriceRange = {
-  min: number;
-  max: number;
-};
 
 type ProductCatalogOptions = {
   categoryId?: string;
@@ -29,7 +31,7 @@ export type ProductCatalogResult = {
   products: PublicProduct[];
   totalCount: number;
   filteredCount: number;
-  priceRange: ProductPriceRange;
+  priceRange: PriceRange;
   subcategoryCounts: Record<string, number>;
   currentPage: number;
   totalPages: number;
@@ -52,14 +54,16 @@ export const getProductCatalog = async (
     subcategoryId: options.subcategoryId,
     isOnSale: options.baseIsOnSale ? true : undefined,
     onlyActive: true,
-    includeImages: true,
-    includeSubcategoryCategory: true,
+    includeVariants: true,
   });
 
-  const filteredProducts = sortProducts(
-    baseProducts.filter((product) => matchesCatalogFilters(product, options)),
-    options.sort ?? 'recommended',
-  );
+  // One timestamp so every rule judges sale windows at the same moment
+  const now = new Date();
+  const filteredProducts = sortProducts({
+    products: baseProducts.filter((product) => matchesCatalogFilters({ product, options, now })),
+    sort: options.sort ?? 'recommended',
+    now,
+  });
   const filteredCount = filteredProducts.length;
   const pageSize = getSafePageSize(options.pageSize);
   const totalPages = Math.max(1, Math.ceil(filteredCount / pageSize));
@@ -70,7 +74,7 @@ export const getProductCatalog = async (
     products: filteredProducts.slice(pageStart, pageStart + pageSize),
     totalCount: baseProducts.length,
     filteredCount,
-    priceRange: getProductPriceRange(baseProducts),
+    priceRange: getCatalogPriceRange(baseProducts, now),
     subcategoryCounts: getSubcategoryCounts(baseProducts),
     currentPage,
     totalPages,
@@ -78,7 +82,15 @@ export const getProductCatalog = async (
   };
 };
 
-const matchesCatalogFilters = (product: PublicProduct, options: ProductCatalogOptions) => {
+const matchesCatalogFilters = ({
+  product,
+  options,
+  now,
+}: {
+  product: PublicProduct;
+  options: ProductCatalogOptions;
+  now: Date;
+}) => {
   const normalizedQuery = options.query?.trim().toLocaleLowerCase('lt-LT') ?? '';
 
   if (normalizedQuery && !matchesSearchQuery(product, normalizedQuery)) {
@@ -89,25 +101,15 @@ const matchesCatalogFilters = (product: PublicProduct, options: ProductCatalogOp
     return false;
   }
 
-  if (options.isInStock && product.amountInStock <= 0) {
+  if (options.isInStock && !isInStock(product)) {
     return false;
   }
 
-  const pricing = getProductPricing(product);
-
-  if (options.isOnSale && !pricing.isOnSale) {
+  if (options.isOnSale && !isOnSale(product, now)) {
     return false;
   }
 
-  if (options.minPrice !== undefined && pricing.effectivePrice < options.minPrice) {
-    return false;
-  }
-
-  if (options.maxPrice !== undefined && pricing.effectivePrice > options.maxPrice) {
-    return false;
-  }
-
-  return true;
+  return hasEffectivePriceInRange({ product, min: options.minPrice, max: options.maxPrice, now });
 };
 
 const matchesSearchQuery = (product: PublicProduct, normalizedQuery: string) => {
@@ -123,14 +125,14 @@ const getSearchableProductValues = (product: PublicProduct) => [
   product.subcategory?.category?.name,
 ];
 
-const sortProducts = (products: PublicProduct[], sort: ProductCatalogSort) => {
+const sortProducts = ({ products, sort, now }: { products: PublicProduct[]; sort: ProductCatalogSort; now: Date }) => {
   return [...products].sort((firstProduct, secondProduct) => {
     if (sort === 'price-asc') {
-      return getProductEffectivePrice(firstProduct) - getProductEffectivePrice(secondProduct);
+      return compareByLowestPrice({ first: firstProduct, second: secondProduct, isDescending: false, now });
     }
 
     if (sort === 'price-desc') {
-      return getProductEffectivePrice(secondProduct) - getProductEffectivePrice(firstProduct);
+      return compareByLowestPrice({ first: firstProduct, second: secondProduct, isDescending: true, now });
     }
 
     if (sort === 'name-asc') {
@@ -145,21 +147,6 @@ const sortProducts = (products: PublicProduct[], sort: ProductCatalogSort) => {
 
     return getProductTimestamp(secondProduct) - getProductTimestamp(firstProduct);
   });
-};
-
-const getProductPriceRange = (products: PublicProduct[]): ProductPriceRange => {
-  const prices = products
-    .map((product) => getProductEffectivePrice(product))
-    .filter((price) => Number.isFinite(price) && price >= 0);
-
-  if (prices.length === 0) {
-    return { min: 0, max: 0 };
-  }
-
-  return {
-    min: Math.floor(Math.min(...prices)),
-    max: Math.ceil(Math.max(...prices)),
-  };
 };
 
 const getSubcategoryCounts = (products: PublicProduct[]) => {

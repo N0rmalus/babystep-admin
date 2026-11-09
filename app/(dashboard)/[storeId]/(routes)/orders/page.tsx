@@ -4,7 +4,8 @@ import { formatter } from '@/lib/utils';
 import { OrderClient } from './components/client';
 import { OrderColumn } from './components/columns';
 import { Page } from '@/components/dashboard/page';
-import { getOrderItemPrice } from '@/lib/product-pricing';
+import { getOrderItemTotal } from '@/lib/product-pricing';
+import { getOrderItemText, OrderItemSnapshot } from '@/lib/variant-label';
 import { getOrders } from '@/queries/get-orders';
 
 type Props = {
@@ -21,10 +22,10 @@ const OrdersPage = async (props: Props) => {
     id: item.id,
     phone: item.phone,
     address: item.address,
-    products: item.orderItems.map((orderItem) => orderItem.product.name).join(', '),
+    products: item.orderItems.map(formatOrderItem).join(', '),
     totalPrice: formatter.format(
       item.orderItems.reduce((total, item) => {
-        return total + getOrderItemPrice(item);
+        return total + getOrderItemTotal(item);
       }, 0),
     ),
     isPaid: item.isPaid,
@@ -39,3 +40,8 @@ const OrdersPage = async (props: Props) => {
 };
 
 export default OrdersPage;
+
+// Built from the order item snapshot, never live product data.
+const formatOrderItem = ({ quantity, ...snapshot }: OrderItemSnapshot & { quantity: number }) => {
+  return `${getOrderItemText(snapshot)} × ${quantity}`;
+};

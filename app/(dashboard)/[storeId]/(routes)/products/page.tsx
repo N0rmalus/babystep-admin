@@ -25,6 +25,7 @@ const ProductsPage = async (props: Props) => {
   const params = await props.params;
   const products = await getProducts(params.storeId, {
     includeSubcategory: true,
+    includeStockCount: true,
     orderByCreatedAt: 'desc',
   });
 
@@ -36,7 +37,8 @@ const ProductsPage = async (props: Props) => {
       name: item.name,
       isFeatured: item.isFeatured,
       isArchived: item.isArchived,
-      amountInStock: item.amountInStock,
+      stockCount: item.stockCount,
+      variantCount: item.variantCount,
       price: formatter.format(pricing.regularPrice),
       salePrice: pricing.salePrice === null ? null : formatter.format(pricing.salePrice),
       saleStatus: saleStatusLabels[pricing.status],

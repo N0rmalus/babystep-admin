@@ -304,7 +304,7 @@ const PHONE_DIGITS_PATTERN = /^\d{8}$/;
 const POSTAL_CODE_PATTERN = /^(LT-?)?(\d{5})$/i;
 const POSTAL_CODE_DIGITS_GROUP = 2;
 const POSTAL_CODE_PREFIX = 'LT-';
-const PHONE_COUNTRY_CODE = '370';
+export const PHONE_COUNTRY_CODE = '370';
 const PHONE_TRUNK_PREFIX = '8';
 const NATIONAL_PHONE_LENGTH = 8;
 

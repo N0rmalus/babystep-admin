@@ -1,4 +1,4 @@
-import type { CheckoutTotals, CourierAddress } from '@/lib/checkout-rules';
+import { type CheckoutTotals, type CourierAddress, PHONE_COUNTRY_CODE } from '@/lib/checkout-rules';
 import { RESERVATION_MINUTES } from '@/lib/reservation-config';
 import { getOrderItemText, type VariantOption } from '@/lib/variant-label';
 
@@ -83,6 +83,7 @@ const CURRENCY = 'EUR';
 const COUNTRY = 'LT';
 const SHIPPING_LINE_NAME = 'Pristatymas';
 const SHIPPING_LINE_QUANTITY = 1;
+const INTERNATIONAL_PHONE_PREFIX = `+${PHONE_COUNTRY_CODE}`;
 
 export const buildMontonioOrderPayload = ({
   order,
@@ -98,8 +99,8 @@ export const buildMontonioOrderPayload = ({
     firstName: contact.firstName,
     lastName: contact.lastName,
     email: contact.email,
-    phoneNumber: contact.phone,
-    phoneCountry: COUNTRY,
+    phoneNumber: toNationalPhone(contact.phone),
+    phoneCountry: PHONE_COUNTRY_CODE,
   };
   const shippingAddress = { ...contactAddress, ...getDeliveryAddress(delivery) };
 
@@ -132,6 +133,9 @@ const getLineItems = ({ items, shippingPrice }: { items: PayloadItem[]; shipping
 
   return [...lineItems, { name: SHIPPING_LINE_NAME, quantity: SHIPPING_LINE_QUANTITY, finalPrice: shippingPrice }];
 };
+
+const toNationalPhone = (phone: string) =>
+  phone.startsWith(INTERNATIONAL_PHONE_PREFIX) ? phone.slice(INTERNATIONAL_PHONE_PREFIX.length) : phone;
 
 const getDeliveryAddress = (delivery: PayloadDelivery) => {
   if (delivery.method === 'locker') {

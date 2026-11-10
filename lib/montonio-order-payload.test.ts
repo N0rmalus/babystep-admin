@@ -116,8 +116,8 @@ describe('buildMontonioOrderPayload', () => {
       firstName: 'Ona',
       lastName: 'Kazlauskienė',
       email: 'ona@example.lt',
-      phoneNumber: '+37061234567',
-      phoneCountry: 'LT',
+      phoneNumber: '61234567',
+      phoneCountry: '370',
     };
 
     expect(payload.billingAddress).toEqual(contact);
@@ -143,8 +143,8 @@ describe('buildMontonioOrderPayload', () => {
       firstName: 'Ona',
       lastName: 'Kazlauskienė',
       email: 'ona@example.lt',
-      phoneNumber: '+37061234567',
-      phoneCountry: 'LT',
+      phoneNumber: '61234567',
+      phoneCountry: '370',
       addressLine1: 'Gedimino pr. 9',
       addressLine2: '12',
       locality: 'Kaunas',

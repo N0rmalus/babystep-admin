@@ -3,11 +3,12 @@
 import { Heading } from '@/components/ui/heading';
 import { Separator } from '@/components/ui/separator';
 import { DataTable } from '@/components/ui/data-table';
+import type { AdminOrder } from '@/lib/admin-order';
 
-import { columns, OrderColumn } from './columns';
+import { columns, SEARCH_COLUMN_ID } from './columns';
 
 type Props = {
-  data: OrderColumn[];
+  data: AdminOrder[];
 };
 
 export const OrderClient = ({ data }: Props) => {
@@ -17,7 +18,7 @@ export const OrderClient = ({ data }: Props) => {
         <Heading title={`Užsakymai (${data.length})`} />
       </div>
       <Separator />
-      <DataTable searchKey="products" columns={columns} data={data} />
+      <DataTable searchKey={SEARCH_COLUMN_ID} columns={columns} data={data} />
     </>
   );
 };

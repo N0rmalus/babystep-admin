@@ -59,4 +59,38 @@ describe('releaseOrderBatch', () => {
     expect(releasedOrderIds).toEqual(['order-1', 'order-2']);
     expect(reportedErrors).toEqual([{ error: dbError, orderId: 'order-1' }]);
   });
+
+  it('reports a failed lookup and releases nothing when a lookup error handler is given', async () => {
+    const lookupError = new Error("Can't reach database server");
+    const { release, releasedOrderIds } = createRelease({});
+    const reportedErrors: unknown[] = [];
+
+    const releasedCount = await releaseOrderBatch({
+      findOrderIds: async () => {
+        throw lookupError;
+      },
+      release,
+      onReleaseError: () => {},
+      onLookupError: (error) => reportedErrors.push(error),
+    });
+
+    expect(releasedCount).toBe(0);
+    expect(releasedOrderIds).toEqual([]);
+    expect(reportedErrors).toEqual([lookupError]);
+  });
+
+  it('rethrows a failed lookup when no lookup error handler is given', async () => {
+    const lookupError = new Error("Can't reach database server");
+    const { release } = createRelease({});
+
+    await expect(
+      releaseOrderBatch({
+        findOrderIds: async () => {
+          throw lookupError;
+        },
+        release,
+        onReleaseError: () => {},
+      }),
+    ).rejects.toBe(lookupError);
+  });
 });

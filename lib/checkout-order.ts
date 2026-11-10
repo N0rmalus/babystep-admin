@@ -12,7 +12,7 @@ import {
 import type { CourierCarrier, LockerCarrier } from '@/lib/delivery-config';
 import type { Bank, PickupPoint } from '@/lib/montonio-client';
 import prismadb from '@/lib/prismadb';
-import { releaseExpiredOrders, reserveStock, StockChangedError } from '@/lib/reservation';
+import { releaseExpiredOrdersHolding, reserveStock, StockChangedError } from '@/lib/reservation';
 import { getReservationExpiresAt } from '@/lib/reservation-config';
 import { reserveWithRetry } from '@/lib/reservation-retry';
 import { getVariantStockCounts } from '@/queries/get-variant-stock-counts';
@@ -46,7 +46,7 @@ export const createReservedOrder = async ({
 }: CreateReservedOrderOptions) => {
   const variantIds = items.map(({ variantId }) => variantId);
 
-  await releaseExpiredOrders({ variantIds, now });
+  await releaseExpiredOrdersHolding({ variantIds, now });
 
   return reserveWithRetry<ReservedOrder, StockChangedItem>({
     reserve: () => reserveAndCreateOrder({ storeId, items, totals, fields, now }),

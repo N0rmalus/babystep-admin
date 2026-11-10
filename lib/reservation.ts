@@ -57,24 +57,39 @@ export const releaseReservation = ({ orderId, tx, now = new Date() }: ReleaseRes
   return prismadb.$transaction((transaction) => releaseInTransaction({ orderId, tx: transaction, now }));
 };
 
-type ReleaseExpiredOrdersOptions = {
-  variantIds?: string[];
+const RELEASE_LOG_TAG = '[RELEASE_EXPIRED_ORDERS]';
+
+export const releaseExpiredOrders = (now = new Date()): Promise<number> =>
+  releaseOrderBatch({
+    findOrderIds: () => getExpiredReservationOrderIds({ cutoff: getReleaseCutoff(now), limit: RELEASE_BATCH_SIZE }),
+    release: (orderId) => releaseReservation({ orderId, now }),
+    onReleaseError: reportReleaseError,
+  });
+
+type ReleaseExpiredOrdersHoldingOptions = {
+  variantIds: string[];
   now?: Date;
 };
 
-export const releaseExpiredOrders = ({
+export const releaseExpiredOrdersHolding = ({
   variantIds,
   now = new Date(),
-}: ReleaseExpiredOrdersOptions = {}): Promise<number> =>
+}: ReleaseExpiredOrdersHoldingOptions): Promise<number> =>
   releaseOrderBatch({
     findOrderIds: () =>
       getExpiredReservationOrderIds({ cutoff: getReleaseCutoff(now), limit: RELEASE_BATCH_SIZE, variantIds }),
     release: (orderId) => releaseReservation({ orderId, now }),
-    onReleaseError: (error, orderId) => {
-      Sentry.captureException(error, { extra: { orderId } });
-      console.log('[RELEASE_EXPIRED_ORDERS]', orderId, error);
+    onReleaseError: reportReleaseError,
+    onLookupError: (error) => {
+      Sentry.captureException(error, { extra: { variantIds } });
+      console.log(RELEASE_LOG_TAG, 'lookup', error);
     },
   });
+
+const reportReleaseError = (error: unknown, orderId: string) => {
+  Sentry.captureException(error, { extra: { orderId } });
+  console.log(RELEASE_LOG_TAG, orderId, error);
+};
 
 const releaseInTransaction = async ({
   orderId,

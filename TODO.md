@@ -8,34 +8,34 @@ Payments are moving from Stripe to Montonio. Don't spend time on Stripe-only fix
 
 Planned on 2026-11-07: every decision is in `docs/product-variants.md` (the source for `/to-prd`, one PRD per step). Terms in `GLOSSARY.md`, ADRs 0001 and 0002 in `docs/adr/`. Each step is committed separately and tested on `dev`.
 
-- [ ] **Step 1, admin.** Schema and `dev` migration (default variant per product), the "Savybės" page for store-level groups (Dydis, Spalva), the variant editor with bulk edit, image tags, the public product shape, catalog rules for variants, order item snapshot fields and the variant label helper.
+- [x] **Step 1, admin.** Schema and `dev` migration (default variant per product), the "Savybės" page for store-level groups (Dydis, Spalva), the variant editor with bulk edit, image tags, the public product shape, catalog rules for variants, order item snapshot fields and the variant label helper.
 - [ ] **Step 2, storefront.** See the store's TODO ("Product variants").
-- [ ] **Step 3, Montonio checkout.** Line items per variant, stock reservation and release, the cleanup route, review flags and the checkout error codes. Listed under "Checkout endpoints for the storefront" and "High".
+- [x] **Step 3, Montonio checkout.** Line items per variant, stock reservation and release, the cleanup route, review flags and the checkout error codes. Listed under "Checkout endpoints for the storefront" and "High".
 - [ ] **Steps 4 and 5.** "Product specifications" (with the size guide) and "Product age range" use the shapes fixed in the plan.
 
 ## Montonio migration
 
 High-level plan. How Montonio works is not researched yet: read their docs first and fill in the details from there.
 
-- [ ] **Research Montonio.** How orders are created and paid, how payment results reach us, which payment states exist, what customer data comes back, and whether it offers anything for shipping.
-- [ ] **Replace payment creation in checkout.** `app/api/[storeId]/checkout/route.ts:130` creates the Stripe session. Keep the contract the storefront uses (`{ productIds }` in, `{ url }` out) so the store needs no change at switch-over, and link the payment to our `order.id`.
-- [ ] **Replace the payment webhook.** `app/api/webhook/route.ts`. Keep marking paid once, but stock is now reserved at checkout, so `PAID` no longer decrements stock or archives sold-out products (see "Stock and reservation" in `docs/product-variants.md`). Mark an order paid only once the payment is confirmed, and verify that the notification really comes from the provider.
-- [ ] **Charge shipping.** Today nothing is charged: the Stripe session has no shipping line, while the storefront shows 4,99 € and the delivery page promises 3,49 € (parcel locker) and 6,49 € (courier). Decide the delivery options and prices, then have checkout accept a delivery method, compute the price server-side, apply the free-shipping threshold and store it on the order.
-- [ ] **Keep collecting address and phone.** Stripe's hosted page collects them today (`billing_address_collection`, `phone_number_collection`) and the webhook copies them onto the order. Make sure orders still get them after the switch.
-- [ ] **Return customers to the storefront with our order ID** so the store can show a real confirmation (see the storefront TODO).
-- [ ] **Remove Stripe.** `lib/stripe.ts`, the `STRIPE_*` env vars and the `stripe` dependency.
-- [ ] **Update `CLAUDE.md` for Montonio.** It mentions Stripe in the stack list, the "Stripe: test mode only" rule and the `checkout` description. Replace them with Montonio, keeping a test-only rule for whatever test environment Montonio provides.
+- [x] **Research Montonio.** How orders are created and paid, how payment results reach us, which payment states exist, what customer data comes back, and whether it offers anything for shipping.
+- [x] **Replace payment creation in checkout.** Done with a new contract (`CreateOrderInput` in, `{ orderId, paymentUrl }` out); the payment is linked to our `order.id`.
+- [x] **Replace the payment webhook.** `app/api/webhook/route.ts`. Keep marking paid once, but stock is now reserved at checkout, so `PAID` no longer decrements stock or archives sold-out products (see "Stock and reservation" in `docs/product-variants.md`). Mark an order paid only once the payment is confirmed, and verify that the notification really comes from the provider.
+- [x] **Charge shipping.** Today nothing is charged: the Stripe session has no shipping line, while the storefront shows 4,99 € and the delivery page promises 3,49 € (parcel locker) and 6,49 € (courier). Decide the delivery options and prices, then have checkout accept a delivery method, compute the price server-side, apply the free-shipping threshold and store it on the order.
+- [x] **Keep collecting address and phone.** Stripe's hosted page collects them today (`billing_address_collection`, `phone_number_collection`) and the webhook copies them onto the order. Make sure orders still get them after the switch.
+- [x] **Return customers to the storefront with our order ID** so the store can show a real confirmation (see the storefront TODO).
+- [x] **Remove Stripe.** `lib/stripe.ts`, the `STRIPE_*` env vars and the `stripe` dependency.
+- [x] **Update `CLAUDE.md` for Montonio.** It mentions Stripe in the stack list, the "Stripe: test mode only" rule and the `checkout` description. Replace them with Montonio, keeping a test-only rule for whatever test environment Montonio provides.
 
 ## High
 
-- [ ] **Overselling charges customers without a paid order.** (Planned: reserve per variant by decrementing at checkout, built in the Montonio checkout; see "Stock and reservation" in `docs/product-variants.md` and ADR 0002.) Checkout checks stock but doesn't reserve it; if two people pay for the last item, the second webhook fails with 500 and the order stays unpaid while the customer has paid. Fix it independently of the provider: reserve stock when the order is created in checkout, and release it when the order is cancelled or expires. `app/api/[storeId]/checkout/route.ts:76`, `app/api/webhook/route.ts:104`
+- [x] **Overselling charges customers without a paid order.** (Planned: reserve per variant by decrementing at checkout, built in the Montonio checkout; see "Stock and reservation" in `docs/product-variants.md` and ADR 0002.) Checkout checks stock but doesn't reserve it; if two people pay for the last item, the second webhook fails with 500 and the order stays unpaid while the customer has paid. Fix it independently of the provider: reserve stock when the order is created in checkout, and release it when the order is cancelled or expires. `app/api/[storeId]/checkout/route.ts:76`, `app/api/webhook/route.ts:104`
 - [ ] **Product PATCH can wipe all images.** Images are deleted and re-added in two separate steps; if the second fails the product has none. Do it in one transaction. `app/api/[storeId]/products/[productId]/route.ts:131-163`
 - [ ] **Sale dates drift by the timezone offset on every save.** The form sends dates without a timezone and the server (UTC in prod) reads them as UTC, which can change the charged price. `product-form.tsx:65`, `product-form.tsx:113`
 
 ## Medium
 
-- [ ] Orders table: "Apmokėta" column is always blank, no date column, abandoned unpaid orders mixed with real ones. `orders/components/columns.tsx:179`
-- [ ] Unpaid orders are never cleaned up. Once stock is reserved, the cleanup job is also what releases the reservation, so build it with the overselling fix: the `release-reservations` cron route in `docs/product-variants.md`.
+- [x] Orders table: "Apmokėta" column is always blank, no date column, abandoned unpaid orders mixed with real ones. `orders/components/columns.tsx:179`
+- [x] Unpaid orders are never cleaned up. Once stock is reserved, the cleanup job is also what releases the reservation, so build it with the overselling fix: the `release-reservations` cron route in `docs/product-variants.md`.
 - [ ] Public checkout has no rate limit. Matters more once checkout reserves stock, because spam orders could lock it up.
 - [ ] Server doesn't validate stock amounts; negative values are saved.
 - [ ] Product images from the form are saved as-is instead of keeping only the URL.
@@ -116,11 +116,11 @@ Structured "Papildoma informacija" shown on the product page, next to the rich-t
 
 The storefront's checkout (`../babystep-store/docs/design/checkout/`) needs these public endpoints. Montonio keys stay in the admin.
 
-- [ ] **Delivery options:** carriers, prices and the free-shipping threshold from one shared config (see Decisions in `docs/montonio-research.md`).
-- [ ] **Pickup points:** proxy Montonio Shipping `GET /shipping-methods/pickup-points` for Omniva and Unisend parcel machines in LT, merged into one list, cached (e.g. for a day).
-- [ ] **Payment methods:** proxy `GET /stores/payment-methods`, returning Lithuanian banks (`name`, `code`, `logoUrl`) and whether cards are enabled. Cache it.
-- [ ] **Create order:** the new checkout request (line items with variants, delivery, contact, payment method + bank code), stock reservation, Montonio order, returns `paymentUrl`. Line items, reservation, release and error codes as in `docs/product-variants.md`.
-- [ ] **Order status by our order ID** for the confirmation page.
+- [x] **Delivery options:** carriers, prices and the free-shipping threshold from one shared config (see Decisions in `docs/montonio-research.md`).
+- [x] **Pickup points:** proxy Montonio Shipping `GET /shipping-methods/pickup-points` for Omniva and Unisend parcel machines in LT, merged into one list, cached (e.g. for a day).
+- [x] **Payment methods:** proxy `GET /stores/payment-methods`, returning Lithuanian banks (`name`, `code`, `logoUrl`) and whether cards are enabled. Cache it.
+- [x] **Create order:** the new checkout request (line items with variants, delivery, contact, payment method + bank code), stock reservation, Montonio order, returns `paymentUrl`. Line items, reservation, release and error codes as in `docs/product-variants.md`.
+- [x] **Order status by our order ID** for the confirmation page.
 - [ ] **Order confirmation email** (choose a provider; the newsletter service may cover transactional email).
 - [ ] **Promo codes:** create and manage codes in the admin, validate them in the checkout request and apply the discount server-side.
 

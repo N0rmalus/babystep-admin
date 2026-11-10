@@ -277,8 +277,6 @@ model Order {
   paidAt             DateTime?
   needsReview        Boolean         @default(false)
   reviewReason       ReviewReason?
-  phone              String          @default("")
-  address            String          @default("")
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
 

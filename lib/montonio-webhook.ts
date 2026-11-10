@@ -1,12 +1,11 @@
 import 'server-only';
 
-import * as Sentry from '@sentry/nextjs';
 import type { Prisma } from '@prisma/client';
 
-import type { WebhookAction } from '@/lib/checkout-rules';
+import { getLatePaymentTransition, type LatePaymentTransition, type WebhookAction } from '@/lib/checkout-rules';
 import { flagOrderForReview } from '@/lib/order-review';
 import prismadb from '@/lib/prismadb';
-import { releaseReservation } from '@/lib/reservation';
+import { releaseReservation, reserveStock, StockChangedError } from '@/lib/reservation';
 
 type ApplyWebhookActionOptions = {
   order: { id: string; isPaid: boolean };
@@ -32,10 +31,7 @@ export const applyWebhookAction = async ({
     case 'none':
       return;
     case 'late-payment':
-      Sentry.captureMessage('Montonio PAID arrived after the stock was released', {
-        level: 'warning',
-        extra: { orderId },
-      });
+      await applyLatePayment({ orderId, now });
       return;
     case 'mark-paid':
       await updateGuarded({
@@ -63,6 +59,52 @@ export const applyWebhookAction = async ({
         data: { paymentStatus: action.paymentStatus },
       });
       return;
+  }
+};
+
+const applyLatePayment = async ({ orderId, now }: { orderId: string; now: Date }) => {
+  try {
+    await prismadb.$transaction(async (tx) => {
+      await applyLatePaymentTransition({
+        tx,
+        orderId,
+        transition: getLatePaymentTransition({ isStockReserved: true, now }),
+      });
+      const lines = await tx.orderItem.findMany({ where: { orderId }, select: { variantId: true, quantity: true } });
+      await reserveStock({ tx, lines });
+    });
+  } catch (error) {
+    if (!(error instanceof StockChangedError)) {
+      throw error;
+    }
+
+    await prismadb.$transaction((tx) =>
+      applyLatePaymentTransition({
+        tx,
+        orderId,
+        transition: getLatePaymentTransition({ isStockReserved: false, now }),
+      }),
+    );
+  }
+};
+
+const applyLatePaymentTransition = async ({
+  tx,
+  orderId,
+  transition,
+}: {
+  tx: Prisma.TransactionClient;
+  orderId: string;
+  transition: LatePaymentTransition;
+}) => {
+  await updateGuarded({
+    tx,
+    where: { id: orderId, isPaid: false, stockReleasedAt: { not: null } },
+    data: transition.data,
+  });
+
+  if (transition.type === 'paid-flagged') {
+    await flagOrderForReview({ orderId, reason: transition.reviewReason, tx });
   }
 };
 

@@ -1,4 +1,4 @@
-import type { PaymentStatus } from '@prisma/client';
+import type { PaymentStatus, ReviewReason } from '@prisma/client';
 import { type DeliveryMethod, getShippingPrice } from '@/lib/delivery-config';
 import { CENTS_PER_EURO, getOrderItemTotal, getProductPricing, resolveVariantPrices } from '@/lib/product-pricing';
 import { DEFAULT_COMBINATION_KEY, getSellableVariants } from '@/lib/product-variant';
@@ -566,6 +566,34 @@ const getPaidAction = (order: WebhookOrderState) => {
   }
 
   return { type: 'mark-paid' } as const;
+};
+
+type LatePaymentTransitionOptions = {
+  isStockReserved: boolean;
+  now: Date;
+};
+
+type PaidOrderData = {
+  isPaid: true;
+  paymentStatus: 'PAID';
+  paidAt: Date;
+};
+
+export type LatePaymentTransition =
+  | { type: 'paid'; data: PaidOrderData & { stockReleasedAt: null } }
+  | { type: 'paid-flagged'; data: PaidOrderData; reviewReason: ReviewReason };
+
+export const getLatePaymentTransition = ({
+  isStockReserved,
+  now,
+}: LatePaymentTransitionOptions): LatePaymentTransition => {
+  const data = { isPaid: true, paymentStatus: 'PAID', paidAt: now } as const;
+
+  if (!isStockReserved) {
+    return { type: 'paid-flagged', data, reviewReason: 'LATE_PAYMENT_OUT_OF_STOCK' };
+  }
+
+  return { type: 'paid', data: { ...data, stockReleasedAt: null } };
 };
 
 type WebhookOrderMismatchOptions = {

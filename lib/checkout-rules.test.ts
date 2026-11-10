@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { DELIVERY_CONFIG } from '@/lib/delivery-config';
 import {
   getCheckoutTotals,
+  getLatePaymentTransition,
   getStockChangedItems,
   getStorefrontOrderStatus,
   getWebhookAction,
@@ -757,6 +758,25 @@ describe('getWebhookAction', () => {
 
   it('treats PAID after ABANDONED as a late payment', () => {
     expect(getWebhookAction({ order: abandonedOrder, status: 'PAID' })).toEqual({ type: 'late-payment' });
+  });
+});
+
+describe('getLatePaymentTransition', () => {
+  const PAID_AT = new Date('2026-06-15T13:10:00Z');
+
+  it('pays the order normally and clears the release when stock could be reserved again', () => {
+    expect(getLatePaymentTransition({ isStockReserved: true, now: PAID_AT })).toEqual({
+      type: 'paid',
+      data: { isPaid: true, paymentStatus: 'PAID', paidAt: PAID_AT, stockReleasedAt: null },
+    });
+  });
+
+  it('pays the order but keeps the release and flags it when stock is gone', () => {
+    expect(getLatePaymentTransition({ isStockReserved: false, now: PAID_AT })).toEqual({
+      type: 'paid-flagged',
+      data: { isPaid: true, paymentStatus: 'PAID', paidAt: PAID_AT },
+      reviewReason: 'LATE_PAYMENT_OUT_OF_STOCK',
+    });
   });
 });
 

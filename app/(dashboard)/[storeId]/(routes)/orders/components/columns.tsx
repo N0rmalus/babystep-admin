@@ -7,6 +7,9 @@ import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { type AdminOrder, type AdminPaymentStatus, PAYMENT_STATUS_LABELS } from '@/lib/admin-order';
 import { cn } from '@/lib/utils';
 
+import { CellAction } from './cell-action';
+import { REVIEW_LABEL } from './review-label';
+
 type NowrapCellProps = {
   children: ReactNode;
   className?: string;
@@ -15,6 +18,10 @@ type NowrapCellProps = {
 type DetailsCellProps = {
   title: ReactNode;
   lines: string[];
+};
+
+type ReviewBadgeProps = {
+  reason: string | null;
 };
 
 export const SEARCH_COLUMN_ID = 'customer';
@@ -96,14 +103,21 @@ export const columns: ColumnDef<AdminOrder>[] = [
     accessorKey: 'paymentStatus',
     header: 'Mokėjimas',
     cell: ({ row }) => {
-      const { paymentStatus } = row.original;
+      const { paymentStatus, review } = row.original;
 
       return (
-        <Badge variant={PAYMENT_STATUS_VARIANTS[paymentStatus]} className="whitespace-nowrap">
-          {PAYMENT_STATUS_LABELS[paymentStatus]}
-        </Badge>
+        <div className="flex flex-col items-start gap-1">
+          <Badge variant={PAYMENT_STATUS_VARIANTS[paymentStatus]} className="whitespace-nowrap">
+            {PAYMENT_STATUS_LABELS[paymentStatus]}
+          </Badge>
+          {review && <ReviewBadge reason={review.reason} />}
+        </div>
       );
     },
+  },
+  {
+    id: 'actions',
+    cell: ({ row }) => <CellAction order={row.original} />,
   },
 ];
 
@@ -120,6 +134,15 @@ const DetailsCell = ({ title, lines }: DetailsCellProps) => (
       </span>
     ))}
   </div>
+);
+
+const ReviewBadge = ({ reason }: ReviewBadgeProps) => (
+  <>
+    <Badge variant="destructive" className="whitespace-nowrap">
+      {REVIEW_LABEL}
+    </Badge>
+    {reason && <span className="text-muted-foreground">{reason}</span>}
+  </>
 );
 
 function getSearchText({ number, customer, items }: AdminOrder) {

@@ -12,6 +12,8 @@ const createOrder = (overrides: Partial<AdminOrderRow> = {}) =>
     createdAt: new Date('2026-11-01T09:30:00Z'),
     paymentStatus: 'PAID',
     stockReleasedAt: null,
+    needsReview: false,
+    reviewReason: null,
     firstName: 'Ona',
     lastName: 'Onaitė',
     email: 'ona@example.test',
@@ -51,7 +53,23 @@ describe('toAdminOrder', () => {
       shippingPrice: '3,49\u00a0€',
       total: '43,46\u00a0€',
       paymentStatus: 'paid',
+      review: null,
     });
+  });
+
+  it.each([
+    ['LATE_PAYMENT_OUT_OF_STOCK', 'Apmokėta po rezervacijos pabaigos, prekių neliko'],
+    ['VOIDED_AFTER_PAID', 'Bankas atmetė apmokėtą mokėjimą'],
+  ] as const)('shows a flagged %s order with its review reason', (reviewReason, reason) => {
+    expect(toAdminOrder(createOrder({ needsReview: true, reviewReason })).review).toEqual({ reason });
+  });
+
+  it('shows a flagged order without a reason', () => {
+    expect(toAdminOrder(createOrder({ needsReview: true })).review).toEqual({ reason: null });
+  });
+
+  it('hides the review once it is resolved, keeping the reason on the order', () => {
+    expect(toAdminOrder(createOrder({ reviewReason: 'VOIDED_AFTER_PAID' })).review).toBeNull();
   });
 
   it.each([

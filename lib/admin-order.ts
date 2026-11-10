@@ -1,4 +1,4 @@
-import type { Carrier, DeliveryMethod, PaymentStatus, Prisma } from '@prisma/client';
+import type { Carrier, DeliveryMethod, PaymentStatus, Prisma, ReviewReason } from '@prisma/client';
 
 import { ORDER_NUMBER_PREFIX } from '@/lib/montonio-order-payload';
 import { formatter } from '@/lib/utils';
@@ -10,6 +10,8 @@ export const ADMIN_ORDER_SELECT = {
   createdAt: true,
   paymentStatus: true,
   stockReleasedAt: true,
+  needsReview: true,
+  reviewReason: true,
   firstName: true,
   lastName: true,
   email: true,
@@ -48,6 +50,11 @@ export type AdminOrder = {
   shippingPrice: string;
   total: string;
   paymentStatus: AdminPaymentStatus;
+  review: AdminOrderReview | null;
+};
+
+type AdminOrderReview = {
+  reason: string | null;
 };
 
 type PaymentStatusOptions = {
@@ -65,6 +72,11 @@ export const PAYMENT_STATUS_LABELS = {
 } as const;
 
 export type AdminPaymentStatus = keyof typeof PAYMENT_STATUS_LABELS;
+
+const REVIEW_REASON_LABELS = {
+  LATE_PAYMENT_OUT_OF_STOCK: 'Apmokėta po rezervacijos pabaigos, prekių neliko',
+  VOIDED_AFTER_PAID: 'Bankas atmetė apmokėtą mokėjimą',
+} satisfies Record<ReviewReason, string>;
 
 const DELIVERY_METHOD_LABELS = {
   LOCKER: 'Paštomatas',
@@ -107,6 +119,7 @@ export const toAdminOrder = (order: AdminOrderRow): AdminOrder => {
     shippingPrice: formatter.format(order.shippingPrice.toNumber()),
     total: formatter.format(order.total.toNumber()),
     paymentStatus: getAdminPaymentStatus(order),
+    review: getReview(order),
   };
 };
 
@@ -126,6 +139,14 @@ export const getAdminPaymentStatus = ({ paymentStatus, stockReleasedAt }: Paymen
     case 'AUTHORIZED':
       return stockReleasedAt ? 'unfinished' : 'pending';
   }
+};
+
+const getReview = ({ needsReview, reviewReason }: AdminOrderRow) => {
+  if (!needsReview) {
+    return null;
+  }
+
+  return { reason: reviewReason ? REVIEW_REASON_LABELS[reviewReason] : null };
 };
 
 const getDelivery = (order: AdminOrderRow) => {

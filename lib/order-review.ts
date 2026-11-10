@@ -19,3 +19,14 @@ export const flagOrderForReview = async ({
   await tx.order.update({ where: { id: orderId }, data: { needsReview: true, reviewReason: reason } });
   Sentry.captureMessage('Order flagged for review', { level: 'warning', extra: { orderId, reason } });
 };
+
+type ResolveOrderReviewOptions = {
+  storeId: string;
+  orderId: string;
+};
+
+export const resolveOrderReview = async ({ storeId, orderId }: ResolveOrderReviewOptions): Promise<boolean> => {
+  const { count } = await prismadb.order.updateMany({ where: { id: orderId, storeId }, data: { needsReview: false } });
+
+  return count > 0;
+};

@@ -10,11 +10,21 @@ import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Heading } from '@/components/ui/heading';
 import { Separator } from '@/components/ui/separator';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form/form';
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form/form';
 import { Input } from '@/components/ui/input';
 import { AlertModal } from '@/components/modals/alert-modal';
 import { ApiAlert } from '@/components/ui/api-alert';
 import { useOrigin } from '@/hooks/use-origin';
+import { getFormErrorMessage } from '@/lib/get-form-error-message';
+import { getNextOrderNumberMessage } from '@/lib/store-settings';
 import {
   settingsFormSchema,
   SettingsFormValues,
@@ -23,9 +33,12 @@ import axios from 'axios';
 
 type Props = {
   initialData: Store;
+  highestOrderNumber: number | null;
 };
 
-export const SettingsForm = ({ initialData }: Props) => {
+const NO_ORDERS_HINT = 'Parduotuvė dar neturi užsakymų.';
+
+export const SettingsForm = ({ initialData, highestOrderNumber }: Props) => {
   const params = useParams();
   const router = useRouter();
   const origin = useOrigin();
@@ -35,17 +48,33 @@ export const SettingsForm = ({ initialData }: Props) => {
 
   const form = useForm<SettingsFormValues>({
     resolver: zodResolver(settingsFormSchema),
-    defaultValues: initialData,
+    defaultValues: { name: initialData.name, nextOrderNumber: initialData.nextOrderNumber },
   });
+  const nextOrderNumberHint =
+    highestOrderNumber === null ? NO_ORDERS_HINT : getHighestOrderNumberHint(highestOrderNumber);
 
-  const onSubmit = async (data: SettingsFormValues) => {
+  const onSubmit = async ({ name, nextOrderNumber }: SettingsFormValues) => {
+    const isNextOrderNumberChanged = form.formState.dirtyFields.nextOrderNumber === true;
+    const nextOrderNumberMessage = isNextOrderNumberChanged
+      ? getNextOrderNumberMessage({ nextOrderNumber, highestOrderNumber })
+      : null;
+
+    if (nextOrderNumberMessage) {
+      form.setError('nextOrderNumber', { message: nextOrderNumberMessage });
+      return;
+    }
+
     try {
       setLoading(true);
-      await axios.patch(`/api/stores/${params.storeId}`, data);
+      await axios.patch(`/api/stores/${params.storeId}`, {
+        name,
+        nextOrderNumber: isNextOrderNumberChanged ? nextOrderNumber : undefined,
+      });
+      form.reset({ name, nextOrderNumber });
       router.refresh();
       toast.success('Parduotuvė atnaujinta.');
-    } catch {
-      toast.error('Kažkas nepavyko.');
+    } catch (error) {
+      toast.error(getFormErrorMessage(error, 'Kažkas nepavyko.'));
     } finally {
       setLoading(false);
     }
@@ -98,6 +127,20 @@ export const SettingsForm = ({ initialData }: Props) => {
                 </FormItem>
               )}
             />
+            <FormField
+              control={form.control}
+              name="nextOrderNumber"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Kitas užsakymo numeris</FormLabel>
+                  <FormControl>
+                    <Input type="number" min="1" step="1" disabled={loading} {...field} />
+                  </FormControl>
+                  <FormDescription>{nextOrderNumberHint}</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </div>
           <Button disabled={loading} className="w-full sm:ml-auto sm:w-auto" type="submit">
             Išsaugoti pakeitimus
@@ -109,3 +152,6 @@ export const SettingsForm = ({ initialData }: Props) => {
     </>
   );
 };
+
+const getHighestOrderNumberHint = (highestOrderNumber: number) =>
+  `Turi būti didesnis nei didžiausias esamas numeris (${highestOrderNumber}).`;

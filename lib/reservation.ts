@@ -1,8 +1,14 @@
 import 'server-only';
 
+import * as Sentry from '@sentry/nextjs';
 import type { Prisma } from '@prisma/client';
 
 import prismadb from '@/lib/prismadb';
+import { releaseOrderBatch } from '@/lib/release-order-batch';
+import { getReleaseCutoff } from '@/lib/reservation-config';
+import { getExpiredReservationOrderIds } from '@/queries/get-expired-reservation-order-ids';
+
+const RELEASE_BATCH_SIZE = 50;
 
 type ReservedLine = {
   variantId: string;
@@ -50,6 +56,25 @@ export const releaseReservation = ({ orderId, tx, now = new Date() }: ReleaseRes
 
   return prismadb.$transaction((transaction) => releaseInTransaction({ orderId, tx: transaction, now }));
 };
+
+type ReleaseExpiredOrdersOptions = {
+  variantIds?: string[];
+  now?: Date;
+};
+
+export const releaseExpiredOrders = ({
+  variantIds,
+  now = new Date(),
+}: ReleaseExpiredOrdersOptions = {}): Promise<number> =>
+  releaseOrderBatch({
+    findOrderIds: () =>
+      getExpiredReservationOrderIds({ cutoff: getReleaseCutoff(now), limit: RELEASE_BATCH_SIZE, variantIds }),
+    release: (orderId) => releaseReservation({ orderId, now }),
+    onReleaseError: (error, orderId) => {
+      Sentry.captureException(error, { extra: { orderId } });
+      console.log('[RELEASE_EXPIRED_ORDERS]', orderId, error);
+    },
+  });
 
 const releaseInTransaction = async ({
   orderId,

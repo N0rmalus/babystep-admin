@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 
 import { SettingsForm } from './components/settings-form';
 import { Page } from '@/components/dashboard/page';
+import { getHighestOrderNumber } from '@/queries/get-highest-order-number';
 import { getStoreByUserId } from '@/queries/get-store-by-user-id';
 
 type Props = {
@@ -25,9 +26,11 @@ const SettingsPage = async ({ params }: Props) => {
     redirect('/');
   }
 
+  const highestOrderNumber = await getHighestOrderNumber(store.id);
+
   return (
     <Page>
-      <SettingsForm initialData={store} />
+      <SettingsForm initialData={store} highestOrderNumber={highestOrderNumber} />
     </Page>
   );
 };

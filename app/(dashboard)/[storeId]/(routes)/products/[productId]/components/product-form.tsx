@@ -37,6 +37,7 @@ import {
   toVariantPayload,
 } from '@/app/(dashboard)/[storeId]/(routes)/products/[productId]/components/schema';
 import { formatDateTimeLocalValue } from '@/lib/sale-form';
+import type { ReservedCounts } from '@/lib/variant-stock';
 import { ImageTagSelect } from './image-tag-select';
 import { PricingSection } from './pricing-section';
 import { StoreOptionGroup, VariantEditor } from './variant-editor';
@@ -59,12 +60,19 @@ type Props = {
   subcategories: Subcategory[];
   categories: Category[];
   storeGroups: StoreOptionGroup[];
+  reservedCounts: ReservedCounts;
 };
 
 const DISCARD_CHANGES_TITLE = 'Atmesti pakeitimus?';
 const DISCARD_CHANGES_DESCRIPTION = 'Neišsaugoti šios prekės pakeitimai bus prarasti.';
 
-export const ProductForm = ({ initialData, subcategories, categories, storeGroups: initialStoreGroups }: Props) => {
+export const ProductForm = ({
+  initialData,
+  subcategories,
+  categories,
+  storeGroups: initialStoreGroups,
+  reservedCounts,
+}: Props) => {
   const params = useParams();
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -360,7 +368,12 @@ export const ProductForm = ({ initialData, subcategories, categories, storeGroup
                 title="Variantai"
                 description="Pasirinkite savybes (arba sukurkite šios prekės savybę) ir jų reikšmes, tada sugeneruokite derinius. Neegzistuojančius derinius ištrinkite."
               >
-                <VariantEditor storeGroups={storeGroups} onStoreGroupsChange={setStoreGroups} isDisabled={loading} />
+                <VariantEditor
+                  storeGroups={storeGroups}
+                  reservedCounts={reservedCounts}
+                  onStoreGroupsChange={setStoreGroups}
+                  isDisabled={loading}
+                />
               </FormSection>
             </div>
 

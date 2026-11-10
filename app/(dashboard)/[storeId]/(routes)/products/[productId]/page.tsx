@@ -7,6 +7,7 @@ import { DEFAULT_COMBINATION_KEY } from '@/lib/product-variant';
 import { getOptionGroups } from '@/queries/get-option-groups';
 import { getProduct } from '@/queries/get-product';
 import { getSubcategories } from '@/queries/get-subcategories';
+import { getVariantReservedCounts } from '@/queries/get-variant-reserved-counts';
 
 type Props = {
   params: Promise<{
@@ -28,6 +29,8 @@ const ProductPage = async (props: Props) => {
   if (params.productId !== 'new' && !product) {
     redirect(`/${params.storeId}/products`);
   }
+
+  const reservedCounts = await getVariantReservedCounts(product?.variants.map(({ id }) => id) ?? []);
 
   const storeGroups = optionGroups.map(({ id, name, role, values }) => ({
     id,
@@ -57,6 +60,7 @@ const ProductPage = async (props: Props) => {
         categories={categories}
         storeGroups={storeGroups}
         initialData={serializedProduct}
+        reservedCounts={reservedCounts}
       />
     </Page>
   );

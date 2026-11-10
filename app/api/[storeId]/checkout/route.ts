@@ -1,23 +1,28 @@
-import Stripe from 'stripe';
+import * as Sentry from '@sentry/nextjs';
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 
-import { buildCheckoutItems } from '@/lib/checkout-items';
+import { createReservedOrder } from '@/lib/checkout-order';
+import { checkoutCreatedResponse, checkoutErrorResponse } from '@/lib/checkout-response';
+import {
+  getCheckoutTotals,
+  parseCheckoutRequest,
+  resolveCheckoutItems,
+  validateCheckoutFields,
+} from '@/lib/checkout-rules';
 import { corsHeaders } from '@/lib/cors';
-import { CENTS_PER_EURO } from '@/lib/product-pricing';
-import { stripe } from '@/lib/stripe';
+import { getMontonioClient, type MontonioClient } from '@/lib/montonio-client';
+import { buildMontonioOrderPayload, getCheckoutUrls, type MontonioOrderPayload } from '@/lib/montonio-order-payload';
 import prismadb from '@/lib/prismadb';
+import { releaseReservation } from '@/lib/reservation';
+import { loadCheckoutLists } from '@/lib/storefront-checkout';
 import { getProducts } from '@/queries/get-products';
 
-type CheckoutRequest = {
-  productIds?: string[];
-};
-
-const jsonResponse = (body: unknown, status: number) => {
-  return NextResponse.json(body, {
-    status,
-    headers: corsHeaders,
-  });
-};
+const checkoutEnvSchema = z.object({
+  FRONTEND_STORE_URL: z.string().url(),
+  ADMIN_PUBLIC_URL: z.string().url(),
+  VERCEL_PROTECTION_BYPASS_SECRET: z.string().optional(),
+});
 
 export async function OPTIONS() {
   return NextResponse.json({}, { headers: corsHeaders });
@@ -25,101 +30,104 @@ export async function OPTIONS() {
 
 export async function POST(req: Request, props: { params: Promise<{ storeId: string }> }) {
   const params = await props.params;
+
   try {
-    const body = (await req.json()) as CheckoutRequest;
-    const productIds = body?.productIds;
+    const parsed = parseCheckoutRequest(await req.json().catch(() => null));
 
-    if (!params.storeId) {
-      return jsonResponse({ message: 'Būtinas parduotuvės ID' }, 400);
+    if (parsed.status === 'rejected') {
+      return checkoutErrorResponse(parsed.error);
     }
 
-    if (!Array.isArray(productIds) || productIds.length === 0) {
-      return jsonResponse({ message: 'Būtina nurodyti prekių ID' }, 400);
-    }
-
-    const sanitizedProductIds = productIds.filter(
-      (productId): productId is string => typeof productId === 'string' && productId.trim().length > 0,
-    );
-
-    if (sanitizedProductIds.length !== productIds.length) {
-      return jsonResponse({ message: 'Neteisingas prekių sąrašas' }, 400);
-    }
-
+    const { request } = parsed;
     const products = await getProducts(params.storeId, {
-      productIds: [...new Set(sanitizedProductIds)],
-      onlyActive: true,
+      productIds: [...new Set(request.lines.map(({ productId }) => productId))],
       selectCheckoutFields: true,
     });
+    const resolved = resolveCheckoutItems({ lines: request.lines, products });
 
-    const checkout = buildCheckoutItems({ productIds: sanitizedProductIds, products });
-
-    if (checkout.status === 'unavailable') {
-      return jsonResponse(
-        {
-          message: 'Kai kurios prekės nebegalimos įsigyti',
-          invalidProductIds: checkout.invalidProductIds,
-        },
-        400,
-      );
+    if (resolved.status === 'rejected') {
+      return checkoutErrorResponse(resolved.error);
     }
 
-    if (checkout.status === 'insufficient-stock') {
-      return jsonResponse(
-        {
-          message: 'Kai kurių prekių kiekis sandėlyje pasikeitė',
-          insufficientStockItems: checkout.insufficientStockItems,
-        },
-        400,
-      );
+    const client = getMontonioClient();
+    const lists = await loadCheckoutLists({ client, delivery: request.delivery, payment: request.payment });
+
+    if (lists.status === 'unavailable') {
+      reportCheckoutError({ tag: '[CHECKOUT_POST_MONTONIO_LISTS]', error: lists.error });
+
+      return checkoutErrorResponse({ code: 'PAYMENT_UNAVAILABLE' });
     }
 
-    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = checkout.items.map((item) => ({
-      quantity: item.quantity,
-      price_data: {
-        currency: 'EUR',
-        product_data: {
-          name: item.productName,
-        },
-        unit_amount: Math.round(item.unitPrice * CENTS_PER_EURO),
-      },
-    }));
+    const fields = validateCheckoutFields({ ...request, ...lists });
 
-    const order = await prismadb.order.create({
-      data: {
-        storeId: params.storeId,
-        isPaid: false,
-        orderItems: {
-          create: checkout.items.map((item) => ({
-            productId: item.productId,
-            variantId: item.variantId,
-            quantity: item.quantity,
-            productName: item.productName,
-            sku: item.sku,
-            options: [],
-            unitPrice: item.unitPrice,
-            regularUnitPrice: item.regularUnitPrice,
-          })),
-        },
-      },
-    });
+    if (fields.status === 'rejected') {
+      return checkoutErrorResponse(fields.error);
+    }
 
-    const session = await stripe.checkout.sessions.create({
-      line_items: lineItems,
-      mode: 'payment',
-      billing_address_collection: 'required',
-      phone_number_collection: {
-        enabled: true,
-      },
-      success_url: `${process.env.FRONTEND_STORE_URL}/cart?success=1`,
-      cancel_url: `${process.env.FRONTEND_STORE_URL}/cart?canceled=1`,
-      metadata: {
+    const env = checkoutEnvSchema.parse(process.env);
+    const { items } = resolved;
+    const totals = getCheckoutTotals({ items, deliveryMethod: fields.delivery.method });
+    const reservation = await createReservedOrder({ storeId: params.storeId, items, totals, fields });
+
+    if (reservation.status === 'stock-changed') {
+      return checkoutErrorResponse({ code: 'STOCK_CHANGED', items: reservation.items });
+    }
+
+    const { order } = reservation;
+    const payload = buildMontonioOrderPayload({
+      order,
+      items,
+      totals,
+      ...fields,
+      ...getCheckoutUrls({
         orderId: order.id,
-      },
+        storeUrl: env.FRONTEND_STORE_URL,
+        adminUrl: env.ADMIN_PUBLIC_URL,
+        bypassSecret: env.VERCEL_PROTECTION_BYPASS_SECRET,
+      }),
     });
+    const created = await createMontonioOrder({ client, payload });
 
-    return jsonResponse({ url: session.url }, 200);
+    if (created.status === 'failed') {
+      reportCheckoutError({ tag: '[CHECKOUT_POST_MONTONIO]', error: created.error, orderId: order.id });
+      await releaseReservation({ orderId: order.id });
+
+      return checkoutErrorResponse({ code: 'PAYMENT_UNAVAILABLE' });
+    }
+
+    try {
+      await prismadb.order.update({ where: { id: order.id }, data: { montonioOrderUuid: created.uuid } });
+    } catch (error) {
+      await releaseReservation({ orderId: order.id });
+      throw error;
+    }
+
+    return checkoutCreatedResponse({ orderId: order.id, paymentUrl: created.paymentUrl });
   } catch (error) {
-    console.log('[CHECKOUT_POST]', error);
-    return jsonResponse({ message: 'Internal error' }, 500);
+    reportCheckoutError({ tag: '[CHECKOUT_POST]', error });
+
+    return checkoutErrorResponse({ code: 'INTERNAL' });
   }
 }
+
+const createMontonioOrder = async ({ client, payload }: { client: MontonioClient; payload: MontonioOrderPayload }) => {
+  try {
+    const created = await client.createOrder(payload);
+
+    if (created.status === 'failed') {
+      return {
+        status: 'failed',
+        error: new Error(`Montonio order creation failed: ${JSON.stringify(created)}`),
+      } as const;
+    }
+
+    return created;
+  } catch (error) {
+    return { status: 'failed', error } as const;
+  }
+};
+
+const reportCheckoutError = ({ tag, error, orderId }: { tag: string; error: unknown; orderId?: string }) => {
+  Sentry.captureException(error, orderId ? { extra: { orderId } } : undefined);
+  console.log(tag, orderId ?? '', error);
+};

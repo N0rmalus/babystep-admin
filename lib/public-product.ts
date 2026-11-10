@@ -1,5 +1,5 @@
 import { resolveVariantPrices } from '@/lib/product-pricing';
-import { DEFAULT_COMBINATION_KEY, getAvailableStockCount, getDefaultVariant } from '@/lib/product-variant';
+import { getAvailableStockCount, getSellableVariants } from '@/lib/product-variant';
 import { getVariantLabel } from '@/lib/variant-label';
 
 type OptionValueInput = {
@@ -45,22 +45,21 @@ export const buildPublicProduct = <
   ...product
 }: TProduct & ProductInput<TPrice, TValue, TGroup>) => {
   const groups = optionGroups.map(({ group }) => group);
-  const optionVariants = variants.filter((variant) => variant.combinationKey !== DEFAULT_COMBINATION_KEY);
-  const activeOptionVariants = optionVariants.filter((variant) => !variant.isArchived);
-  const defaultVariant = getDefaultVariant(variants);
-  // A product with options never falls back to its default variant: if all option variants are archived it is
-  // unavailable. Archived option variants left over after all groups were removed don't count (ADR 0001).
-  const hasOptions = groups.length > 0 || activeOptionVariants.length > 0;
+  const sellableVariants = getSellableVariants({ hasOptionGroups: groups.length > 0, variants });
 
-  if (hasOptions || !defaultVariant) {
+  if (sellableVariants.hasOptions) {
+    const { optionVariants } = sellableVariants;
+
     return {
       ...product,
       hasOptions: true,
-      stockCount: getAvailableStockCount(activeOptionVariants),
-      options: getUsedOptions({ groups, variants: activeOptionVariants }),
-      variants: activeOptionVariants.map((variant) => toPublicVariant({ product, variant, groups })),
+      stockCount: getAvailableStockCount(optionVariants),
+      options: getUsedOptions({ groups, variants: optionVariants }),
+      variants: optionVariants.map((variant) => toPublicVariant({ product, variant, groups })),
     };
   }
+
+  const { defaultVariant } = sellableVariants;
 
   return {
     ...product,

@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Multi-tenant e-commerce admin panel + REST API for the Babystep store. The storefront lives in `../babystep-store` and consumes this API.
 
-Stack: Next.js 16 (App Router), React 19, TypeScript, Tailwind v4, shadcn/ui, Prisma 5 + Neon Postgres, Clerk auth, Stripe, Cloudinary, Sentry.
+Stack: Next.js 16 (App Router), React 19, TypeScript, Tailwind v4, shadcn/ui, Prisma 5 + Neon Postgres, Clerk auth, Montonio (payments), Cloudinary, Sentry.
 
 ## Commands
 
@@ -22,7 +22,7 @@ Prettier: single quotes, 120 cols, trailing commas, tailwind plugin (`.prettierr
 
 - API routes are used by the storefront: never change a response shape without telling me and listing what in babystep-store must change.
 - Database: only the Neon `dev` branch. Never run `prisma migrate reset`, `db push --force-reset`, or anything that drops data. Ask before any migration.
-- Never read or print `.env` values. Payments: Stripe test mode only; Montonio sandbox keys only (Stripe is being replaced by Montonio, see docs/montonio-research.md).
+- Never read or print `.env` values. Payments: Montonio sandbox keys only (see docs/montonio-research.md).
 - Prefer existing shadcn components in `components/ui` over new ones.
 - All user-facing strings (UI copy, toasts, API error responses) are in Lithuanian.
 
@@ -38,9 +38,10 @@ Prettier: single quotes, 120 cols, trailing commas, tailwind plugin (`.prettierr
 **Auth**: `proxy.ts` (Next 16's replacement for `middleware.ts`) protects everything except `/api(.*)` and sign-in/up. Ownership: `Store.userId` links each store to its Clerk user. API routes are public at the proxy level, so every *mutating* handler must call `auth()` and check `getStoreByUserId(storeId, userId)` (401 if no user, 403 if not the owner). Public GETs and `OPTIONS` return `corsHeaders` from `lib/cors.ts`.
 
 **API**: `app/api/[storeId]/<resource>` serves both the admin (mutations) and the storefront (public GETs).
-- `checkout` creates an unpaid `Order` + Stripe Checkout session.
-- `api/webhook` handles `checkout.session.completed`: in a single transaction it marks the order paid, decrements stock and archives products that hit zero stock.
-- Handlers return plain-text `NextResponse` errors and log with `console.log('[RESOURCE_METHOD]', error)`. Checkout returns JSON `{ message }` instead.
+- `checkout` validates the storefront's `CreateOrderInput`, reserves stock and creates the `PENDING` order in one transaction (ADR 0002, `lib/reservation.ts`), then creates the Montonio order and returns `201 { orderId, paymentUrl }`. Errors are `{ code, message, ...details }` (`lib/checkout-response.ts`). If Montonio fails, the reservation is released and it returns `502 PAYMENT_UNAVAILABLE`.
+- `api/webhook/montonio` verifies Montonio's `{ orderToken }` / `{ refundToken }`, checks the token against the order, then applies the transition from `getWebhookAction` (`lib/checkout-rules.ts`) via `lib/montonio-webhook.ts`. Bad signature 401, mismatch 400, unexpected errors 500 so Montonio retries.
+- `api/cron/release-reservations` (POST, called by the Hostinger cron) releases the stock of orders whose reservation expired without a webhook (`releaseExpiredOrders` in `lib/reservation.ts`, cutoff from `lib/reservation-config.ts`). It requires `CRON_SECRET` as a `Bearer` header or `?token=` (`lib/cron-auth.ts`) and returns `{ releasedCount }`.
+- Handlers return plain-text `NextResponse` errors and log with `console.log('[RESOURCE_METHOD]', error)`. Checkout returns JSON `{ code, message }` instead.
 
 **Data**: `prisma/schema.prisma`.
 - Top-level models carry `storeId`. `Subcategory`, `Image` and `OrderItem` are scoped through their parent.

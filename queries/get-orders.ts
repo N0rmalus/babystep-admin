@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { ADMIN_ORDER_SELECT } from '@/lib/admin-order';
 import prismadb from '@/lib/prismadb';
 
 export const getOrders = async (storeId: string) => {
@@ -7,9 +8,7 @@ export const getOrders = async (storeId: string) => {
     where: {
       storeId: storeId,
     },
-    include: {
-      orderItems: true,
-    },
+    select: ADMIN_ORDER_SELECT,
     orderBy: {
       createdAt: 'desc',
     },

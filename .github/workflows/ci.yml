@@ -18,9 +18,7 @@ jobs:
       DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
       DATABASE_URL_UNPOOLED: postgresql://ci:ci@localhost:5432/ci
       NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: demo
-      STRIPE_API_KEY: sk_test_ci_placeholder
       FRONTEND_STORE_URL: http://localhost:3001
-      STRIPE_WEBHOOK_SECRET: whsec_ci_placeholder
       SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
     steps:

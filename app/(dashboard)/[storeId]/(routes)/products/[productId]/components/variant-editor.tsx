@@ -23,6 +23,7 @@ import { getNewValueMessage } from '@/lib/option-group';
 import { GROUP_NAME_REQUIRED_MESSAGE } from '@/lib/product-groups';
 import { BulkChanges, getBulkChanges, getBulkTargetIndexes, getKeysWithValue } from '@/lib/variant-bulk-edit';
 import { generateMissingCombinations, MAX_OPTION_GROUP_COUNT } from '@/lib/variant-plan';
+import { getVariantTotalStock, ReservedCounts } from '@/lib/variant-stock';
 import { EMPTY_DEFAULT_VARIANT, getOptionalNumericInput, ProductFormValues, ProductGroup, VariantRow } from './schema';
 
 type OptionValue = { id: string; label: string };
@@ -39,6 +40,7 @@ type Props = {
   // Sizes added with "+ Naujas dydis" are saved at once and join the store-level groups through onStoreGroupsChange
   storeGroups: StoreOptionGroup[];
   onStoreGroupsChange: Dispatch<SetStateAction<StoreOptionGroup[]>>;
+  reservedCounts: ReservedCounts;
   isDisabled: boolean;
 };
 
@@ -59,6 +61,9 @@ type GroupDefinition = ({ kind: 'store'; role: OptionGroupRole } | { kind: 'prod
 };
 
 const STOCK_HINT = 'Įveskite laisvą kiekį, be rezervuotų.';
+const RESERVED_HINT = 'Neapmokėtų užsakymų laikomas kiekis.';
+const TOTAL_HINT = 'Laisva + Rezervuota.';
+const NO_TOTAL_PLACEHOLDER = '—';
 const STOCK_INPUT_CLASS = 'w-24';
 const PRICE_INPUT_CLASS = 'w-28';
 const SKU_INPUT_CLASS = 'w-32';
@@ -98,7 +103,7 @@ const getRemoveValueTitle = (label: string) => `Pašalinti reikšmę „${label}
 const getRemoveValueDescription = (rowCount: number) =>
   `Iš lentelės bus pašalinti visi jos variantai (${rowCount}). Išsaugojus prekę, variantai su užsakymais bus archyvuoti, kiti ištrinti.`;
 
-export const VariantEditor = ({ storeGroups, onStoreGroupsChange, isDisabled }: Props) => {
+export const VariantEditor = ({ storeGroups, onStoreGroupsChange, reservedCounts, isDisabled }: Props) => {
   const params = useParams();
   const form = useFormContext<ProductFormValues>();
   const { fields, append, remove, replace } = useFieldArray({
@@ -136,6 +141,9 @@ export const VariantEditor = ({ storeGroups, onStoreGroupsChange, isDisabled }: 
   const activeRowKeys = tableRows.flatMap(({ key, isArchived }) => (isArchived ? [] : [key]));
   const tickedCount = activeRowKeys.filter((key) => tickedKeys.has(key)).length;
   const isEveryRowTicked = activeRowKeys.length > 0 && tickedCount === activeRowKeys.length;
+
+  const getReservedCount = (variantId: string | undefined) =>
+    variantId === undefined ? 0 : (reservedCounts[variantId] ?? 0);
 
   const findGroupDefinition = (groupId: string) => groupDefinitions.find(({ id }) => id === groupId);
 
@@ -507,7 +515,7 @@ export const VariantEditor = ({ storeGroups, onStoreGroupsChange, isDisabled }: 
         </div>
 
         {chosenGroups.length === 0 ? (
-          <DefaultVariantFields isDisabled={isDisabled} />
+          <DefaultVariantFields isDisabled={isDisabled} reservedCount={getReservedCount(variants.at(0)?.id)} />
         ) : (
           <FormField
             control={form.control}
@@ -550,6 +558,8 @@ export const VariantEditor = ({ storeGroups, onStoreGroupsChange, isDisabled }: 
                         <TableHead>{variantColumnLabel}</TableHead>
                         <TableHead>SKU</TableHead>
                         <TableHead>Laisva</TableHead>
+                        <TableHead>Rezervuota</TableHead>
+                        <TableHead>Viso</TableHead>
                         <TableHead>Kaina</TableHead>
                         <TableHead>Akcijos kaina</TableHead>
                         <TableHead />
@@ -562,6 +572,7 @@ export const VariantEditor = ({ storeGroups, onStoreGroupsChange, isDisabled }: 
                           key={field.key}
                           index={index}
                           label={getRowLabel(field)}
+                          reservedCount={getReservedCount(field.id)}
                           inheritedPrices={inheritedPrices}
                           isDisabled={isDisabled}
                           isSaved={field.id !== undefined}
@@ -683,6 +694,7 @@ const AddTextInput = ({ placeholder, actionLabel, isDisabled, onAdd }: AddTextIn
 type VariantTableRowProps = {
   index: number;
   label: string;
+  reservedCount: number;
   inheritedPrices: { price: string; salePrice: string };
   isDisabled: boolean;
   // Only a saved variant can be archived; a row that was never saved is simply deleted
@@ -695,6 +707,7 @@ type VariantTableRowProps = {
 const VariantTableRow = ({
   index,
   label,
+  reservedCount,
   inheritedPrices,
   isDisabled,
   isSaved,
@@ -708,6 +721,7 @@ const VariantTableRow = ({
   const salePricePlaceholder = hasOwnPrice ? NO_SALE_PRICE_PLACEHOLDER : inheritedPrices.salePrice;
   const isArchived = useWatch({ control: form.control, name: `variants.${index}.isArchived` });
   const archiveToggleLabel = isArchived ? UNDO_ARCHIVE_LABEL : ARCHIVE_LABEL;
+  const stockCount = useWatch({ control: form.control, name: `variants.${index}.stockCount` });
 
   // Archiving only marks the row; on Save the variant is archived and leaves the table
   const handleArchiveToggle = () => {
@@ -758,6 +772,8 @@ const VariantTableRow = ({
           )}
         />
       </TableCell>
+      <TableCell>{reservedCount}</TableCell>
+      <TableCell>{formatTotalStock(getVariantTotalStock({ stockCount, reservedCount }))}</TableCell>
       <TableCell>
         <PriceField name={`variants.${index}.price`} placeholder={inheritedPrices.price} isDisabled={isDisabled} />
       </TableCell>
@@ -858,6 +874,8 @@ const BulkEditRow = ({ tickedCount, isDisabled, onApply }: BulkEditRowProps) => 
           {...getInputProps({ name: 'stockCount', isCleared: false })}
         />
       </TableCell>
+      <TableCell />
+      <TableCell />
       <TableCell>
         <Input
           type="number"
@@ -960,9 +978,16 @@ const PriceField = ({ name, placeholder, isDisabled }: PriceFieldProps) => {
   );
 };
 
+type DefaultVariantFieldsProps = {
+  reservedCount: number;
+  isDisabled: boolean;
+};
+
 // A product without groups edits its default variant's SKU and Laisva only (no table, no price override)
-const DefaultVariantFields = ({ isDisabled }: Pick<Props, 'isDisabled'>) => {
+const DefaultVariantFields = ({ reservedCount, isDisabled }: DefaultVariantFieldsProps) => {
   const form = useFormContext<ProductFormValues>();
+  const stockCount = useWatch({ control: form.control, name: 'variants.0.stockCount' });
+  const totalCount = getVariantTotalStock({ stockCount, reservedCount });
 
   return (
     <div className="grid gap-5 md:grid-cols-2">
@@ -995,9 +1020,32 @@ const DefaultVariantFields = ({ isDisabled }: Pick<Props, 'isDisabled'>) => {
           </FormItem>
         )}
       />
+
+      <ReadOnlyStockField label="Rezervuota" value={reservedCount} hint={RESERVED_HINT} />
+      <ReadOnlyStockField label="Viso" value={formatTotalStock(totalCount)} hint={TOTAL_HINT} />
     </div>
   );
 };
+
+type ReadOnlyStockFieldProps = {
+  label: string;
+  value: number | string;
+  hint: string;
+};
+
+const ReadOnlyStockField = ({ label, value, hint }: ReadOnlyStockFieldProps) => {
+  const id = useId();
+
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={id}>{label}</Label>
+      <Input id={id} value={value} readOnly disabled />
+      <p className="text-muted-foreground text-sm">{hint}</p>
+    </div>
+  );
+};
+
+const formatTotalStock = (totalCount: number | null) => totalCount ?? NO_TOTAL_PLACEHOLDER;
 
 const getLabels = (values: OptionValue[]) => values.map(({ label }) => label);
 

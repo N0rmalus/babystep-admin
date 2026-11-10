@@ -41,13 +41,20 @@ const CHECKOUT_SELECT = {
   salePrice: true,
   saleStartsAt: true,
   saleEndsAt: true,
+  isArchived: true,
+  optionGroups: {
+    orderBy: BY_POSITION,
+    select: { group: { select: { id: true, name: true } } },
+  },
   variants: {
     select: {
       id: true,
       sku: true,
-      stockCount: true,
-      combinationKey: true,
+      price: true,
+      salePrice: true,
       isArchived: true,
+      combinationKey: true,
+      optionValues: { select: { optionValue: { select: { label: true, groupId: true } } } },
     },
   },
 } satisfies Prisma.ProductSelect;

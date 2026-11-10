@@ -1,7 +1,6 @@
 import 'server-only';
 
-import { PaymentStatus } from '@prisma/client';
-
+import { HOLDING_STOCK_WHERE } from '@/lib/order-stock-hold';
 import prismadb from '@/lib/prismadb';
 import type { ReservedCounts } from '@/lib/variant-stock';
 
@@ -14,7 +13,7 @@ export const getVariantReservedCounts = async (variantIds: string[]): Promise<Re
     by: ['variantId'],
     where: {
       variantId: { in: variantIds },
-      order: { paymentStatus: PaymentStatus.PENDING, stockReleasedAt: null },
+      order: HOLDING_STOCK_WHERE,
     },
     _sum: { quantity: true },
   });

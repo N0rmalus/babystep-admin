@@ -3,6 +3,7 @@ import 'server-only';
 import * as Sentry from '@sentry/nextjs';
 import type { Prisma } from '@prisma/client';
 
+import { HOLDING_STOCK_WHERE } from '@/lib/order-stock-hold';
 import prismadb from '@/lib/prismadb';
 import { releaseOrderBatch } from '@/lib/release-order-batch';
 import { getReleaseCutoff } from '@/lib/reservation-config';
@@ -101,7 +102,7 @@ const releaseInTransaction = async ({
   now: Date;
 }) => {
   const { count } = await tx.order.updateMany({
-    where: { id: orderId, stockReleasedAt: null, isPaid: false },
+    where: { id: orderId, ...HOLDING_STOCK_WHERE },
     data: { stockReleasedAt: now },
   });
 

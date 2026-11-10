@@ -12,6 +12,7 @@ export const STOREFRONT_ORDER_SELECT = {
   id: true,
   number: true,
   paymentStatus: true,
+  isPaid: true,
   stockReleasedAt: true,
   firstName: true,
   lastName: true,

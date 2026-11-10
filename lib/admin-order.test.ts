@@ -11,6 +11,7 @@ const createOrder = (overrides: Partial<AdminOrderRow> = {}) =>
     number: 10001,
     createdAt: new Date('2026-11-01T09:30:00Z'),
     paymentStatus: 'PAID',
+    isPaid: true,
     stockReleasedAt: null,
     needsReview: false,
     reviewReason: null,
@@ -119,17 +120,17 @@ describe('toAdminOrder', () => {
 
 describe('getAdminPaymentStatus', () => {
   it.each([
-    ['PAID', null, 'Apmokėta'],
-    ['PENDING', null, 'Laukiama apmokėjimo'],
-    ['PENDING', RELEASED_AT, 'Nebaigtas'],
-    ['ABANDONED', RELEASED_AT, 'Nebaigtas'],
-    ['ABANDONED', null, 'Nebaigtas'],
-    ['VOIDED', null, 'Atmesta'],
-    ['REFUNDED', null, 'Grąžinta'],
-    ['PARTIALLY_REFUNDED', null, 'Grąžinta dalis'],
-    ['AUTHORIZED', null, 'Laukiama apmokėjimo'],
-    ['AUTHORIZED', RELEASED_AT, 'Nebaigtas'],
-  ] as const)('labels %s (released: %s) as %s', (paymentStatus, stockReleasedAt, label) => {
-    expect(PAYMENT_STATUS_LABELS[getAdminPaymentStatus({ paymentStatus, stockReleasedAt })]).toBe(label);
+    ['PAID', true, null, 'Apmokėta'],
+    ['PENDING', false, null, 'Laukiama apmokėjimo'],
+    ['PENDING', false, RELEASED_AT, 'Nebaigtas'],
+    ['ABANDONED', false, RELEASED_AT, 'Nebaigtas'],
+    ['ABANDONED', false, null, 'Nebaigtas'],
+    ['VOIDED', true, null, 'Atmesta'],
+    ['REFUNDED', true, null, 'Grąžinta'],
+    ['PARTIALLY_REFUNDED', true, null, 'Grąžinta dalis'],
+    ['AUTHORIZED', false, null, 'Laukiama apmokėjimo'],
+    ['AUTHORIZED', false, RELEASED_AT, 'Nebaigtas'],
+  ] as const)('labels %s (paid: %s, released: %s) as %s', (paymentStatus, isPaid, stockReleasedAt, label) => {
+    expect(PAYMENT_STATUS_LABELS[getAdminPaymentStatus({ paymentStatus, isPaid, stockReleasedAt })]).toBe(label);
   });
 });

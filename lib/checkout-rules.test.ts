@@ -650,19 +650,19 @@ describe('getStorefrontOrderStatus', () => {
   const RELEASED_AT = new Date('2026-06-15T12:40:00Z');
 
   it.each([
-    ['PAID', null, 'paid'],
-    ['PAID', RELEASED_AT, 'paid'],
-    ['PARTIALLY_REFUNDED', null, 'paid'],
-    ['REFUNDED', null, 'paid'],
-    ['PENDING', null, 'pending'],
-    ['PENDING', RELEASED_AT, 'failed'],
-    ['ABANDONED', RELEASED_AT, 'failed'],
-    ['ABANDONED', null, 'failed'],
-    ['VOIDED', null, 'failed'],
-    ['AUTHORIZED', null, 'pending'],
-    ['AUTHORIZED', RELEASED_AT, 'failed'],
-  ] as const)('maps %s with stockReleasedAt %s to %s', (paymentStatus, stockReleasedAt, status) => {
-    expect(getStorefrontOrderStatus({ paymentStatus, stockReleasedAt })).toBe(status);
+    ['PAID', true, null, 'paid'],
+    ['PAID', true, RELEASED_AT, 'paid'],
+    ['PARTIALLY_REFUNDED', true, null, 'paid'],
+    ['REFUNDED', true, null, 'paid'],
+    ['PENDING', false, null, 'pending'],
+    ['PENDING', false, RELEASED_AT, 'failed'],
+    ['ABANDONED', false, RELEASED_AT, 'failed'],
+    ['ABANDONED', false, null, 'failed'],
+    ['VOIDED', true, null, 'failed'],
+    ['AUTHORIZED', false, null, 'pending'],
+    ['AUTHORIZED', false, RELEASED_AT, 'failed'],
+  ] as const)('maps %s (paid: %s) with stockReleasedAt %s to %s', (paymentStatus, isPaid, stockReleasedAt, status) => {
+    expect(getStorefrontOrderStatus({ paymentStatus, isPaid, stockReleasedAt })).toBe(status);
   });
 });
 

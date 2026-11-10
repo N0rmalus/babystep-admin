@@ -1,6 +1,7 @@
 import type { PaymentStatus, ReviewReason } from '@prisma/client';
 import { type DeliveryMethod, getShippingPrice } from '@/lib/delivery-config';
 import { CENTS_PER_EURO, getOrderItemTotal, getProductPricing, resolveVariantPrices } from '@/lib/product-pricing';
+import { isHoldingStock } from '@/lib/order-stock-hold';
 import { DEFAULT_COMBINATION_KEY, getSellableVariants } from '@/lib/product-variant';
 import type { VariantOption } from '@/lib/variant-label';
 import { z } from 'zod';
@@ -489,6 +490,7 @@ const toCents = (euros: number) => Math.round(euros * CENTS_PER_EURO);
 
 type StorefrontOrderStatusOptions = {
   paymentStatus: PaymentStatus;
+  isPaid: boolean;
   stockReleasedAt: Date | null;
 };
 
@@ -497,7 +499,7 @@ export type StorefrontOrderStatus = 'paid' | 'pending' | 'failed';
 // A flagged late payment still counts as paid. AUTHORIZED isn't settled money yet, so it reads like PENDING.
 export const getStorefrontOrderStatus = ({
   paymentStatus,
-  stockReleasedAt,
+  ...order
 }: StorefrontOrderStatusOptions): StorefrontOrderStatus => {
   switch (paymentStatus) {
     case 'PAID':
@@ -509,7 +511,7 @@ export const getStorefrontOrderStatus = ({
       return 'failed';
     case 'PENDING':
     case 'AUTHORIZED':
-      return stockReleasedAt ? 'failed' : 'pending';
+      return isHoldingStock(order) ? 'pending' : 'failed';
   }
 };
 
@@ -561,7 +563,7 @@ const getPaidAction = (order: WebhookOrderState) => {
     return NO_ACTION;
   }
 
-  if (order.stockReleasedAt) {
+  if (!isHoldingStock(order)) {
     return { type: 'late-payment' } as const;
   }
 

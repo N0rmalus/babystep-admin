@@ -3,54 +3,56 @@ import { describe, expect, it } from 'vitest';
 
 import { type StorefrontOrderRow, toStorefrontOrder } from '@/lib/storefront-order';
 
-const createOrder = (overrides: Partial<StorefrontOrderRow> = {}) => ({
-  id: 'order-1',
-  number: 10001,
-  paymentStatus: 'PAID',
-  stockReleasedAt: null,
-  firstName: 'Ona',
-  lastName: 'Onaitė',
-  email: 'ona@example.test',
-  phoneNumber: '+37061234567',
-  deliveryMethod: 'LOCKER',
-  carrier: 'OMNIVA',
-  pickupPointId: 'pp-1',
-  pickupPointName: 'Omniva Akropolis',
-  pickupPointAddress: 'Ozo g. 25',
-  pickupPointCity: 'Vilnius',
-  street: null,
-  apartment: null,
-  city: null,
-  postalCode: null,
-  paymentMethod: 'BANK',
-  bankName: 'Swedbank',
-  itemsTotal: new Prisma.Decimal('39.97'),
-  shippingPrice: new Prisma.Decimal('2.99'),
-  total: new Prisma.Decimal('42.96'),
-  orderItems: [
-    {
-      productId: 'product-1',
-      variantId: 'variant-default',
-      quantity: 1,
-      productName: 'Miego maišas',
-      options: [],
-      unitPrice: new Prisma.Decimal('19.99'),
-      product: { images: [{ url: 'https://img.example.test/bag.jpg' }] },
-      variant: { combinationKey: '' },
-    },
-    {
-      productId: 'product-2',
-      variantId: 'variant-2',
-      quantity: 2,
-      productName: 'Muslino merliukas',
-      options: [{ name: 'Dydis', value: '0–6 mėn.' }],
-      unitPrice: new Prisma.Decimal('9.99'),
-      product: { images: [] },
-      variant: { combinationKey: 'ov-1' },
-    },
-  ],
-  ...overrides,
-}) satisfies StorefrontOrderRow;
+const createOrder = (overrides: Partial<StorefrontOrderRow> = {}) =>
+  ({
+    id: 'order-1',
+    number: 10001,
+    paymentStatus: 'PAID',
+    isPaid: true,
+    stockReleasedAt: null,
+    firstName: 'Ona',
+    lastName: 'Onaitė',
+    email: 'ona@example.test',
+    phoneNumber: '+37061234567',
+    deliveryMethod: 'LOCKER',
+    carrier: 'OMNIVA',
+    pickupPointId: 'pp-1',
+    pickupPointName: 'Omniva Akropolis',
+    pickupPointAddress: 'Ozo g. 25',
+    pickupPointCity: 'Vilnius',
+    street: null,
+    apartment: null,
+    city: null,
+    postalCode: null,
+    paymentMethod: 'BANK',
+    bankName: 'Swedbank',
+    itemsTotal: new Prisma.Decimal('39.97'),
+    shippingPrice: new Prisma.Decimal('2.99'),
+    total: new Prisma.Decimal('42.96'),
+    orderItems: [
+      {
+        productId: 'product-1',
+        variantId: 'variant-default',
+        quantity: 1,
+        productName: 'Miego maišas',
+        options: [],
+        unitPrice: new Prisma.Decimal('19.99'),
+        product: { images: [{ url: 'https://img.example.test/bag.jpg' }] },
+        variant: { combinationKey: '' },
+      },
+      {
+        productId: 'product-2',
+        variantId: 'variant-2',
+        quantity: 2,
+        productName: 'Muslino merliukas',
+        options: [{ name: 'Dydis', value: '0–6 mėn.' }],
+        unitPrice: new Prisma.Decimal('9.99'),
+        product: { images: [] },
+        variant: { combinationKey: 'ov-1' },
+      },
+    ],
+    ...overrides,
+  }) satisfies StorefrontOrderRow;
 
 describe('toStorefrontOrder', () => {
   it('returns a paid locker order with bank payment in the storefront shape', () => {
@@ -116,10 +118,11 @@ describe('toStorefrontOrder', () => {
   });
 
   it('shows a pending order as pending and a released one as failed', () => {
-    expect(toStorefrontOrder(createOrder({ paymentStatus: 'PENDING' }))?.status).toBe('pending');
+    expect(toStorefrontOrder(createOrder({ paymentStatus: 'PENDING', isPaid: false }))?.status).toBe('pending');
     expect(
-      toStorefrontOrder(createOrder({ paymentStatus: 'PENDING', stockReleasedAt: new Date('2026-06-15T12:30:00Z') }))
-        ?.status,
+      toStorefrontOrder(
+        createOrder({ paymentStatus: 'PENDING', isPaid: false, stockReleasedAt: new Date('2026-06-15T12:30:00Z') }),
+      )?.status,
     ).toBe('failed');
   });
 

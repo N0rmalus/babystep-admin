@@ -4,6 +4,7 @@ import type { Prisma } from '@prisma/client';
 
 import { getLatePaymentTransition, type LatePaymentTransition, type WebhookAction } from '@/lib/checkout-rules';
 import { flagOrderForReview } from '@/lib/order-review';
+import { HOLDING_STOCK_WHERE } from '@/lib/order-stock-hold';
 import prismadb from '@/lib/prismadb';
 import { releaseReservation, reserveStock, StockChangedError } from '@/lib/reservation';
 
@@ -36,7 +37,7 @@ export const applyWebhookAction = async ({
     case 'mark-paid':
       await updateGuarded({
         tx: prismadb,
-        where: { id: orderId, isPaid: false, stockReleasedAt: null },
+        where: { id: orderId, ...HOLDING_STOCK_WHERE },
         data: { isPaid: true, paymentStatus: 'PAID', paidAt: now },
       });
       return;

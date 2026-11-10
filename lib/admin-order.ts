@@ -1,6 +1,7 @@
 import type { Carrier, DeliveryMethod, PaymentStatus, Prisma, ReviewReason } from '@prisma/client';
 
 import { ORDER_NUMBER_PREFIX } from '@/lib/montonio-order-payload';
+import { isHoldingStock } from '@/lib/order-stock-hold';
 import { formatter } from '@/lib/utils';
 import { getOrderItemText } from '@/lib/variant-label';
 
@@ -9,6 +10,7 @@ export const ADMIN_ORDER_SELECT = {
   number: true,
   createdAt: true,
   paymentStatus: true,
+  isPaid: true,
   stockReleasedAt: true,
   needsReview: true,
   reviewReason: true,
@@ -59,6 +61,7 @@ type AdminOrderReview = {
 
 type PaymentStatusOptions = {
   paymentStatus: PaymentStatus;
+  isPaid: boolean;
   stockReleasedAt: Date | null;
 };
 
@@ -123,7 +126,7 @@ export const toAdminOrder = (order: AdminOrderRow): AdminOrder => {
   };
 };
 
-export const getAdminPaymentStatus = ({ paymentStatus, stockReleasedAt }: PaymentStatusOptions): AdminPaymentStatus => {
+export const getAdminPaymentStatus = ({ paymentStatus, ...order }: PaymentStatusOptions): AdminPaymentStatus => {
   switch (paymentStatus) {
     case 'PAID':
       return 'paid';
@@ -137,7 +140,7 @@ export const getAdminPaymentStatus = ({ paymentStatus, stockReleasedAt }: Paymen
       return 'unfinished';
     case 'PENDING':
     case 'AUTHORIZED':
-      return stockReleasedAt ? 'unfinished' : 'pending';
+      return isHoldingStock(order) ? 'pending' : 'unfinished';
   }
 };
 

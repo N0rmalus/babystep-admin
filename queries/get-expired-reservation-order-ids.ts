@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { HOLDING_STOCK_WHERE } from '@/lib/order-stock-hold';
 import prismadb from '@/lib/prismadb';
 
 type GetExpiredReservationOrderIdsOptions = {
@@ -15,8 +16,7 @@ export const getExpiredReservationOrderIds = async ({
 }: GetExpiredReservationOrderIdsOptions): Promise<string[]> => {
   const orders = await prismadb.order.findMany({
     where: {
-      stockReleasedAt: null,
-      isPaid: false,
+      ...HOLDING_STOCK_WHERE,
       expiresAt: { lt: cutoff },
       ...(variantIds ? { orderItems: { some: { variantId: { in: variantIds } } } } : {}),
     },

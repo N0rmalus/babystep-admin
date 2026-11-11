@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { createMontonioClient } from '@/lib/montonio-client';
 import {
@@ -7,6 +7,14 @@ import {
   getPickupPointsResponse,
   loadCheckoutLists,
 } from '@/lib/storefront-checkout';
+
+// corsHeaders reads FRONTEND_STORE_URL when lib/cors is imported
+const STORE_ORIGIN = vi.hoisted(() => {
+  const origin = 'http://localhost:3001';
+  process.env.FRONTEND_STORE_URL = origin;
+
+  return origin;
+});
 
 const NOW = new Date('2026-06-15T12:00:00Z');
 const API_URL = 'https://sandbox-stargate.example.test/api';
@@ -37,7 +45,7 @@ describe('getDeliveryOptionsResponse', () => {
   it('returns the delivery options and free-shipping threshold in euros', async () => {
     const response = getDeliveryOptionsResponse();
 
-    expect(response.headers.get('Access-Control-Allow-Origin')).toBe('*');
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe(STORE_ORIGIN);
     expect(await response.json()).toEqual({
       options: [
         { method: 'locker', price: 3.49, carriers: ['omniva', 'unisend'] },
@@ -71,7 +79,7 @@ describe('getPaymentMethodsResponse', () => {
     const response = await getPaymentMethodsResponse(() => client);
 
     expect(response.status).toBe(200);
-    expect(response.headers.get('Access-Control-Allow-Origin')).toBe('*');
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe(STORE_ORIGIN);
     expect(await response.json()).toEqual({
       banks: [
         { code: 'HABALT22', name: 'Swedbank Lithuania', logoUrl: 'https://logo.test/s.png' },
@@ -87,7 +95,7 @@ describe('getPaymentMethodsResponse', () => {
     const response = await getPaymentMethodsResponse(() => client);
 
     expect(response.status).toBe(502);
-    expect(response.headers.get('Access-Control-Allow-Origin')).toBe('*');
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe(STORE_ORIGIN);
     expect(await response.json()).toEqual({ message: 'Nepavyko gauti mokėjimo būdų. Bandyk dar kartą vėliau.' });
   });
 
@@ -97,7 +105,7 @@ describe('getPaymentMethodsResponse', () => {
     });
 
     expect(response.status).toBe(502);
-    expect(response.headers.get('Access-Control-Allow-Origin')).toBe('*');
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe(STORE_ORIGIN);
   });
 });
 
@@ -122,7 +130,7 @@ describe('getPickupPointsResponse', () => {
     const response = await getPickupPointsResponse({ getClient: () => client, query: '' });
 
     expect(response.status).toBe(200);
-    expect(response.headers.get('Access-Control-Allow-Origin')).toBe('*');
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe(STORE_ORIGIN);
     expect(await response.json()).toEqual([
       { id: 'om-1', carrier: 'omniva', name: 'Akropolis paštomatas', address: 'Ozo g. 25', city: 'Vilnius' },
       { id: 'un-1', carrier: 'unisend', name: 'Maxima paštomatas', address: 'Savanorių pr. 1', city: 'Kaunas' },

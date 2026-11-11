@@ -14,6 +14,18 @@ type OrderItemTotalInput = {
 };
 
 export const CENTS_PER_EURO = 100;
+// Absorbs float error such as 19.99 * 100 = 1998.9999999999998
+const CENT_TOLERANCE = 1e-6;
+
+export const PRICE_DECIMALS_MESSAGE = 'Kaina gali turėti daugiausia 2 skaitmenis po kablelio';
+export const SALE_PRICE_DECIMALS_MESSAGE = 'Akcijos kaina gali turėti daugiausia 2 skaitmenis po kablelio';
+
+// Prices are whole cents: at most 2 decimals
+export const hasValidPriceDecimals = (value: number): boolean => {
+  const cents = value * CENTS_PER_EURO;
+
+  return Math.abs(cents - Math.round(cents)) < CENT_TOLERANCE;
+};
 
 type SaleValidationInput = {
   price: number | null;
@@ -74,6 +86,10 @@ export const getProductSaleValidationMessage = ({
     return 'Reikalinga teigiama kaina';
   }
 
+  if (!hasValidPriceDecimals(price)) {
+    return PRICE_DECIMALS_MESSAGE;
+  }
+
   if (salePrice === null) {
     if (saleStartsAt || saleEndsAt) {
       return 'Akcijos datas galima nurodyti tik kartu su akcijos kaina';
@@ -84,6 +100,10 @@ export const getProductSaleValidationMessage = ({
 
   if (salePrice <= 0) {
     return 'Akcijos kaina turi būti didesnė už 0';
+  }
+
+  if (!hasValidPriceDecimals(salePrice)) {
+    return SALE_PRICE_DECIMALS_MESSAGE;
   }
 
   if (salePrice >= price) {

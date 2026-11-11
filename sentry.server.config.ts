@@ -4,6 +4,8 @@
 
 import * as Sentry from '@sentry/nextjs';
 
+import { scrubRequestData } from '@/lib/sentry-scrub';
+
 Sentry.init({
   dsn: 'https://d44bdc942be71bfa70f51d4bc37011b7@o4511270977470464.ingest.de.sentry.io/4511270985269328',
 
@@ -13,4 +15,7 @@ Sentry.init({
   // Enable sending user PII (Personally Identifiable Information)
   // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii
   sendDefaultPii: false,
+
+  beforeSend: scrubRequestData,
+  beforeSendTransaction: scrubRequestData,
 });

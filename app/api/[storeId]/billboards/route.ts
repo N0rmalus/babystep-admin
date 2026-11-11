@@ -1,6 +1,7 @@
 // Global imports
 import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
+import { INVALID_IMAGE_URL_MESSAGE, isCloudinaryImageUrl } from '@/lib/cloudinary-url';
 import { corsHeaders } from '@/lib/cors';
 
 // Personal imports
@@ -28,6 +29,9 @@ export async function POST(req: Request, props: { params: Promise<{ storeId: str
     }
     if (!imageUrl) {
       return new NextResponse('Būtinas paveikslėlio URL adresas', { status: 400 });
+    }
+    if (typeof imageUrl !== 'string' || !isCloudinaryImageUrl(imageUrl)) {
+      return new NextResponse(INVALID_IMAGE_URL_MESSAGE, { status: 400 });
     }
     if (!params.storeId) {
       return new NextResponse('Būtinas parduotuvės ID', { status: 400 });

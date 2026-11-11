@@ -1,6 +1,7 @@
 // Global imports
 import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
+import { INVALID_IMAGE_URL_MESSAGE, isCloudinaryImageUrl } from '@/lib/cloudinary-url';
 import { corsHeaders } from '@/lib/cors';
 
 // Personal imports
@@ -12,10 +13,7 @@ export async function OPTIONS() {
   return NextResponse.json({}, { headers: corsHeaders });
 }
 
-export async function GET(
-  req: Request,
-  props: { params: Promise<{ storeId: string; billboardId: string }> }
-) {
+export async function GET(req: Request, props: { params: Promise<{ storeId: string; billboardId: string }> }) {
   const params = await props.params;
   try {
     if (!params.storeId) {
@@ -38,10 +36,7 @@ export async function GET(
   }
 }
 
-export async function PATCH(
-  req: Request,
-  props: { params: Promise<{ storeId: string; billboardId: string }> }
-) {
+export async function PATCH(req: Request, props: { params: Promise<{ storeId: string; billboardId: string }> }) {
   const params = await props.params;
   try {
     const { userId } = await auth();
@@ -57,6 +52,9 @@ export async function PATCH(
     }
     if (!imageUrl) {
       return new NextResponse('Būtinas paveikslėlio URL adresas', { status: 400 });
+    }
+    if (typeof imageUrl !== 'string' || !isCloudinaryImageUrl(imageUrl)) {
+      return new NextResponse(INVALID_IMAGE_URL_MESSAGE, { status: 400 });
     }
     if (!params.billboardId) {
       return new NextResponse('Reikalingas skelbimų lentos ID', { status: 400 });
@@ -90,10 +88,7 @@ export async function PATCH(
   }
 }
 
-export async function DELETE(
-  req: Request,
-  props: { params: Promise<{ storeId: string; billboardId: string }> }
-) {
+export async function DELETE(req: Request, props: { params: Promise<{ storeId: string; billboardId: string }> }) {
   const params = await props.params;
   try {
     const { userId } = await auth();

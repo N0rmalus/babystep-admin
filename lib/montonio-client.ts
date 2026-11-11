@@ -280,7 +280,12 @@ export const createMontonioClient = ({
 
     const matches = filterPickupPoints({ pickupPoints, query });
 
-    return limit === undefined ? matches : matches.slice(0, limit);
+    if (limit === undefined) {
+      return matches;
+    }
+
+    // Alternate carriers so a broad query shows both, not just the first carrier's points.
+    return interleaveCarriers(matches).slice(0, limit);
   };
 
   return { createOrder, verifyOrderToken, verifyRefundToken, getPaymentMethods, getPickupPoints };
@@ -357,6 +362,17 @@ const filterPickupPoints = ({ pickupPoints, query }: { pickupPoints: PickupPoint
 
     return stems.every((stem) => searchableText.includes(stem));
   });
+};
+
+const interleaveCarriers = (pickupPoints: PickupPoint[]) => {
+  const pointsByCarrier = LOCKER_CARRIERS.map((carrier) =>
+    pickupPoints.filter((pickupPoint) => pickupPoint.carrier === carrier),
+  );
+  const roundCount = Math.max(0, ...pointsByCarrier.map(({ length }) => length));
+
+  return Array.from({ length: roundCount }, (_, round) =>
+    pointsByCarrier.flatMap((carrierPoints) => carrierPoints.slice(round, round + 1)),
+  ).flat();
 };
 
 const toStem = (word: string) => {

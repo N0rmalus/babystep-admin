@@ -55,6 +55,19 @@ High-level plan. How Montonio works is not researched yet: read their docs first
 - [ ] TODO in code: catalog filtering happens in memory.
 - [ ] Dependabot update runs failing since June (not investigated).
 
+## Security (2026-11-11 audit, before launch)
+
+Fixed separately on `chore/security-fixes`: dependency upgrades, sign-up removal with `ADMIN_USER_IDS`, page-level auth checks, checkout input caps, Sentry scrubbing, CORS, image URL and price/stock validation. The items below wait for launch decisions.
+
+- [ ] **Clerk Production instance.** The admin runs on Clerk's Development instance (sign-up set to Invite-only). Before launch, create a Production instance on the admin's own domain (e.g. `admin.babystep.lt`): add Clerk's DNS records at Hostinger, put the new keys in the host's env vars, set Invite-only again, re-create the admin user and update `ADMIN_USER_IDS`.
+- [ ] **Rate limit the public checkout.** See the Medium item above. Pick the tool with the hosting decision (Vercel WAF rule or Upstash, which works on any host); add Turnstile only if abuse appears.
+- [ ] **Signed Cloudinary uploads.** The unsigned preset is public in the client bundle; the preset is restricted in Cloudinary for now. Switch to signed uploads behind Clerk auth, together with the `next-cloudinary` 7 upgrade.
+- [ ] **Order status endpoint keeps contact details forever.** Return name, email, phone and address only for ~24 hours after the order, then just status, lines and totals; add `Cache-Control: no-store`. The storefront's `/uzsakymas/[orderId]` page must handle the missing fields.
+- [ ] **Sanitize product descriptions on save.** The storefront sanitizes with DOMPurify, but emails, feeds or server rendering later wouldn't.
+- [ ] **Zod validation for the older routes** (billboards, categories, subcategories, stores, product name/isFeatured), which return 500 on wrong types.
+- [ ] **Cron secret in the header only**, once Hostinger's cron is confirmed to send an `Authorization` header (drop the `?token=` fallback).
+- [ ] **Storefront:** the same dependency upgrades, and its own security audit after the checkout is connected.
+
 ## Dead code / cleanup
 
 - [x] Delete the empty untracked `pages/` folder (causes all 17 local `npm run typescript` errors).

@@ -501,7 +501,24 @@ describe('getPickupPoints', () => {
     const client = createClient({ fakeFetch });
 
     expect(await client.getPickupPoints({ query: 'omniva', limit: 1 })).toEqual([ALL_PICKUP_POINTS.at(0)]);
-    expect(await client.getPickupPoints({ limit: 2 })).toEqual(ALL_PICKUP_POINTS.slice(0, 2));
+    expect(await client.getPickupPoints({ query: 'omniva', limit: 2 })).toEqual(ALL_PICKUP_POINTS.slice(0, 2));
+  });
+
+  it('alternates carriers in a limited result, keeping each carrier’s order', async () => {
+    const { fakeFetch } = pickupPointsFetch();
+    const client = createClient({ fakeFetch });
+
+    const limited = await client.getPickupPoints({ limit: 2 });
+    expect(limited.map(({ id }) => id)).toEqual(['omniva-1', 'unisend-1']);
+
+    const all = await client.getPickupPoints({ limit: 10 });
+    expect(all.map(({ id }) => id)).toEqual(['omniva-1', 'unisend-1', 'omniva-2']);
+  });
+
+  it('keeps the carriers grouped when there is no limit', async () => {
+    const { fakeFetch } = pickupPointsFetch();
+
+    expect(await createClient({ fakeFetch }).getPickupPoints({ query: 'paštomatas' })).toEqual(ALL_PICKUP_POINTS);
   });
 
   it('serves repeated searches from a short-lived cache', async () => {

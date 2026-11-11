@@ -4,9 +4,8 @@ import { z } from 'zod';
 
 import { corsHeaders } from '@/lib/cors';
 import { resolveOrderReview } from '@/lib/order-review';
-import { toStorefrontOrder } from '@/lib/storefront-order';
+import { ORDER_NOT_FOUND_MESSAGE, storefrontOrderResponse } from '@/lib/storefront-order-response';
 import { getStoreByUserId } from '@/queries/get-store-by-user-id';
-import { getStorefrontOrder } from '@/queries/get-storefront-order';
 
 type Params = { params: Promise<{ storeId: string; orderId: string }> };
 
@@ -15,8 +14,6 @@ const UNAUTHENTICATED_STATUS = 401;
 const FORBIDDEN_STATUS = 403;
 const NOT_FOUND_STATUS = 404;
 const INTERNAL_ERROR_STATUS = 500;
-
-const ORDER_NOT_FOUND_MESSAGE = 'Užsakymas nerastas';
 
 const resolveReviewSchema = z.object({ needsReview: z.literal(false) }).strict();
 
@@ -28,20 +25,7 @@ export async function GET(_req: Request, props: Params) {
   const { storeId, orderId } = await props.params;
 
   try {
-    const storedOrder = await getStorefrontOrder({ storeId, orderId });
-
-    if (!storedOrder) {
-      return notFoundResponse();
-    }
-
-    const order = toStorefrontOrder(storedOrder);
-
-    if (!order) {
-      console.log('[ORDER_GET]', `Order ${orderId} has no delivery or payment snapshot`);
-      return notFoundResponse();
-    }
-
-    return NextResponse.json(order, { headers: corsHeaders });
+    return await storefrontOrderResponse({ storeId, orderId, logTag: '[ORDER_GET]' });
   } catch (error) {
     console.log('[ORDER_GET]', error);
     return new NextResponse('Internal error', { status: INTERNAL_ERROR_STATUS, headers: corsHeaders });
@@ -82,6 +66,3 @@ export async function PATCH(req: Request, props: Params) {
     return new NextResponse('Vidinė serverio klaida', { status: INTERNAL_ERROR_STATUS });
   }
 }
-
-const notFoundResponse = () =>
-  new NextResponse(ORDER_NOT_FOUND_MESSAGE, { status: NOT_FOUND_STATUS, headers: corsHeaders });

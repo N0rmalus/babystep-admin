@@ -1,7 +1,7 @@
 import type { PaymentStatus } from '@prisma/client';
 import { describe, expect, it } from 'vitest';
 
-import { HOLDING_STOCK_WHERE, isHoldingStock } from '@/lib/order-stock-hold';
+import { getPreviousAttemptWhere, HOLDING_STOCK_WHERE, isHoldingStock } from '@/lib/order-stock-hold';
 
 const RELEASED_AT = new Date('2026-11-10T12:00:00Z');
 
@@ -60,6 +60,15 @@ describe('HOLDING_STOCK_WHERE', () => {
     const authorizedOrder = { paymentStatus: 'AUTHORIZED', isPaid: false, stockReleasedAt: null } satisfies OrderState;
 
     expect(matchesEqualityWhere(authorizedOrder, HOLDING_STOCK_WHERE)).toBe(true);
+  });
+});
+
+describe('getPreviousAttemptWhere', () => {
+  it('limits a retry release to the same store and customer email, ignoring case', () => {
+    expect(getPreviousAttemptWhere({ storeId: 'store-1', email: 'Ona@Example.test' })).toEqual({
+      storeId: 'store-1',
+      email: { equals: 'Ona@Example.test', mode: 'insensitive' },
+    });
   });
 });
 

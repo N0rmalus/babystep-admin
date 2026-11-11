@@ -51,6 +51,8 @@ const checkoutRequestSchema = z.object({
     z.object({ method: z.literal('bank'), bankCode: idSchema }),
     z.object({ method: z.literal('card') }),
   ]),
+  // The storefront's earlier, unpaid attempt; its reservation is released before this one reserves
+  previousOrderId: idSchema.min(1).optional(),
 });
 
 export type CheckoutRequest = z.infer<typeof checkoutRequestSchema>;

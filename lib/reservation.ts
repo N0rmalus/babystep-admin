@@ -3,7 +3,7 @@ import 'server-only';
 import * as Sentry from '@sentry/nextjs';
 import type { Prisma } from '@prisma/client';
 
-import { HOLDING_STOCK_WHERE } from '@/lib/order-stock-hold';
+import { getPreviousAttemptWhere, HOLDING_STOCK_WHERE } from '@/lib/order-stock-hold';
 import prismadb from '@/lib/prismadb';
 import { releaseOrderBatch } from '@/lib/release-order-batch';
 import { getReleaseCutoff } from '@/lib/reservation-config';
@@ -48,14 +48,43 @@ type ReleaseReservationOptions = {
   orderId: string;
   tx?: Prisma.TransactionClient;
   now?: Date;
+  // Extra conditions the order must meet, on top of still holding stock
+  where?: Prisma.OrderWhereInput;
 };
 
-export const releaseReservation = ({ orderId, tx, now = new Date() }: ReleaseReservationOptions): Promise<boolean> => {
+export const releaseReservation = ({
+  orderId,
+  tx,
+  now = new Date(),
+  where = {},
+}: ReleaseReservationOptions): Promise<boolean> => {
   if (tx) {
-    return releaseInTransaction({ orderId, tx, now });
+    return releaseInTransaction({ orderId, tx, now, where });
   }
 
-  return prismadb.$transaction((transaction) => releaseInTransaction({ orderId, tx: transaction, now }));
+  return prismadb.$transaction((transaction) => releaseInTransaction({ orderId, tx: transaction, now, where }));
+};
+
+type ReleasePreviousAttemptOptions = {
+  orderId: string;
+  storeId: string;
+  email: string;
+  now?: Date;
+};
+
+// Best effort: a failed release only means the old attempt keeps its stock until it expires.
+export const releasePreviousAttempt = async ({
+  orderId,
+  storeId,
+  email,
+  now = new Date(),
+}: ReleasePreviousAttemptOptions): Promise<boolean> => {
+  try {
+    return await releaseReservation({ orderId, now, where: getPreviousAttemptWhere({ storeId, email }) });
+  } catch (error) {
+    reportReleaseError(error, orderId);
+    return false;
+  }
 };
 
 const RELEASE_LOG_TAG = '[RELEASE_EXPIRED_ORDERS]';
@@ -96,13 +125,15 @@ const releaseInTransaction = async ({
   orderId,
   tx,
   now,
+  where,
 }: {
   orderId: string;
   tx: Prisma.TransactionClient;
   now: Date;
+  where: Prisma.OrderWhereInput;
 }) => {
   const { count } = await tx.order.updateMany({
-    where: { id: orderId, ...HOLDING_STOCK_WHERE },
+    where: { ...where, id: orderId, ...HOLDING_STOCK_WHERE },
     data: { stockReleasedAt: now },
   });
 

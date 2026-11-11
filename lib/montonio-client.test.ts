@@ -496,6 +496,14 @@ describe('getPickupPoints', () => {
     expect(pickupPoints.map(({ id }) => id)).toEqual(ids);
   });
 
+  it('caps the matches at the limit, keeping their order', async () => {
+    const { fakeFetch } = pickupPointsFetch();
+    const client = createClient({ fakeFetch });
+
+    expect(await client.getPickupPoints({ query: 'omniva', limit: 1 })).toEqual([ALL_PICKUP_POINTS.at(0)]);
+    expect(await client.getPickupPoints({ limit: 2 })).toEqual(ALL_PICKUP_POINTS.slice(0, 2));
+  });
+
   it('serves repeated searches from a short-lived cache', async () => {
     let now = NOW;
     const { calls, fakeFetch } = pickupPointsFetch();

@@ -114,6 +114,12 @@ describe('parseCheckoutRequest', () => {
     expect(parseCheckoutRequest(VALID_REQUEST)).toEqual({ status: 'ok', request: VALID_REQUEST });
   });
 
+  it('accepts the previous attempt of a retried checkout', () => {
+    const body = { ...VALID_REQUEST, previousOrderId: 'order-1' };
+
+    expect(parseCheckoutRequest(body)).toEqual({ status: 'ok', request: body });
+  });
+
   it.each([
     ['a body that is not an object', null],
     ['empty lines', { ...VALID_REQUEST, lines: [] }],
@@ -163,6 +169,9 @@ describe('parseCheckoutRequest', () => {
       { ...VALID_REQUEST, delivery: { method: 'locker', pickupPointId: 'x'.repeat(101) } },
     ],
     ['an over-long bank code', { ...VALID_REQUEST, payment: { method: 'bank', bankCode: 'x'.repeat(101) } }],
+    ['an empty previous order id', { ...VALID_REQUEST, previousOrderId: '' }],
+    ['an over-long previous order id', { ...VALID_REQUEST, previousOrderId: 'x'.repeat(101) }],
+    ['a non-string previous order id', { ...VALID_REQUEST, previousOrderId: 42 }],
   ])('rejects %s as INVALID_REQUEST', (_, body) => {
     expect(parseCheckoutRequest(body)).toEqual({ status: 'rejected', error: { code: 'INVALID_REQUEST' } });
   });

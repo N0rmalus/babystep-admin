@@ -43,9 +43,7 @@ const refundTokenSchema = z.object({ accessKey: z.string() });
 export type MontonioOrderToken = Omit<z.infer<typeof orderTokenSchema>, 'accessKey'>;
 
 export type VerifyOrderTokenResult =
-  | { status: 'valid'; order: MontonioOrderToken }
-  | { status: 'invalid' }
-  | { status: 'foreign-access-key' };
+  { status: 'valid'; order: MontonioOrderToken } | { status: 'invalid' } | { status: 'foreign-access-key' };
 
 export type VerifyRefundTokenResult = { status: 'valid' } | { status: 'invalid' } | { status: 'foreign-access-key' };
 
@@ -272,14 +270,17 @@ export const createMontonioClient = ({
     }));
   };
 
-  const getPickupPoints = async ({ query = '' }: { query?: string } = {}) => {
+  // Without a limit every match is returned; checkout validation relies on that.
+  const getPickupPoints = async ({ query = '', limit }: { query?: string; limit?: number } = {}) => {
     const pickupPoints = await pickupPointsCache.get(async () => {
       const carrierPickupPoints = await Promise.all(LOCKER_CARRIERS.map(getCarrierPickupPoints));
 
       return carrierPickupPoints.flat();
     });
 
-    return filterPickupPoints({ pickupPoints, query });
+    const matches = filterPickupPoints({ pickupPoints, query });
+
+    return limit === undefined ? matches : matches.slice(0, limit);
   };
 
   return { createOrder, verifyOrderToken, verifyRefundToken, getPaymentMethods, getPickupPoints };

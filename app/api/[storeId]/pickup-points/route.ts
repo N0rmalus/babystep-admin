@@ -9,7 +9,8 @@ export async function OPTIONS() {
 }
 
 export async function GET(req: Request) {
-  const query = new URL(req.url).searchParams.get('query') ?? '';
+  const { searchParams } = new URL(req.url);
+  const query = searchParams.get('query') ?? '';
 
-  return getPickupPointsResponse({ getClient: getMontonioClient, query });
+  return getPickupPointsResponse({ getClient: getMontonioClient, query, limit: searchParams.get('limit') });
 }

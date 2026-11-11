@@ -4,6 +4,7 @@ import { getOptionGroup } from '@/queries/get-option-group';
 
 import { OptionGroupForm } from './components/option-group-form';
 import { OptionGroupFormValues, toSizeText } from './components/schema';
+import { requireStoreOwner } from '@/lib/require-store-owner';
 
 type Props = {
   params: Promise<{
@@ -16,6 +17,7 @@ const NEW_SEGMENT = 'new';
 
 const OptionGroupPage = async (props: Props) => {
   const params = await props.params;
+  await requireStoreOwner(params.storeId);
   const isNew = params.optionGroupId === NEW_SEGMENT;
   const optionGroup = isNew
     ? null

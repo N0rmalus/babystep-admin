@@ -4,6 +4,7 @@ import { getOptionGroups } from '@/queries/get-option-groups';
 
 import { OptionGroupClient } from './components/client';
 import { OptionGroupColumn } from './components/columns';
+import { requireStoreOwner } from '@/lib/require-store-owner';
 
 type Props = {
   params: Promise<{
@@ -13,6 +14,7 @@ type Props = {
 
 const OptionGroupsPage = async (props: Props) => {
   const params = await props.params;
+  await requireStoreOwner(params.storeId);
   const optionGroups = await getOptionGroups(params.storeId);
 
   const formattedOptionGroups = optionGroups.map((group) => ({

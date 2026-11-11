@@ -3,6 +3,7 @@ import { Page } from '@/components/dashboard/page';
 import { getSubcategories } from '@/queries/get-subcategories';
 import { SubcategoryClient } from './components/client';
 import { SubCategoryColumn } from './components/columns';
+import { requireStoreOwner } from '@/lib/require-store-owner';
 
 type Props = {
   params: Promise<{
@@ -12,6 +13,7 @@ type Props = {
 
 const SubcategoriesPage = async (props: Props) => {
   const params = await props.params;
+  await requireStoreOwner(params.storeId);
   const subcategories = await getSubcategories(params.storeId, {
     includeCategory: true,
     orderByCreatedAt: 'desc',

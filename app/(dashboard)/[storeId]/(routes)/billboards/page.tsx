@@ -4,9 +4,11 @@ import { getBillboards } from '@/queries/get-billboards';
 
 import { BillboardClient } from './components/client';
 import { BillboardColumn } from './components/columns';
+import { requireStoreOwner } from '@/lib/require-store-owner';
 
 const BillboardsPage = async (props: { params: Promise<{ storeId: string }> }) => {
   const params = await props.params;
+  await requireStoreOwner(params.storeId);
   const billboards = await getBillboards(params.storeId, { orderByCreatedAt: 'desc' });
 
   const formattedBillboards: BillboardColumn[] = billboards.map((item) => ({

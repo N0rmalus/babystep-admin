@@ -5,6 +5,7 @@ const nextConfig = {
       {
         protocol: 'https',
         hostname: 'res.cloudinary.com',
+        pathname: '/ddiwjqltw/**',
       },
     ],
     qualities: [75],
@@ -16,7 +17,7 @@ module.exports = nextConfig;
 // Injected content via Sentry wizard below
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { withSentryConfig } = require('@sentry/nextjs');
+const { withSentryConfig } = require('@sentry/nextjs/config');
 
 module.exports = withSentryConfig(module.exports, {
   // For all available options, see:

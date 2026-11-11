@@ -31,6 +31,20 @@ describe('getBulkChanges', () => {
     });
   });
 
+  it('rejects a price with more than 2 decimals', () => {
+    expect(getBulkChanges({ ...NO_INPUTS, price: '12.345' })).toEqual({
+      isValid: false,
+      message: 'Kaina gali turėti daugiausia 2 skaitmenis po kablelio',
+    });
+  });
+
+  it('rejects a sale price with more than 2 decimals', () => {
+    expect(getBulkChanges({ ...NO_INPUTS, salePrice: '9.999' })).toEqual({
+      isValid: false,
+      message: 'Akcijos kaina gali turėti daugiausia 2 skaitmenis po kablelio',
+    });
+  });
+
   it('rejects a sale price that is not above 0', () => {
     expect(getBulkChanges({ ...NO_INPUTS, salePrice: '0' })).toEqual({
       isValid: false,

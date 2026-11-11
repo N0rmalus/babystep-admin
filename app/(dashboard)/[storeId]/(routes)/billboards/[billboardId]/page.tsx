@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { BillboardForm } from './components/billboard-form';
 import { Page } from '@/components/dashboard/page';
 import { getBillboard } from '@/queries/get-billboard';
+import { requireStoreOwner } from '@/lib/require-store-owner';
 
 type Props = {
   params: Promise<{
@@ -12,6 +13,7 @@ type Props = {
 
 const BillboardPage = async (props: Props) => {
   const params = await props.params;
+  await requireStoreOwner(params.storeId);
   const billboard =
     params.billboardId !== 'new'
       ? await getBillboard(params.storeId, params.billboardId)

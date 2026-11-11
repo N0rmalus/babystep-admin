@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { submittedImageSchema } from '@/lib/product-images';
+import { hasValidPriceDecimals, PRICE_DECIMALS_MESSAGE, SALE_PRICE_DECIMALS_MESSAGE } from '@/lib/product-pricing';
 import { GROUP_NAME_REQUIRED_MESSAGE } from '@/lib/product-groups';
 import { getVariantPriceMessage, MAX_OPTION_GROUP_COUNT, TOO_MANY_GROUPS_MESSAGE } from '@/lib/variant-plan';
 
@@ -32,7 +33,12 @@ const optionalPositiveNumberSchema = z
     const numericValue = getOptionalNumericInput(value);
 
     return numericValue === null || numericValue > 0;
-  }, 'Akcijos kaina turi būti didesnė už 0');
+  }, 'Akcijos kaina turi būti didesnė už 0')
+  .refine((value) => {
+    const numericValue = getOptionalNumericInput(value);
+
+    return numericValue === null || hasValidPriceDecimals(numericValue);
+  }, SALE_PRICE_DECIMALS_MESSAGE);
 
 const optionalDateTimeSchema = z
   .string()
@@ -71,7 +77,10 @@ export const productFormSchema = z
     name: z.string().trim().min(1, NAME_REQUIRED_MESSAGE),
     // In display order; saved images keep their id so the server updates their rows instead of re-creating them
     images: submittedImageSchema.array(),
-    price: z.coerce.number({ invalid_type_error: PRICE_MIN_MESSAGE }).min(MIN_PRICE, PRICE_MIN_MESSAGE),
+    price: z.coerce
+      .number({ invalid_type_error: PRICE_MIN_MESSAGE })
+      .min(MIN_PRICE, PRICE_MIN_MESSAGE)
+      .refine(hasValidPriceDecimals, PRICE_DECIMALS_MESSAGE),
     salePrice: optionalPositiveNumberSchema,
     saleStartsAt: optionalDateTimeSchema,
     saleEndsAt: optionalDateTimeSchema,

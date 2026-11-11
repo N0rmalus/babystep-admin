@@ -8,6 +8,8 @@ import {
   getStorefrontOrderStatus,
   getWebhookAction,
   getWebhookOrderMismatch,
+  MAX_CHECKOUT_LINE_COUNT,
+  MAX_LINE_QUANTITY,
   parseCheckoutRequest,
   resolveCheckoutItems,
   validateCheckoutFields,
@@ -104,6 +106,9 @@ const VALID_REQUEST = {
   payment: { method: 'bank', bankCode: 'SWEDBANK_LT' },
 };
 
+const getDistinctLines = (count: number) =>
+  Array.from({ length: count }, (_, index) => ({ productId: `product-${index}`, quantity: 1 }));
+
 describe('parseCheckoutRequest', () => {
   it('accepts a well-formed request', () => {
     expect(parseCheckoutRequest(VALID_REQUEST)).toEqual({ status: 'ok', request: VALID_REQUEST });
@@ -138,8 +143,39 @@ describe('parseCheckoutRequest', () => {
     ['an unknown delivery method', { ...VALID_REQUEST, delivery: { method: 'dpd', pickupPointId: 'x' } }],
     ['an unknown payment method', { ...VALID_REQUEST, payment: { method: 'paypal' } }],
     ['missing contact', { ...VALID_REQUEST, contact: undefined }],
+    ['more than 50 lines', { ...VALID_REQUEST, lines: getDistinctLines(MAX_CHECKOUT_LINE_COUNT + 1) }],
+    ['a quantity above 99', { ...VALID_REQUEST, lines: [{ productId: 'muslin', quantity: MAX_LINE_QUANTITY + 1 }] }],
+    ['an over-long product id', { ...VALID_REQUEST, lines: [{ productId: 'x'.repeat(101), quantity: 1 }] }],
+    [
+      'an over-long first name',
+      { ...VALID_REQUEST, contact: { ...VALID_REQUEST.contact, firstName: 'x'.repeat(101) } },
+    ],
+    ['an over-long email', { ...VALID_REQUEST, contact: { ...VALID_REQUEST.contact, email: 'x'.repeat(201) } }],
+    [
+      'an over-long street',
+      {
+        ...VALID_REQUEST,
+        delivery: { method: 'courier', address: { street: 'x'.repeat(201), city: 'Vilnius', postalCode: '01100' } },
+      },
+    ],
+    [
+      'an over-long pickup point id',
+      { ...VALID_REQUEST, delivery: { method: 'locker', pickupPointId: 'x'.repeat(101) } },
+    ],
+    ['an over-long bank code', { ...VALID_REQUEST, payment: { method: 'bank', bankCode: 'x'.repeat(101) } }],
   ])('rejects %s as INVALID_REQUEST', (_, body) => {
     expect(parseCheckoutRequest(body)).toEqual({ status: 'rejected', error: { code: 'INVALID_REQUEST' } });
+  });
+
+  it('accepts the maximum line count, quantity and text lengths', () => {
+    const body = {
+      ...VALID_REQUEST,
+      lines: getDistinctLines(MAX_CHECKOUT_LINE_COUNT).with(0, { productId: 'muslin', quantity: MAX_LINE_QUANTITY }),
+      contact: { ...VALID_REQUEST.contact, firstName: 'x'.repeat(100), email: 'x'.repeat(200) },
+      delivery: { method: 'courier', address: { street: 'x'.repeat(200), city: 'x'.repeat(100), postalCode: '01100' } },
+    };
+
+    expect(parseCheckoutRequest(body)).toMatchObject({ status: 'ok' });
   });
 
   it('accepts two variants of the same product as separate lines', () => {

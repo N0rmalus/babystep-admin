@@ -8,6 +8,7 @@ import { getOptionGroups } from '@/queries/get-option-groups';
 import { getProduct } from '@/queries/get-product';
 import { getSubcategories } from '@/queries/get-subcategories';
 import { getVariantReservedCounts } from '@/queries/get-variant-reserved-counts';
+import { requireStoreOwner } from '@/lib/require-store-owner';
 
 type Props = {
   params: Promise<{
@@ -18,6 +19,7 @@ type Props = {
 
 const ProductPage = async (props: Props) => {
   const params = await props.params;
+  await requireStoreOwner(params.storeId);
   const categories = await getCategories(params.storeId);
   const subcategories = await getSubcategories(params.storeId);
   const optionGroups = await getOptionGroups(params.storeId);

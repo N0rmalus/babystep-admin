@@ -2,6 +2,7 @@ import { OrderClient } from './components/client';
 import { Page } from '@/components/dashboard/page';
 import { toAdminOrder } from '@/lib/admin-order';
 import { getOrders } from '@/queries/get-orders';
+import { requireStoreOwner } from '@/lib/require-store-owner';
 
 type Props = {
   params: Promise<{
@@ -11,6 +12,7 @@ type Props = {
 
 const OrdersPage = async (props: Props) => {
   const params = await props.params;
+  await requireStoreOwner(params.storeId);
   const orders = await getOrders(params.storeId);
 
   return (

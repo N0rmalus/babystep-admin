@@ -1,3 +1,4 @@
+import { hasValidPriceDecimals, PRICE_DECIMALS_MESSAGE, SALE_PRICE_DECIMALS_MESSAGE } from '@/lib/product-pricing';
 import { INVALID_STOCK_COUNT_MESSAGE, isValidStockCount } from '@/lib/product-variant';
 import { SALE_PRICE_WITHOUT_PRICE_MESSAGE } from '@/lib/variant-plan';
 
@@ -52,6 +53,14 @@ export const getBulkChanges = (inputs: BulkInputs): BulkChangesResult => {
 
   if (salePrice && !isPositiveNumber(salePrice)) {
     return { isValid: false, message: INVALID_SALE_PRICE_MESSAGE };
+  }
+
+  if (price && !hasValidPriceDecimals(Number(price))) {
+    return { isValid: false, message: PRICE_DECIMALS_MESSAGE };
+  }
+
+  if (salePrice && !hasValidPriceDecimals(Number(salePrice))) {
+    return { isValid: false, message: SALE_PRICE_DECIMALS_MESSAGE };
   }
 
   return {

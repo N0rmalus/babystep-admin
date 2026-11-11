@@ -1,10 +1,11 @@
 import { z } from 'zod';
+import { cloudinaryImageUrlSchema } from '@/lib/cloudinary-url';
 
 // One image in a product save request, in display order; saved images carry their row id. `optionValueId` tags
 // the image with one option value the product's active variants use (none when left out).
 export const submittedImageSchema = z.object({
   id: z.string().optional(),
-  url: z.string().min(1),
+  url: cloudinaryImageUrlSchema,
   optionValueId: z.string().min(1).nullable().optional(),
 });
 

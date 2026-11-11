@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { getOrderItemTotal, getProductPricing, resolveVariantPrices } from '@/lib/product-pricing';
+import {
+  getOrderItemTotal,
+  getProductPricing,
+  getProductSaleValidationMessage,
+  hasValidPriceDecimals,
+  resolveVariantPrices,
+} from '@/lib/product-pricing';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const NOW = new Date('2026-06-15T12:00:00Z');
@@ -105,5 +111,35 @@ describe('resolveVariantPrices', () => {
 
     expect(getProductPricing({ ...prices, saleStartsAt: TOMORROW }, NOW).isOnSale).toBe(false);
     expect(getProductPricing({ ...prices, saleStartsAt: YESTERDAY }, NOW).effectivePrice).toBe(18);
+  });
+});
+
+describe('hasValidPriceDecimals', () => {
+  it.each([20, 19.9, 19.99, 0.01, 1234.56])('accepts %s', (value) => {
+    expect(hasValidPriceDecimals(value)).toBe(true);
+  });
+
+  it.each([19.999, 0.001, 10.005])('rejects %s', (value) => {
+    expect(hasValidPriceDecimals(value)).toBe(false);
+  });
+});
+
+describe('getProductSaleValidationMessage', () => {
+  const NO_SALE = { salePrice: null, saleStartsAt: null, saleEndsAt: null };
+
+  it('accepts prices with up to 2 decimals', () => {
+    expect(getProductSaleValidationMessage({ ...NO_SALE, price: 19.99, salePrice: 14.5 })).toBeNull();
+  });
+
+  it('rejects a price with more than 2 decimals', () => {
+    expect(getProductSaleValidationMessage({ ...NO_SALE, price: 19.999 })).toBe(
+      'Kaina gali turėti daugiausia 2 skaitmenis po kablelio',
+    );
+  });
+
+  it('rejects a sale price with more than 2 decimals', () => {
+    expect(getProductSaleValidationMessage({ ...NO_SALE, price: 20, salePrice: 14.555 })).toBe(
+      'Akcijos kaina gali turėti daugiausia 2 skaitmenis po kablelio',
+    );
   });
 });

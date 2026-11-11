@@ -8,6 +8,7 @@ import { Heading } from '@/components/ui/heading';
 import { Separator } from '@/components/ui/separator';
 import { formatter } from '@/lib/utils';
 import { CreditCard, Package, Wallet } from 'lucide-react';
+import { requireStoreOwner } from '@/lib/require-store-owner';
 
 type Props = {
   params: Promise<{ storeId: string }>;
@@ -15,6 +16,7 @@ type Props = {
 
 const DashboardPage = async (props: Props) => {
   const params = await props.params;
+  await requireStoreOwner(params.storeId);
   const totalRevenue = await getTotalRevenue(params.storeId);
   const salesCount = await getSalesCount(params.storeId);
   const stockCount = await getStockCount(params.storeId);

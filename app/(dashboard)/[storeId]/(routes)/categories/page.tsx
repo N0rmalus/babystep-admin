@@ -4,9 +4,11 @@ import { getCategories } from '@/queries/get-categories';
 
 import { CategoryClient } from './components/client';
 import { CategoryColumn } from './components/columns';
+import { requireStoreOwner } from '@/lib/require-store-owner';
 
 const CategoriesPage = async (props: { params: Promise<{ storeId: string }> }) => {
   const params = await props.params;
+  await requireStoreOwner(params.storeId);
   const categories = await getCategories(params.storeId, {
     includeBillboard: true,
     orderByCreatedAt: 'desc',

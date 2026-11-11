@@ -30,8 +30,8 @@ Prettier: single quotes, 120 cols, trailing commas, tailwind plugin (`.prettierr
 ## Architecture
 
 **Routing (`app/`)**
-- `(auth)`: Clerk sign-in/sign-up. `(root)`: store setup; redirects to the user's first store if one exists.
-- `(dashboard)/[storeId]`: admin pages. The layout checks store ownership via `getStoreByUserId`. Each resource follows the same pattern:
+- `(auth)`: Clerk sign-in only (no public sign-up; `POST /api/stores` accepts only the Clerk user IDs in `ADMIN_USER_IDS`). `(root)`: store setup; redirects to the user's first store if one exists.
+- `(dashboard)/[storeId]`: admin pages. The layout checks store ownership via `getStoreByUserId`, but layouts and pages render in parallel, so every page that loads store data also calls `requireStoreOwner(storeId)` (`lib/require-store-owner.ts`) first. Each resource follows the same pattern:
   - **List:** `page.tsx` (server, fetches via `queries/`) → `components/client.tsx` + `columns.tsx` + `cell-action.tsx` (TanStack table).
   - **Edit:** `[id]/page.tsx` → `[id]/components/<x>-form.tsx` + `schema.ts` (zod + react-hook-form).
   - Forms submit with axios to `/api/...`, then `router.refresh()` + `router.push()`. Errors go through `getFormErrorMessage`.

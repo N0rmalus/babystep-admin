@@ -11,29 +11,44 @@ type LineKey = {
   variantId?: string;
 };
 
+// Caps keep a public, unauthenticated endpoint from accepting oversized payloads
+export const MAX_CHECKOUT_LINE_COUNT = 50;
+export const MAX_LINE_QUANTITY = 99;
+const SHORT_TEXT_MAX_LENGTH = 100;
+const LONG_TEXT_MAX_LENGTH = 200;
+
+const idSchema = z.string().max(SHORT_TEXT_MAX_LENGTH);
+const shortTextSchema = z.string().max(SHORT_TEXT_MAX_LENGTH);
+const longTextSchema = z.string().max(LONG_TEXT_MAX_LENGTH);
+
 const lineSchema = z.object({
-  productId: z.string().min(1),
-  variantId: z.string().min(1).optional(),
-  quantity: z.number().int().positive(),
+  productId: idSchema.min(1),
+  variantId: idSchema.min(1).optional(),
+  quantity: z.number().int().positive().max(MAX_LINE_QUANTITY),
 });
 
 const checkoutRequestSchema = z.object({
-  lines: z.array(lineSchema).min(1).refine(hasUniqueLines),
-  contact: z.object({ firstName: z.string(), lastName: z.string(), email: z.string(), phone: z.string() }),
+  lines: z.array(lineSchema).min(1).max(MAX_CHECKOUT_LINE_COUNT).refine(hasUniqueLines),
+  contact: z.object({
+    firstName: shortTextSchema,
+    lastName: shortTextSchema,
+    email: longTextSchema,
+    phone: shortTextSchema,
+  }),
   delivery: z.discriminatedUnion('method', [
-    z.object({ method: z.literal('locker'), pickupPointId: z.string() }),
+    z.object({ method: z.literal('locker'), pickupPointId: idSchema }),
     z.object({
       method: z.literal('courier'),
       address: z.object({
-        street: z.string(),
-        apartment: z.string().optional(),
-        city: z.string(),
-        postalCode: z.string(),
+        street: longTextSchema,
+        apartment: shortTextSchema.optional(),
+        city: shortTextSchema,
+        postalCode: shortTextSchema,
       }),
     }),
   ]),
   payment: z.discriminatedUnion('method', [
-    z.object({ method: z.literal('bank'), bankCode: z.string() }),
+    z.object({ method: z.literal('bank'), bankCode: idSchema }),
     z.object({ method: z.literal('card') }),
   ]),
 });
@@ -41,8 +56,7 @@ const checkoutRequestSchema = z.object({
 export type CheckoutRequest = z.infer<typeof checkoutRequestSchema>;
 
 export type CheckoutRequestResult =
-  | { status: 'ok'; request: CheckoutRequest }
-  | { status: 'rejected'; error: { code: 'INVALID_REQUEST' } };
+  { status: 'ok'; request: CheckoutRequest } | { status: 'rejected'; error: { code: 'INVALID_REQUEST' } };
 
 export const parseCheckoutRequest = (body: unknown): CheckoutRequestResult => {
   const result = checkoutRequestSchema.safeParse(body);
@@ -265,15 +279,7 @@ type ValidateCheckoutFieldsOptions<TPickupPoint extends { id: string }, TBank ex
 };
 
 export type CheckoutField =
-  | 'firstName'
-  | 'lastName'
-  | 'email'
-  | 'phone'
-  | 'pickupPoint'
-  | 'street'
-  | 'city'
-  | 'postalCode'
-  | 'payment';
+  'firstName' | 'lastName' | 'email' | 'phone' | 'pickupPoint' | 'street' | 'city' | 'postalCode' | 'payment';
 
 export type FieldErrorReason = 'REQUIRED' | 'INVALID_FORMAT' | 'NOT_FOUND';
 

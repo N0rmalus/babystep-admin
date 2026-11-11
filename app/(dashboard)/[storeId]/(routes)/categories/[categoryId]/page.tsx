@@ -3,6 +3,7 @@ import { CategoryForm } from './components/category-form';
 import { Page } from '@/components/dashboard/page';
 import { getCategory } from '@/queries/get-category';
 import { getBillboards } from '@/queries/get-billboards';
+import { requireStoreOwner } from '@/lib/require-store-owner';
 
 type Props = {
   params: Promise<{
@@ -13,6 +14,7 @@ type Props = {
 
 const CategoryPage = async (props: Props) => {
   const params = await props.params;
+  await requireStoreOwner(params.storeId);
   const category =
     params.categoryId !== 'new'
       ? await getCategory(params.storeId, params.categoryId)

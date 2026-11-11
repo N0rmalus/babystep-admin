@@ -6,6 +6,7 @@ import { formatter } from '@/lib/utils';
 
 import { ProductClient } from './components/client';
 import { ProductColumn } from './components/columns';
+import { requireStoreOwner } from '@/lib/require-store-owner';
 
 type Props = {
   params: Promise<{
@@ -23,6 +24,7 @@ const saleStatusLabels = {
 
 const ProductsPage = async (props: Props) => {
   const params = await props.params;
+  await requireStoreOwner(params.storeId);
   const products = await getProducts(params.storeId, {
     includeSubcategory: true,
     includeStockCount: true,

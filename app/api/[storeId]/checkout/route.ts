@@ -67,7 +67,13 @@ export async function POST(req: Request, props: { params: Promise<{ storeId: str
     const env = checkoutEnvSchema.parse(process.env);
     const { items } = resolved;
     const totals = getCheckoutTotals({ items, deliveryMethod: fields.delivery.method });
-    const reservation = await createReservedOrder({ storeId: params.storeId, items, totals, fields });
+    const reservation = await createReservedOrder({
+      storeId: params.storeId,
+      items,
+      totals,
+      fields,
+      previousOrderId: request.previousOrderId,
+    });
 
     if (reservation.status === 'stock-changed') {
       return checkoutErrorResponse({ code: 'STOCK_CHANGED', items: reservation.items });
@@ -96,7 +102,10 @@ export async function POST(req: Request, props: { params: Promise<{ storeId: str
     }
 
     try {
-      await prismadb.order.update({ where: { id: order.id }, data: { montonioOrderUuid: created.uuid } });
+      await prismadb.order.update({
+        where: { id: order.id },
+        data: { montonioOrderUuid: created.uuid, paymentUrl: created.paymentUrl },
+      });
     } catch (error) {
       await releaseReservation({ orderId: order.id });
       throw error;

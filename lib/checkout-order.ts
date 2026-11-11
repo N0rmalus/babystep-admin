@@ -12,7 +12,12 @@ import {
 import type { CourierCarrier, LockerCarrier } from '@/lib/delivery-config';
 import type { Bank, PickupPoint } from '@/lib/montonio-client';
 import prismadb from '@/lib/prismadb';
-import { releaseExpiredOrdersHolding, reserveStock, StockChangedError } from '@/lib/reservation';
+import {
+  releaseExpiredOrdersHolding,
+  releasePreviousAttempt,
+  reserveStock,
+  StockChangedError,
+} from '@/lib/reservation';
 import { getReservationExpiresAt } from '@/lib/reservation-config';
 import { reserveWithRetry } from '@/lib/reservation-retry';
 import { getVariantStockCounts } from '@/queries/get-variant-stock-counts';
@@ -26,6 +31,7 @@ type CreateReservedOrderOptions = {
   items: CheckoutItem[];
   totals: CheckoutTotals;
   fields: Fields;
+  previousOrderId?: string;
   now?: Date;
 };
 
@@ -42,9 +48,14 @@ export const createReservedOrder = async ({
   items,
   totals,
   fields,
+  previousOrderId,
   now = new Date(),
 }: CreateReservedOrderOptions) => {
   const variantIds = items.map(({ variantId }) => variantId);
+
+  if (previousOrderId) {
+    await releasePreviousAttempt({ orderId: previousOrderId, storeId, email: fields.contact.email, now });
+  }
 
   await releaseExpiredOrdersHolding({ variantIds, now });
 
@@ -58,7 +69,13 @@ export const createReservedOrder = async ({
   });
 };
 
-const reserveAndCreateOrder = async ({ storeId, items, totals, fields, now }: Required<CreateReservedOrderOptions>) => {
+const reserveAndCreateOrder = async ({
+  storeId,
+  items,
+  totals,
+  fields,
+  now,
+}: Required<Omit<CreateReservedOrderOptions, 'previousOrderId'>>) => {
   try {
     const order = await prismadb.$transaction(async (tx) => {
       const { nextOrderNumber } = await tx.store.update({

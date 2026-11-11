@@ -4,8 +4,11 @@ import { createMontonioClient } from '@/lib/montonio-client';
 import {
   getDeliveryOptionsResponse,
   getPaymentMethodsResponse,
+  DEFAULT_PICKUP_POINT_LIMIT,
   getPickupPointsResponse,
   loadCheckoutLists,
+  MAX_PICKUP_POINT_LIMIT,
+  parsePickupPointLimit,
 } from '@/lib/storefront-checkout';
 
 // corsHeaders reads FRONTEND_STORE_URL when lib/cors is imported
@@ -122,6 +125,30 @@ const respondWithPickupPoints = (url: string) => {
     pickupPoints: [{ id: 'un-1', name: 'Maxima paštomatas', streetAddress: 'Savanorių pr. 1', locality: 'Kaunas' }],
   });
 };
+
+describe('parsePickupPointLimit', () => {
+  it('returns every point when neither query nor limit is given', () => {
+    expect(parsePickupPointLimit({ limit: null, query: '' })).toBeUndefined();
+    expect(parsePickupPointLimit({ limit: null, query: '   ' })).toBeUndefined();
+  });
+
+  it('defaults a search to 50 results', () => {
+    expect(parsePickupPointLimit({ limit: null, query: 'vilnius' })).toBe(DEFAULT_PICKUP_POINT_LIMIT);
+  });
+
+  it('uses a valid limit with or without a query', () => {
+    expect(parsePickupPointLimit({ limit: '10', query: 'vilnius' })).toBe(10);
+    expect(parsePickupPointLimit({ limit: '10', query: '' })).toBe(10);
+    expect(parsePickupPointLimit({ limit: String(MAX_PICKUP_POINT_LIMIT), query: '' })).toBe(MAX_PICKUP_POINT_LIMIT);
+  });
+
+  it.each(['0', '-5', '2.5', 'abc', '', String(MAX_PICKUP_POINT_LIMIT + 1)])(
+    'falls back to the default for the invalid limit %j',
+    (limit) => {
+      expect(parsePickupPointLimit({ limit, query: '' })).toBe(DEFAULT_PICKUP_POINT_LIMIT);
+    },
+  );
+});
 
 describe('getPickupPointsResponse', () => {
   it('returns every Omniva and Unisend point for an empty query', async () => {

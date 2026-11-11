@@ -3,6 +3,10 @@ import { describe, expect, it } from 'vitest';
 
 import { type StorefrontOrderRow, toStorefrontOrder } from '@/lib/storefront-order';
 
+const NOW = new Date('2026-06-15T12:00:00Z');
+const EXPIRES_AT = new Date('2026-06-15T12:30:00Z');
+const PAYMENT_URL = 'https://sandbox-stargate.montonio.com/pay/abc';
+
 const createOrder = (overrides: Partial<StorefrontOrderRow> = {}) =>
   ({
     id: 'order-1',
@@ -10,6 +14,8 @@ const createOrder = (overrides: Partial<StorefrontOrderRow> = {}) =>
     paymentStatus: 'PAID',
     isPaid: true,
     stockReleasedAt: null,
+    expiresAt: EXPIRES_AT,
+    paymentUrl: PAYMENT_URL,
     firstName: 'Ona',
     lastName: 'Onaitė',
     email: 'ona@example.test',
@@ -56,7 +62,7 @@ const createOrder = (overrides: Partial<StorefrontOrderRow> = {}) =>
 
 describe('toStorefrontOrder', () => {
   it('returns a paid locker order with bank payment in the storefront shape', () => {
-    expect(toStorefrontOrder(createOrder())).toEqual({
+    expect(toStorefrontOrder(createOrder(), NOW)).toEqual({
       id: 'order-1',
       number: 'U-10001',
       status: 'paid',
@@ -88,6 +94,8 @@ describe('toStorefrontOrder', () => {
         pickupPoint: { id: 'pp-1', carrier: 'omniva', name: 'Omniva Akropolis', address: 'Ozo g. 25', city: 'Vilnius' },
       },
       payment: { method: 'bank', bankName: 'Swedbank' },
+      expiresAt: '2026-06-15T12:30:00.000Z',
+      paymentUrl: null,
     });
   });
 
@@ -124,6 +132,32 @@ describe('toStorefrontOrder', () => {
         createOrder({ paymentStatus: 'PENDING', isPaid: false, stockReleasedAt: new Date('2026-06-15T12:30:00Z') }),
       )?.status,
     ).toBe('failed');
+  });
+
+  it('offers the payment link while a pending order holds its unexpired reservation', () => {
+    const order = createOrder({ paymentStatus: 'PENDING', isPaid: false });
+
+    expect(toStorefrontOrder(order, NOW)).toMatchObject({
+      status: 'pending',
+      expiresAt: '2026-06-15T12:30:00.000Z',
+      paymentUrl: PAYMENT_URL,
+    });
+  });
+
+  it.each([
+    ['a paid order', { paymentStatus: 'PAID', isPaid: true }],
+    ['an authorized order', { paymentStatus: 'AUTHORIZED', isPaid: false }],
+    ['an abandoned order', { paymentStatus: 'ABANDONED', isPaid: false, stockReleasedAt: EXPIRES_AT }],
+    ['a released pending order', { paymentStatus: 'PENDING', isPaid: false, stockReleasedAt: EXPIRES_AT }],
+    ['a pending order past its expiry', { paymentStatus: 'PENDING', isPaid: false, expiresAt: NOW }],
+  ] satisfies [string, Partial<StorefrontOrderRow>][])('hides the payment link for %s', (_, overrides) => {
+    expect(toStorefrontOrder(createOrder(overrides), NOW)?.paymentUrl).toBeNull();
+  });
+
+  it('returns null expiry and link for a legacy order without them', () => {
+    const order = createOrder({ paymentStatus: 'PENDING', isPaid: false, expiresAt: null, paymentUrl: null });
+
+    expect(toStorefrontOrder(order, NOW)).toMatchObject({ expiresAt: null, paymentUrl: null });
   });
 
   it('returns null for an order from before the Montonio checkout', () => {

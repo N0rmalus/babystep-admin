@@ -2,8 +2,8 @@ import * as Sentry from '@sentry/nextjs';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { getWebhookAction, getWebhookOrderMismatch, type WebhookOrderMismatch } from '@/lib/checkout-rules';
 import { getMontonioClient, type MontonioClient } from '@/lib/montonio-client';
+import { type OrderTokenRejection, syncOrderToken } from '@/lib/montonio-order-sync';
 import { applyWebhookAction, OrderChangedError } from '@/lib/montonio-webhook';
 import { getWebhookOrder } from '@/queries/get-webhook-order';
 
@@ -11,8 +11,6 @@ const webhookBodySchema = z.union([
   z.object({ orderToken: z.string().min(1) }),
   z.object({ refundToken: z.string().min(1) }),
 ]);
-
-type TokenRejection = Exclude<WebhookOrderMismatch, 'UUID_MISSING'> | 'FOREIGN_ACCESS_KEY' | 'ORDER_NOT_FOUND';
 
 const LOG_TAG = '[MONTONIO_WEBHOOK_POST]';
 const HTTP_OK = 200;
@@ -64,46 +62,31 @@ const handleRefundToken = async ({ client, token }: { client: MontonioClient; to
 };
 
 const handleOrderToken = async ({ client, token }: { client: MontonioClient; token: string }) => {
-  const verified = await client.verifyOrderToken(token);
+  const result = await syncOrderToken({
+    token,
+    verifyOrderToken: client.verifyOrderToken,
+    getOrder: (orderId) => getWebhookOrder({ orderId }),
+    applyAction: applyWebhookAction,
+  });
 
-  if (verified.status === 'invalid') {
-    return emptyResponse(HTTP_UNAUTHORIZED);
+  switch (result.status) {
+    case 'invalid':
+      return emptyResponse(HTTP_UNAUTHORIZED);
+    case 'rejected':
+      return rejectToken(result);
+    case 'uuid-missing':
+      Sentry.captureMessage('Montonio webhook arrived before checkout stored the order UUID', {
+        level: 'warning',
+        extra: { orderId: result.orderId },
+      });
+
+      return emptyResponse(HTTP_INTERNAL_ERROR);
+    case 'applied':
+      return emptyResponse(HTTP_OK);
   }
-
-  if (verified.status === 'foreign-access-key') {
-    return rejectToken({ reason: 'FOREIGN_ACCESS_KEY' });
-  }
-
-  const { order: tokenOrder } = verified;
-  const orderId = tokenOrder.merchantReference;
-  const order = await getWebhookOrder(orderId);
-
-  if (!order) {
-    return rejectToken({ reason: 'ORDER_NOT_FOUND', orderId });
-  }
-
-  const mismatch = getWebhookOrderMismatch({ token: tokenOrder, order });
-
-  if (mismatch === 'UUID_MISSING') {
-    Sentry.captureMessage('Montonio webhook arrived before checkout stored the order UUID', {
-      level: 'warning',
-      extra: { orderId },
-    });
-
-    return emptyResponse(HTTP_INTERNAL_ERROR);
-  }
-
-  if (mismatch) {
-    return rejectToken({ reason: mismatch, orderId });
-  }
-
-  const action = getWebhookAction({ order, status: tokenOrder.paymentStatus });
-  await applyWebhookAction({ order, action });
-
-  return emptyResponse(HTTP_OK);
 };
 
-const rejectToken = ({ reason, orderId }: { reason: TokenRejection; orderId?: string }) => {
+const rejectToken = ({ reason, orderId }: { reason: OrderTokenRejection; orderId?: string }) => {
   Sentry.captureMessage('Montonio webhook token rejected', { level: 'error', extra: { reason, orderId } });
   console.log(LOG_TAG, reason, orderId ?? '');
 

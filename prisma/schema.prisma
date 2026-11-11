@@ -252,6 +252,8 @@ model Order {
   isPaid             Boolean         @default(false)
   paymentStatus      PaymentStatus   @default(PENDING)
   montonioOrderUuid  String?
+  // Montonio's payment link, offered to the storefront while the reservation holds
+  paymentUrl         String?
   paymentMethod      PaymentMethod?
   bankCode           String?
   bankName           String?

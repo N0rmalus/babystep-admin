@@ -1,6 +1,7 @@
 import type { Carrier, Prisma } from '@prisma/client';
 
 import { type CourierAddress, getStorefrontOrderStatus, type StorefrontOrderStatus } from '@/lib/checkout-rules';
+import { isHoldingStock } from '@/lib/order-stock-hold';
 import type { CourierCarrier, LockerCarrier } from '@/lib/delivery-config';
 import type { PickupPoint } from '@/lib/montonio-client';
 import { ORDER_NUMBER_PREFIX } from '@/lib/montonio-order-payload';
@@ -14,6 +15,8 @@ export const STOREFRONT_ORDER_SELECT = {
   paymentStatus: true,
   isPaid: true,
   stockReleasedAt: true,
+  expiresAt: true,
+  paymentUrl: true,
   firstName: true,
   lastName: true,
   email: true,
@@ -78,6 +81,10 @@ export type StorefrontOrder = {
   total: number;
   delivery: StorefrontOrderDelivery;
   payment: StorefrontOrderPayment;
+  // ISO time the reservation ends; null for orders from before reservations expired
+  expiresAt: string | null;
+  // Montonio link to resume paying; only while the order is pending, unexpired and still holding stock
+  paymentUrl: string | null;
 };
 
 const LOCKER_CARRIERS = {
@@ -87,7 +94,7 @@ const LOCKER_CARRIERS = {
 
 const COURIER_CARRIER = 'smartposti' satisfies CourierCarrier;
 
-export const toStorefrontOrder = (order: StorefrontOrderRow): StorefrontOrder | null => {
+export const toStorefrontOrder = (order: StorefrontOrderRow, now = new Date()): StorefrontOrder | null => {
   const delivery = getDelivery(order);
   const payment = getPayment(order);
 
@@ -107,7 +114,24 @@ export const toStorefrontOrder = (order: StorefrontOrderRow): StorefrontOrder | 
     total: toEuros(order.total),
     delivery,
     payment,
+    expiresAt: order.expiresAt?.toISOString() ?? null,
+    paymentUrl: getResumablePaymentUrl({ order, now }),
   };
+};
+
+const getResumablePaymentUrl = ({ order, now }: { order: StorefrontOrderRow; now: Date }) => {
+  const { paymentStatus, paymentUrl, expiresAt } = order;
+
+  if (paymentStatus !== 'PENDING' || !isHoldingStock(order)) {
+    return null;
+  }
+
+  // Montonio's link expires with the reservation (expiresIn), even before the cron releases the stock
+  if (expiresAt && expiresAt <= now) {
+    return null;
+  }
+
+  return paymentUrl;
 };
 
 const toLine = (item: StorefrontOrderRow['orderItems'][number]) => {

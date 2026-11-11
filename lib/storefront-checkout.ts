@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 
 import { corsHeaders } from '@/lib/cors';
 import { DELIVERY_CONFIG } from '@/lib/delivery-config';
@@ -22,11 +23,38 @@ export const getPaymentMethodsResponse = (
 type PickupPointsResponseOptions = {
   getClient: () => Pick<MontonioClient, 'getPickupPoints'>;
   query: string;
+  limit?: string | null;
 };
 
-export const getPickupPointsResponse = ({ getClient, query }: PickupPointsResponseOptions): Promise<NextResponse> =>
+export const DEFAULT_PICKUP_POINT_LIMIT = 50;
+export const MAX_PICKUP_POINT_LIMIT = 500;
+
+const pickupPointLimitSchema = z.coerce.number().int().min(1).max(MAX_PICKUP_POINT_LIMIT);
+
+// A search defaults to 50 results. A request with neither query nor limit still gets every point, as before.
+export const parsePickupPointLimit = ({
+  limit,
+  query,
+}: {
+  limit?: string | null;
+  query: string;
+}): number | undefined => {
+  if (limit === undefined || limit === null) {
+    return query.trim() ? DEFAULT_PICKUP_POINT_LIMIT : undefined;
+  }
+
+  const parsed = pickupPointLimitSchema.safeParse(limit.trim() || undefined);
+
+  return parsed.success ? parsed.data : DEFAULT_PICKUP_POINT_LIMIT;
+};
+
+export const getPickupPointsResponse = ({
+  getClient,
+  query,
+  limit,
+}: PickupPointsResponseOptions): Promise<NextResponse> =>
   respondWithMontonio({
-    load: () => getClient().getPickupPoints({ query }),
+    load: () => getClient().getPickupPoints({ query, limit: parsePickupPointLimit({ limit, query }) }),
     logTag: '[PICKUP_POINTS_GET]',
     failureMessage: 'Nepavyko gauti paštomatų. Bandyk dar kartą vėliau.',
   });
@@ -54,8 +82,7 @@ type LoadCheckoutListsOptions = {
 };
 
 export type CheckoutListsResult =
-  | { status: 'ok'; pickupPoints: PickupPoint[]; banks: Bank[] }
-  | { status: 'unavailable'; error: unknown };
+  { status: 'ok'; pickupPoints: PickupPoint[]; banks: Bank[] } | { status: 'unavailable'; error: unknown };
 
 export const loadCheckoutLists = async ({
   client,
